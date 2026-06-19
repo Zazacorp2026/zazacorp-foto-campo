@@ -25,555 +25,353 @@
       --green: #22C55E;
       --red: #EF4444;
       --yellow: #F59E0B;
+      --blue: #3B82F6;
     }
     html, body { height: 100%; background: var(--dark); color: var(--text); font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
     button { font-family: inherit; cursor: pointer; border: none; outline: none; }
-    input, textarea { font-family: inherit; outline: none; }
+    input, textarea, select { font-family: inherit; outline: none; }
 
-    /* ── Layout ── */
     #app { display: flex; flex-direction: column; height: 100dvh; }
 
-    /* ── Topbar ── */
-    #topbar {
-      background: var(--dark2);
-      border-bottom: 1px solid var(--border);
-      padding: env(safe-area-inset-top) 0 0;
-      flex-shrink: 0;
-      z-index: 100;
-    }
-    #topbar-inner {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px; min-height: 52px;
-    }
+    #topbar { background: var(--dark2); border-bottom: 1px solid var(--border); padding: env(safe-area-inset-top) 0 0; flex-shrink: 0; z-index: 100; }
+    #topbar-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; min-height: 52px; }
     .logo { display: flex; align-items: center; gap: 10px; }
-    .logo-badge {
-      background: var(--orange); color: #fff;
-      font-weight: 900; font-size: 13px;
-      padding: 3px 9px; border-radius: 6px; letter-spacing: 0.5px;
-    }
+    .logo-badge { background: var(--orange); color: #fff; font-weight: 900; font-size: 13px; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.5px; }
     .logo-title { color: #fff; font-weight: 700; font-size: 15px; }
-    #user-pill {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--dark3); border-radius: 20px;
-      padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--orange);
-    }
-    #logout-btn {
-      background: none; color: var(--muted); font-size: 11px;
-      padding: 4px 8px; border-radius: 6px;
-      border: 1px solid var(--border);
-    }
+    #user-pill { display: flex; align-items: center; gap: 8px; background: var(--dark3); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: var(--orange); }
+    #logout-btn { background: none; color: var(--muted); font-size: 11px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); }
 
-    /* ── Scroll area ── */
     #main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .page { display: none; padding: 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 24px); }
     .page.active { display: block; }
 
-    /* ── PIN screen ── */
-    #pin-screen {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; min-height: 100dvh;
-      background: var(--dark); padding: 32px 24px;
-    }
-    .pin-logo { margin-bottom: 32px; text-align: center; }
-    .pin-logo .logo-badge { font-size: 18px; padding: 8px 18px; margin-bottom: 10px; display: inline-block; }
-    .pin-logo p { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    #role-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; background: var(--dark); padding: 32px 24px; }
+    .role-logo { margin-bottom: 36px; text-align: center; }
+    .role-logo .logo-badge { font-size: 20px; padding: 9px 20px; display: inline-block; margin-bottom: 10px; }
+    .role-logo .sub { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .role-btn { width: 100%; max-width: 320px; padding: 22px; background: var(--card); border: 1.5px solid var(--border); border-radius: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 16px; text-align: left; transition: border-color .2s, transform .15s; }
+    .role-btn:active { transform: scale(0.97); }
+    .role-btn .icon { font-size: 28px; flex-shrink: 0; }
+    .role-btn .title { font-size: 16px; font-weight: 700; color: #fff; }
+    .role-btn .desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    #pin-screen { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100dvh; background: var(--dark); padding: 32px 24px; }
+    #pin-screen.active { display: flex; }
+    .pin-back { align-self: flex-start; color: var(--muted); font-size: 14px; margin-bottom: 24px; background: none; }
     .pin-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 6px; text-align: center; }
     .pin-sub { color: var(--muted); font-size: 13px; text-align: center; margin-bottom: 28px; }
-    .pin-select {
-      width: 100%; max-width: 320px; padding: 14px 16px;
-      background: var(--card); border: 1.5px solid var(--border);
-      border-radius: 12px; color: #fff; font-size: 15px; margin-bottom: 14px;
-      appearance: none; -webkit-appearance: none;
-    }
-    .pin-input {
-      width: 100%; max-width: 320px; padding: 14px 16px;
-      background: var(--card); border: 1.5px solid var(--border);
-      border-radius: 12px; color: #fff; font-size: 22px; font-weight: 700;
-      text-align: center; letter-spacing: 8px; margin-bottom: 20px;
-    }
-    .pin-input:focus { border-color: var(--orange); }
-    .pin-btn {
-      width: 100%; max-width: 320px; padding: 15px;
-      background: var(--orange); color: #fff;
-      border-radius: 12px; font-size: 16px; font-weight: 700;
-    }
+    .pin-select, .pin-input { width: 100%; max-width: 320px; padding: 14px 16px; background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; color: #fff; font-size: 15px; margin-bottom: 14px; }
+    .pin-input[type=password] { letter-spacing: 4px; }
+    .pin-btn { width: 100%; max-width: 320px; padding: 15px; border-radius: 12px; font-size: 16px; font-weight: 700; color: #fff; margin-top: 8px; }
+    .pin-btn.fotografo { background: var(--orange); }
+    .pin-btn.ejecutiva { background: var(--blue); }
     .pin-error { color: var(--red); font-size: 13px; margin-top: 10px; min-height: 20px; text-align: center; }
 
-    /* ── Section header ── */
-    .section-title {
-      font-size: 13px; font-weight: 700; color: var(--orange);
-      letter-spacing: 1.2px; text-transform: uppercase;
-      margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
-    }
-    .badge {
-      background: var(--orange-dim); color: var(--orange);
-      font-size: 11px; font-weight: 700; padding: 2px 9px;
-      border-radius: 20px;
-    }
+    .section-title { font-size: 13px; font-weight: 700; color: var(--orange); letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .section-title.blue { color: var(--blue); }
+    .badge { background: var(--orange-dim); color: var(--orange); font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+    .badge.blue { background: rgba(59,130,246,0.15); color: var(--blue); }
 
-    /* ── Asignación card ── */
-    .asig-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; margin-bottom: 12px; overflow: hidden;
-      cursor: pointer; transition: border-color 0.2s, transform 0.15s;
-      -webkit-tap-highlight-color: transparent;
-    }
+    .asig-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 12px; overflow: hidden; cursor: pointer; transition: border-color .2s, transform .15s; }
     .asig-card:active { transform: scale(0.985); }
-    .asig-card.done { opacity: 0.5; pointer-events: none; }
-    .asig-header {
-      padding: 14px 16px; display: flex;
-      align-items: flex-start; justify-content: space-between; gap: 10px;
-    }
+    .asig-card.done { opacity: 0.5; }
+    .asig-header { padding: 14px 16px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .asig-cliente { font-size: 16px; font-weight: 700; color: #fff; }
     .asig-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
     .asig-progress { text-align: right; flex-shrink: 0; }
     .asig-pct { font-size: 20px; font-weight: 900; color: var(--orange); }
     .asig-pct-label { font-size: 10px; color: var(--muted); }
-    .progress-bar-wrap { height: 3px; background: var(--dark3); border-radius: 2px; margin-top: 0; }
-    .progress-bar { height: 100%; background: var(--orange); border-radius: 2px; transition: width 0.4s; }
+    .progress-bar-wrap { height: 3px; background: var(--dark3); border-radius: 2px; }
+    .progress-bar { height: 100%; background: var(--orange); border-radius: 2px; transition: width .4s; }
 
-    /* ── Elementos list ── */
-    .back-btn {
-      display: flex; align-items: center; gap: 8px;
-      color: var(--orange); font-size: 14px; font-weight: 600;
-      background: none; padding: 0; margin-bottom: 16px;
-    }
-    .elem-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; margin-bottom: 10px; overflow: hidden;
-    }
-    .elem-header {
-      padding: 13px 15px; display: flex;
-      align-items: center; gap: 12px;
-    }
-    .elem-num {
-      background: var(--orange); color: #fff;
-      font-size: 12px; font-weight: 800;
-      width: 30px; height: 30px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
+    .back-btn { display: flex; align-items: center; gap: 8px; color: var(--orange); font-size: 14px; font-weight: 600; background: none; padding: 0; margin-bottom: 16px; }
+    .elem-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+    .elem-header { padding: 13px 15px; display: flex; align-items: center; gap: 12px; }
+    .elem-num { background: var(--orange); color: #fff; font-size: 12px; font-weight: 800; width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .elem-num.done { background: var(--green); }
     .elem-num.uploading { background: var(--yellow); }
     .elem-info { flex: 1; min-width: 0; }
     .elem-tipo { font-size: 14px; font-weight: 700; color: #fff; }
     .elem-ubic { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .elem-action {
-      padding: 9px 16px; border-radius: 20px; font-size: 13px; font-weight: 700;
-      flex-shrink: 0;
-    }
+    .elem-action { padding: 9px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; flex-shrink: 0; }
     .elem-action.shoot { background: var(--orange); color: #fff; }
     .elem-action.done-tag { background: rgba(34,197,94,0.15); color: var(--green); }
     .elem-action.uploading-tag { background: rgba(245,158,11,0.15); color: var(--yellow); font-size: 11px; }
 
-    /* ── Cámara / captura modal ── */
-    #capture-modal {
-      display: none; position: fixed; inset: 0; z-index: 200;
-      background: #000;
-    }
+    .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+    .form-label { font-size: 11px; font-weight: 700; color: var(--blue); letter-spacing: .6px; text-transform: uppercase; margin-bottom: 6px; display: block; }
+    .form-input, .form-select, .form-textarea { width: 100%; padding: 11px 13px; background: var(--dark3); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 14px; margin-bottom: 14px; }
+    .form-textarea { resize: vertical; min-height: 50px; }
+    .elem-row { background: var(--dark2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 10px; position: relative; }
+    .elem-row .rm-btn { position: absolute; top: 8px; right: 8px; background: rgba(239,68,68,0.15); color: var(--red); border-radius: 6px; width: 26px; height: 26px; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    .elem-row .form-input, .elem-row .form-select { margin-bottom: 8px; }
+    .add-elem-btn { width: 100%; padding: 12px; background: transparent; border: 2px dashed var(--blue); border-radius: 12px; color: var(--blue); font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+    .submit-asig-btn { width: 100%; padding: 16px; background: var(--blue); color: #fff; border-radius: 14px; font-size: 16px; font-weight: 800; }
+    .submit-asig-btn:disabled { background: #444; }
+    .fab-new { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 20px); right: 20px; width: 56px; height: 56px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 20px rgba(59,130,246,.4); z-index: 50; }
+
+    #capture-modal { display: none; position: fixed; inset: 0; z-index: 200; background: #000; }
     #capture-modal.open { display: flex; flex-direction: column; }
-    #capture-topbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: calc(env(safe-area-inset-top) + 12px) 16px 12px;
-      background: rgba(0,0,0,0.7); flex-shrink: 0;
-    }
+    #capture-topbar { display: flex; align-items: center; justify-content: space-between; padding: calc(env(safe-area-inset-top) + 12px) 16px 12px; background: rgba(0,0,0,0.7); flex-shrink: 0; }
     #capture-title { color: #fff; font-size: 14px; font-weight: 700; }
     #capture-step { color: var(--orange); font-size: 12px; font-weight: 600; }
-    #capture-close {
-      color: #fff; font-size: 22px; background: none;
-      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
-    }
-    #capture-body {
-      flex: 1 1 auto; min-height: 0;
-      overflow-y: auto; -webkit-overflow-scrolling: touch;
-      display: flex; flex-direction: column; align-items: center;
-      padding: 20px;
-    }
-
-    .capture-slot {
-      width: 100%; max-width: 380px; margin-bottom: 16px;
-      flex-shrink: 0;
-    }
-    .slot-label {
-      font-size: 11px; font-weight: 700; color: var(--orange);
-      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;
-    }
-    .slot-zone {
-      width: 100%; height: 140px; border-radius: 14px;
-      border: 2px dashed rgba(255,107,0,0.4); background: var(--dark2);
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; cursor: pointer; transition: border-color 0.2s, background 0.2s;
-      position: relative; overflow: hidden;
-    }
+    #capture-close { color: #fff; font-size: 22px; background: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
+    #capture-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    .capture-slot { width: 100%; max-width: 380px; margin-bottom: 16px; flex-shrink: 0; }
+    .slot-label { font-size: 11px; font-weight: 700; color: var(--orange); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+    .slot-zone { width: 100%; height: 140px; border-radius: 14px; border: 2px dashed rgba(255,107,0,0.4); background: var(--dark2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; position: relative; overflow: hidden; }
     .slot-zone.filled { border-style: solid; border-color: var(--orange); }
-    .slot-zone img, .slot-zone video {
-      position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: cover; border-radius: 12px;
-    }
+    .slot-zone img, .slot-zone video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
     .slot-zone .slot-icon { font-size: 32px; }
     .slot-zone .slot-text { color: var(--muted); font-size: 13px; font-weight: 500; }
-    .slot-overlay {
-      position: absolute; inset: 0; background: rgba(0,0,0,0.45);
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 12px;
-    }
-    .slot-change-btn {
-      background: rgba(255,255,255,0.9); color: #000;
-      font-size: 11px; font-weight: 700; padding: 5px 12px;
-      border-radius: 20px;
-    }
-
-    /* Video slot */
+    .slot-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; border-radius: 12px; }
+    .slot-change-btn { background: rgba(255,255,255,0.9); color: #000; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
     .slot-zone.video-slot { height: 90px; }
+    #capture-footer { flex-shrink: 0; padding: 14px 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); background: rgba(0,0,0,0.9); border-top: 1px solid rgba(255,255,255,0.08); }
+    .obs-input { width: 100%; padding: 10px 14px; background: var(--dark3); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 13px; resize: none; margin-bottom: 12px; }
+    #submit-toma { width: 100%; padding: 16px; background: var(--orange); color: #fff; border-radius: 14px; font-size: 16px; font-weight: 800; }
+    #submit-toma:disabled { background: #444; }
 
-    #capture-footer {
-      flex-shrink: 0;
-      padding: 14px 16px;
-      padding-bottom: calc(env(safe-area-inset-bottom) + 14px);
-      background: rgba(0,0,0,0.9);
-      border-top: 1px solid rgba(255,255,255,0.08);
-    }
-    .obs-input {
-      width: 100%; padding: 10px 14px;
-      background: var(--dark3); border: 1px solid var(--border);
-      border-radius: 10px; color: #fff; font-size: 13px;
-      resize: none; margin-bottom: 12px;
-    }
-    #submit-toma {
-      width: 100%; padding: 16px;
-      background: var(--orange); color: #fff;
-      border-radius: 14px; font-size: 16px; font-weight: 800;
-      letter-spacing: 0.3px; transition: background 0.2s;
-    }
-    #submit-toma:disabled { background: #444; cursor: not-allowed; }
+    .queue-banner { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--yellow); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .queue-retry { margin-left: auto; background: var(--yellow); color: #000; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
 
-    /* ── Cola offline ── */
-    .queue-banner {
-      background: rgba(245,158,11,0.1);
-      border: 1px solid rgba(245,158,11,0.3);
-      border-radius: 10px; padding: 10px 14px;
-      font-size: 12px; color: var(--yellow);
-      margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-    }
-    .queue-retry {
-      margin-left: auto; background: var(--yellow); color: #000;
-      font-size: 11px; font-weight: 700; padding: 4px 10px;
-      border-radius: 20px;
-    }
-
-    /* ── Empty state ── */
-    .empty { text-align: center; padding: 60px 20px; }
-    .empty-icon { font-size: 48px; margin-bottom: 14px; }
+    .empty { text-align: center; padding: 50px 20px; }
+    .empty-icon { font-size: 44px; margin-bottom: 14px; }
     .empty-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
     .empty-sub { font-size: 13px; color: var(--muted); line-height: 1.6; }
 
-    /* ── Toast ── */
-    #toast {
-      position: fixed; bottom: calc(env(safe-area-inset-bottom) + 20px);
-      left: 50%; transform: translateX(-50%);
-      background: #fff; color: #000;
-      font-size: 13px; font-weight: 600;
-      padding: 11px 20px; border-radius: 30px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-      z-index: 999; white-space: nowrap;
-      opacity: 0; transition: opacity 0.3s;
-      pointer-events: none;
-    }
+    #toast { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 20px); left: 50%; transform: translateX(-50%); background: #fff; color: #000; font-size: 13px; font-weight: 600; padding: 11px 20px; border-radius: 30px; box-shadow: 0 4px 24px rgba(0,0,0,0.4); z-index: 999; white-space: nowrap; opacity: 0; transition: opacity .3s; pointer-events: none; }
     #toast.show { opacity: 1; }
-    #toast.ok  { background: var(--green); color: #fff; }
-    #toast.err { background: var(--red);   color: #fff; }
-    #toast.warn{ background: var(--yellow); color: #000; }
+    #toast.ok { background: var(--green); color: #fff; }
+    #toast.err { background: var(--red); color: #fff; }
+    #toast.warn { background: var(--yellow); color: #000; }
 
-    /* ── Spinner ── */
-    .spinner {
-      width: 20px; height: 20px;
-      border: 3px solid rgba(255,255,255,0.2);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      display: inline-block;
-    }
+    .spinner { width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.2); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
 
-<!-- ══ PIN SCREEN ════════════════════════════════════════════════ -->
-<div id="pin-screen">
-  <div class="pin-logo">
+<div id="role-screen">
+  <div class="role-logo">
     <div class="logo-badge">ZC</div>
-    <div style="color:#fff;font-weight:700;font-size:16px;margin-top:6px">Foto Campo</div>
-    <p>App de tomas fotográficas OOH</p>
+    <div style="color:#fff;font-weight:700;font-size:18px;margin-top:6px">Foto Campo</div>
+    <p class="sub">¿Cómo quieres entrar?</p>
   </div>
-  <div class="pin-title">Identificación</div>
-  <div class="pin-sub">Selecciona tu nombre e ingresa tu PIN</div>
-  <select id="pin-user" class="pin-select">
-    <option value="">— Selecciona tu nombre —</option>
-    <option value="fotografo1">Fotógrafo 1</option>
-    <option value="fotografo2">Fotógrafo 2</option>
-  </select>
-  <input id="pin-input" class="pin-input" type="password" inputmode="numeric" maxlength="4" placeholder="••••"/>
-  <button class="pin-btn" onclick="doLogin()">Entrar</button>
+  <button class="role-btn fotografo" onclick="goToPin('fotografo')">
+    <span class="icon">📷</span>
+    <div><div class="title">Soy Fotógrafo</div><div class="desc">Ver mis asignaciones y subir fotos</div></div>
+  </button>
+  <button class="role-btn ejecutiva" onclick="goToPin('ejecutiva')">
+    <span class="icon">📋</span>
+    <div><div class="title">Soy Ejecutiva</div><div class="desc">Crear asignaciones para el fotógrafo</div></div>
+  </button>
+</div>
+
+<div id="pin-screen">
+  <button class="pin-back" onclick="backToRole()">← Volver</button>
+  <div class="pin-title" id="pin-title">Identificación</div>
+  <div class="pin-sub" id="pin-sub">Selecciona tu nombre</div>
+  <select id="pin-user" class="pin-select"><option value="">— Selecciona tu nombre —</option></select>
+  <input id="pin-input" class="pin-input" type="password" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+  <button class="pin-btn" id="pin-btn" onclick="doLogin()">Entrar</button>
   <div class="pin-error" id="pin-error"></div>
 </div>
 
-<!-- ══ MAIN APP ══════════════════════════════════════════════════ -->
 <div id="app" style="display:none">
   <div id="topbar">
     <div id="topbar-inner">
-      <div class="logo">
-        <span class="logo-badge">ZC</span>
-        <span class="logo-title">Foto Campo</span>
-      </div>
-      <div id="user-pill">
-        <span id="user-name-display">—</span>
-        <button id="logout-btn" onclick="doLogout()">Salir</button>
-      </div>
+      <div class="logo"><span class="logo-badge">ZC</span><span class="logo-title">Foto Campo</span></div>
+      <div id="user-pill"><span id="user-name-display">—</span><button id="logout-btn" onclick="doLogout()">Salir</button></div>
     </div>
   </div>
 
   <div id="main">
-    <!-- Cola offline -->
     <div id="queue-wrap" style="display:none;padding:12px 16px 0">
-      <div class="queue-banner">
-        <span>📡</span>
-        <span id="queue-count">0 tomas pendientes de subir</span>
-        <button class="queue-retry" onclick="flushQueue()">Subir ahora</button>
-      </div>
+      <div class="queue-banner"><span>📡</span><span id="queue-count">0 tomas pendientes de subir</span><button class="queue-retry" onclick="flushQueue()">Subir ahora</button></div>
     </div>
 
-    <!-- PÁGINA: Asignaciones -->
-    <div id="page-asignaciones" class="page active">
-      <div class="section-title">
-        Asignaciones del día
-        <span class="badge" id="asig-badge">0</span>
-      </div>
+    <div id="page-asignaciones" class="page">
+      <div class="section-title">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
       <div id="asig-list"></div>
     </div>
 
-    <!-- PÁGINA: Elementos de una asignación -->
     <div id="page-elementos" class="page">
-      <button class="back-btn" onclick="goBack()">
-        ← Volver
-      </button>
-      <div id="asig-detail-header" style="margin-bottom:14px">
+      <button class="back-btn" onclick="goBackToList()">← Volver</button>
+      <div style="margin-bottom:14px">
         <div style="font-size:19px;font-weight:800;color:#fff" id="asig-detail-cliente"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px" id="asig-detail-meta"></div>
       </div>
       <div id="elem-list"></div>
     </div>
+
+    <div id="page-ejecutiva-lista" class="page">
+      <div class="section-title blue">Mis asignaciones creadas<span class="badge blue" id="ejec-badge">0</span></div>
+      <div id="ejec-asig-list"></div>
+    </div>
+
+    <div id="page-ejecutiva-form" class="page">
+      <button class="back-btn" onclick="showEjecutivaLista()" style="color:var(--blue)">← Volver</button>
+      <div class="section-title blue">Nueva asignación</div>
+      <div class="form-card">
+        <label class="form-label">Cliente *</label>
+        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente"/>
+        <label class="form-label">Fecha límite</label>
+        <input class="form-input" id="form-fecha-limite" type="date"/>
+        <label class="form-label">Observaciones generales</label>
+        <textarea class="form-textarea" id="form-observaciones" placeholder="Notas para el fotógrafo (opcional)"></textarea>
+      </div>
+      <div class="section-title blue">Elementos a fotografiar</div>
+      <div id="elementos-form-list"></div>
+      <button class="add-elem-btn" onclick="addElementoForm()">+ Agregar elemento</button>
+      <button class="submit-asig-btn" id="btn-crear-asignacion" onclick="crearAsignacion()">Crear asignación</button>
+    </div>
   </div>
+
+  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="showEjecutivaForm()">+</button>
 </div>
 
-<!-- ══ CAPTURE MODAL ═════════════════════════════════════════════ -->
 <div id="capture-modal">
   <div id="capture-topbar">
-    <div>
-      <div id="capture-title">Fotografiar elemento</div>
-      <div id="capture-step">Paso 1 de 3</div>
-    </div>
+    <div><div id="capture-title">Fotografiar elemento</div><div id="capture-step">Paso 1 de 3</div></div>
     <button id="capture-close" onclick="closeCaptureModal()">✕</button>
   </div>
-
   <div id="capture-body">
     <div style="width:100%;max-width:380px">
-
-      <!-- Foto frontal -->
       <div class="capture-slot">
         <div class="slot-label">📸 Foto Frontal <span style="color:var(--red)">*</span></div>
-        <div class="slot-zone" id="slot-frontal" onclick="triggerCapture('frontal')">
-          <div class="slot-icon">📷</div>
-          <div class="slot-text">Toca para tomar foto</div>
-        </div>
+        <div class="slot-zone" id="slot-frontal" onclick="triggerCapture('frontal')"><div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div></div>
         <input type="file" id="inp-frontal" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event,'frontal')"/>
       </div>
-
-      <!-- Foto panorámica -->
       <div class="capture-slot">
         <div class="slot-label">🌅 Foto Panorámica <span style="color:var(--red)">*</span></div>
-        <div class="slot-zone" id="slot-panoramica" onclick="triggerCapture('panoramica')">
-          <div class="slot-icon">📷</div>
-          <div class="slot-text">Toca para tomar foto</div>
-        </div>
+        <div class="slot-zone" id="slot-panoramica" onclick="triggerCapture('panoramica')"><div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div></div>
         <input type="file" id="inp-panoramica" accept="image/*" capture="environment" style="display:none" onchange="handleFile(event,'panoramica')"/>
       </div>
-
-      <!-- Video (opcional) -->
       <div class="capture-slot">
-        <div class="slot-label">🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></div>
-        <div class="slot-zone video-slot" id="slot-video" onclick="triggerCapture('video')">
-          <div class="slot-icon">🎥</div>
-          <div class="slot-text">Toca para grabar video</div>
-        </div>
+        <div class="slot-label">🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional)</span></div>
+        <div class="slot-zone video-slot" id="slot-video" onclick="triggerCapture('video')"><div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div></div>
         <input type="file" id="inp-video" accept="video/*" capture="environment" style="display:none" onchange="handleFile(event,'video')"/>
       </div>
-
     </div>
   </div>
-
   <div id="capture-footer">
     <textarea class="obs-input" id="obs-input" rows="2" placeholder="Observaciones del elemento (opcional)..."></textarea>
-    <button id="submit-toma" onclick="submitToma()" disabled>
-      Subir toma
-    </button>
+    <button id="submit-toma" onclick="submitToma()" disabled>Subir toma</button>
   </div>
 </div>
 
-<!-- Toast -->
 <div id="toast"></div>
 
 <script>
-// ══ CONFIG — URL real de tu Apps Script desplegado ══
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
 
-// ══ USUARIOS / PINes ══
-// Agrega aquí los fotógrafos y sus PINes
-const USUARIOS = {
+const FOTOGRAFOS = {
   'fotografo1': { nombre: 'Fotógrafo 1', pin: '1234' },
   'fotografo2': { nombre: 'Fotógrafo 2', pin: '5678' }
 };
 
-// ══ Estado global ══
+const EJECUTIVAS = {
+  'JORGE':            'Zaza2026J',
+  'LORENA':           'Zaza2026L',
+  'RICARDO':          'Zaza2026R',
+  'SASKYA':           'Zaza2026S',
+  'SHAYRA':           'Zaza2026Sh',
+  'VERONICA TERAN':   'Zaza2026VT',
+  'VERONICA TRIVINO': 'Zaza2026VTr',
+  'YESENIA':          'Zaza2026Y',
+  'ZULIA':            'Zaza2026Z'
+};
+
+const TIPOS_ELEMENTO = [
+  'Valla Fija','Valla LED','Pantalla','Túnel','Mural','Icónico',
+  'Paso Peatonal con Caja de luz','Paso Peatonal LED','Paso Vehicular LED',
+  'Paradero LED','Paradero Vinil','Paradero Backlight','Paradero',
+  'Cenefa','Caja de Luz','Cercha','Otro'
+];
+
+let currentRole = null;
 let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
-let captureTarget = null; // { elementoId, asignacionId, cliente, fecha, tipoElemento, ubicacion }
+let captureTarget = null;
 let captureData = { frontal: null, panoramica: null, video: null };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
+let elementosFormCount = 0;
 
-// ══ LOGIN ══════════════════════════════════════════════════════
-function doLogin() {
-  const userId = document.getElementById('pin-user').value;
-  const pin = document.getElementById('pin-input').value;
-  const err = document.getElementById('pin-error');
+function goToPin(role) {
+  currentRole = role;
+  document.getElementById('role-screen').style.display = 'none';
+  document.getElementById('pin-screen').classList.add('active');
 
-  if (!userId) { err.textContent = 'Selecciona tu nombre.'; return; }
-  const user = USUARIOS[userId];
-  if (!user || pin !== user.pin) { err.textContent = 'PIN incorrecto.'; return; }
+  const sel = document.getElementById('pin-user');
+  const btn = document.getElementById('pin-btn');
+  const title = document.getElementById('pin-title');
+  const sub = document.getElementById('pin-sub');
+  const input = document.getElementById('pin-input');
+  sel.innerHTML = '<option value="">— Selecciona tu nombre —</option>';
 
-  currentUser = { id: userId, nombre: user.nombre };
-  document.getElementById('pin-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  document.getElementById('user-name-display').textContent = user.nombre;
-  loadAsignaciones();
-  showQueueBanner();
-}
-
-function doLogout() {
-  currentUser = null;
-  document.getElementById('pin-screen').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('pin-input').value = '';
+  if (role === 'fotografo') {
+    title.textContent = 'Identificación de Fotógrafo';
+    sub.textContent = 'Selecciona tu nombre e ingresa tu PIN';
+    Object.entries(FOTOGRAFOS).forEach(([id, u]) => sel.add(new Option(u.nombre, id)));
+    btn.className = 'pin-btn fotografo';
+    input.placeholder = '••••';
+    input.maxLength = 4;
+    input.setAttribute('inputmode', 'numeric');
+  } else {
+    title.textContent = 'Identificación de Ejecutiva';
+    sub.textContent = 'Selecciona tu nombre e ingresa tu contraseña';
+    Object.keys(EJECUTIVAS).forEach(nombre => sel.add(new Option(nombre.split(' ')[0], nombre)));
+    btn.className = 'pin-btn ejecutiva';
+    input.placeholder = '••••••••';
+    input.removeAttribute('maxlength');
+    input.removeAttribute('inputmode');
+  }
+  input.value = '';
   document.getElementById('pin-error').textContent = '';
 }
 
-// ══ CARGAR ASIGNACIONES ════════════════════════════════════════
-async function loadAsignaciones() {
-  document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
+function backToRole() {
+  document.getElementById('pin-screen').classList.remove('active');
+  document.getElementById('role-screen').style.display = 'flex';
+}
 
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPendientes');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    asignaciones = await res.json();
-    renderAsignaciones();
-  } catch(e) {
-    document.getElementById('asig-list').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">📡</div>
-        <div class="empty-title">Sin conexión</div>
-        <div class="empty-sub">Revisa tu señal e intenta de nuevo.<br><br>
-          <button onclick="loadAsignaciones()" style="background:var(--orange);color:#fff;padding:10px 20px;border-radius:20px;font-weight:700;font-size:13px">Reintentar</button>
-        </div>
-      </div>`;
+function doLogin() {
+  const userId = document.getElementById('pin-user').value;
+  const pass = document.getElementById('pin-input').value;
+  const err = document.getElementById('pin-error');
+  if (!userId) { err.textContent = 'Selecciona tu nombre.'; return; }
+
+  if (currentRole === 'fotografo') {
+    const u = FOTOGRAFOS[userId];
+    if (!u || pass !== u.pin) { err.textContent = 'PIN incorrecto.'; return; }
+    currentUser = { id: userId, nombre: u.nombre, rol: 'fotografo' };
+  } else {
+    const real = EJECUTIVAS[userId];
+    if (!real || pass !== real) { err.textContent = 'Contraseña incorrecta.'; return; }
+    currentUser = { id: userId, nombre: userId, rol: 'ejecutiva' };
+  }
+
+  document.getElementById('pin-screen').classList.remove('active');
+  document.getElementById('app').style.display = 'flex';
+  document.getElementById('user-name-display').textContent = currentUser.nombre.split(' ')[0] + (currentRole === 'ejecutiva' ? ' (Ejec.)' : '');
+
+  if (currentRole === 'fotografo') {
+    document.getElementById('fab-new-asig').style.display = 'none';
+    document.getElementById('queue-wrap').style.display = offlineQueue.length ? 'block' : 'none';
+    showPage('page-asignaciones');
+    loadAsignacionesFotografo();
+  } else {
+    document.getElementById('fab-new-asig').style.display = 'flex';
+    showEjecutivaLista();
   }
 }
 
-function renderAsignaciones() {
-  const list = document.getElementById('asig-list');
-  const badge = document.getElementById('asig-badge');
-
-  if (!asignaciones.length) {
-    badge.textContent = '0';
-    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones pendientes por ahora.</div></div>`;
-    return;
-  }
-
-  badge.textContent = asignaciones.length;
-  list.innerHTML = asignaciones.map(a => {
-    const total = a.elementos ? a.elementos.length : 0;
-    const completados = a.elementos ? a.elementos.filter(e => e.estado === 'COMPLETADO').length : 0;
-    const pct = total ? Math.round(completados / total * 100) : 0;
-    const done = pct === 100;
-    return `
-      <div class="asig-card${done?' done':''}" onclick="openAsignacion('${a.id}')">
-        <div class="asig-header">
-          <div>
-            <div class="asig-cliente">${a.cliente}</div>
-            <div class="asig-meta">${total} elemento${total!==1?'s':''} · ${a.fechaLimite || 'Sin límite'}</div>
-            ${a.observaciones ? `<div class="asig-meta" style="margin-top:4px;color:#aaa">${a.observaciones}</div>` : ''}
-          </div>
-          <div class="asig-progress">
-            <div class="asig-pct">${pct}%</div>
-            <div class="asig-pct-label">${completados}/${total}</div>
-          </div>
-        </div>
-        <div class="progress-bar-wrap">
-          <div class="progress-bar" style="width:${pct}%"></div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-// ══ ABRIR ASIGNACIÓN ═══════════════════════════════════════════
-function openAsignacion(id) {
-  currentAsig = asignaciones.find(a => a.id === id);
-  if (!currentAsig) return;
-
-  document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
-  document.getElementById('asig-detail-meta').textContent =
-    `${(currentAsig.elementos||[]).length} elementos · Límite: ${currentAsig.fechaLimite || 'Sin fecha'}`;
-
-  renderElementos();
-  showPage('page-elementos');
-}
-
-function renderElementos() {
-  const list = document.getElementById('elem-list');
-  const elems = currentAsig.elementos || [];
-
-  if (!elems.length) {
-    list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin elementos</div></div>';
-    return;
-  }
-
-  list.innerHTML = elems.map((el, i) => {
-    const done = el.estado === 'COMPLETADO';
-    const uploading = el.estado === 'SUBIENDO';
-    return `
-      <div class="elem-card" id="elem-card-${el.id}">
-        <div class="elem-header">
-          <div class="elem-num${done?' done':uploading?' uploading':''}">
-            ${done ? '✓' : uploading ? '⟳' : String(i+1).padStart(2,'0')}
-          </div>
-          <div class="elem-info">
-            <div class="elem-tipo">${el.tipoElemento || 'Elemento'}</div>
-            <div class="elem-ubic">${el.ubicacion || '—'}</div>
-            ${el.codigoRef ? `<div class="elem-ubic" style="color:var(--orange)">${el.codigoRef}</div>` : ''}
-          </div>
-          ${done
-            ? `<span class="elem-action done-tag">✓ Listo</span>`
-            : uploading
-              ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
-              : `<button class="elem-action shoot" onclick="openCapture(${JSON.stringify(el).replace(/"/g,'&quot;')})">📷 Fotografiar</button>`
-          }
-        </div>
-      </div>`;
-  }).join('');
-}
-
-function goBack() {
-  showPage('page-asignaciones');
-  renderAsignaciones();
+function doLogout() {
+  currentUser = null; currentRole = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('role-screen').style.display = 'flex';
 }
 
 function showPage(id) {
@@ -581,55 +379,111 @@ function showPage(id) {
   document.getElementById(id).classList.add('active');
 }
 
-// ══ CAPTURA MODAL ══════════════════════════════════════════════
+async function loadAsignacionesFotografo() {
+  document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPendientes');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    asignaciones = await res.json();
+    renderAsignacionesFotografo();
+  } catch(e) {
+    document.getElementById('asig-list').innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📡</div>
+        <div class="empty-title">Sin conexión</div>
+        <div class="empty-sub">Revisa tu señal e intenta de nuevo.<br><br>
+          <button onclick="loadAsignacionesFotografo()" style="background:var(--orange);color:#fff;padding:10px 20px;border-radius:20px;font-weight:700;font-size:13px">Reintentar</button>
+        </div>
+      </div>`;
+  }
+}
+
+function renderAsignacionesFotografo() {
+  const list = document.getElementById('asig-list');
+  const badge = document.getElementById('asig-badge');
+  if (!asignaciones.length) {
+    badge.textContent = '0';
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones pendientes por ahora.</div></div>`;
+    return;
+  }
+  badge.textContent = asignaciones.length;
+  list.innerHTML = asignaciones.map(a => {
+    const total = a.elementos ? a.elementos.length : 0;
+    const completados = a.elementos ? a.elementos.filter(e => e.estado === 'COMPLETADO').length : 0;
+    const pct = total ? Math.round(completados / total * 100) : 0;
+    const done = pct === 100;
+    return `
+      <div class="asig-card${done?' done':''}" onclick="openAsignacionFotografo('${a.id}')">
+        <div class="asig-header">
+          <div>
+            <div class="asig-cliente">${a.cliente}</div>
+            <div class="asig-meta">${total} elemento${total!==1?'s':''} · ${a.fechaLimite || 'Sin límite'}</div>
+            ${a.observaciones ? `<div class="asig-meta" style="margin-top:4px;color:#aaa">${a.observaciones}</div>` : ''}
+          </div>
+          <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total}</div></div>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+function openAsignacionFotografo(id) {
+  currentAsig = asignaciones.find(a => a.id === id);
+  if (!currentAsig) return;
+  document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
+  document.getElementById('asig-detail-meta').textContent = `${(currentAsig.elementos||[]).length} elementos · Límite: ${currentAsig.fechaLimite || 'Sin fecha'}`;
+  renderElementosFotografo();
+  showPage('page-elementos');
+}
+
+function renderElementosFotografo() {
+  const list = document.getElementById('elem-list');
+  const elems = currentAsig.elementos || [];
+  if (!elems.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin elementos</div></div>'; return; }
+  list.innerHTML = elems.map((el, i) => {
+    const done = el.estado === 'COMPLETADO';
+    const uploading = el.estado === 'SUBIENDO';
+    return `
+      <div class="elem-card">
+        <div class="elem-header">
+          <div class="elem-num${done?' done':uploading?' uploading':''}">${done?'✓':uploading?'⟳':String(i+1).padStart(2,'0')}</div>
+          <div class="elem-info">
+            <div class="elem-tipo">${el.tipoElemento || 'Elemento'}</div>
+            <div class="elem-ubic">${el.ubicacion || '—'}</div>
+            ${el.codigoRef ? `<div class="elem-ubic" style="color:var(--orange)">${el.codigoRef}</div>` : ''}
+          </div>
+          ${done ? `<span class="elem-action done-tag">✓ Listo</span>`
+            : uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
+            : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>📷 Fotografiar</button>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function goBackToList() { showPage('page-asignaciones'); renderAsignacionesFotografo(); }
+
 function openCapture(el) {
   captureTarget = {
-    elementoId:   el.id,
-    asignacionId: currentAsig.id,
-    cliente:      currentAsig.cliente,
-    fecha:        new Date().toISOString().split('T')[0],
-    tipoElemento: el.tipoElemento || '',
-    ubicacion:    el.ubicacion || '',
-    codigoRef:    el.codigoRef || ''
+    elementoId: el.id, asignacionId: currentAsig.id, cliente: currentAsig.cliente,
+    fecha: new Date().toISOString().split('T')[0],
+    tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || ''
   };
   captureData = { frontal: null, panoramica: null, video: null };
-
-  // Reset UI
-  resetSlot('frontal');
-  resetSlot('panoramica');
-  resetSlot('video');
+  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video');
   document.getElementById('obs-input').value = '';
-  document.getElementById('capture-title').textContent =
-    el.tipoElemento + (el.ubicacion ? ' · ' + el.ubicacion.slice(0,30) : '');
+  document.getElementById('capture-title').textContent = el.tipoElemento + (el.ubicacion ? ' · ' + el.ubicacion.slice(0,30) : '');
   updateSubmitBtn();
-
   document.getElementById('capture-modal').classList.add('open');
 }
-
-function closeCaptureModal() {
-  document.getElementById('capture-modal').classList.remove('open');
-}
-
-function triggerCapture(tipo) {
-  document.getElementById('inp-' + tipo).click();
-}
-
+function closeCaptureModal() { document.getElementById('capture-modal').classList.remove('open'); }
+function triggerCapture(tipo) { document.getElementById('inp-' + tipo).click(); }
 function resetSlot(tipo) {
   const zone = document.getElementById('slot-' + tipo);
-  if (tipo === 'video') {
-    zone.innerHTML = '<div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div>';
-  } else {
-    zone.innerHTML = '<div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div>';
-  }
+  zone.innerHTML = tipo === 'video' ? '<div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div>' : '<div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div>';
   zone.classList.remove('filled');
 }
-
 async function handleFile(event, tipo) {
-  const file = event.target.files[0];
-  if (!file) return;
-  event.target.value = '';
-
-  // Comprimir imágenes para no reventar el upload
+  const file = event.target.files[0]; if (!file) return; event.target.value = '';
   if (file.type.startsWith('image/')) {
     const b64 = await compressImage(file, 1200, 0.78);
     captureData[tipo] = b64;
@@ -637,7 +491,6 @@ async function handleFile(event, tipo) {
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   } else {
-    // Video: guardar como base64 directamente (sin comprimir)
     const b64 = await fileToBase64(file);
     captureData[tipo] = b64;
     const url = URL.createObjectURL(file);
@@ -645,175 +498,204 @@ async function handleFile(event, tipo) {
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   }
-
-  updateCaptureStep();
-  updateSubmitBtn();
+  updateCaptureStep(); updateSubmitBtn();
 }
-
 function updateCaptureStep() {
-  const total = (captureData.frontal?1:0) + (captureData.panoramica?1:0) + (captureData.video?1:0);
+  const total = (captureData.frontal?1:0)+(captureData.panoramica?1:0)+(captureData.video?1:0);
   document.getElementById('capture-step').textContent = total + ' de 3 archivos listos';
 }
-
 function updateSubmitBtn() {
   const btn = document.getElementById('submit-toma');
   const ready = captureData.frontal && captureData.panoramica;
   btn.disabled = !ready;
   btn.textContent = ready ? 'Subir toma ↑' : 'Toma la foto frontal y panorámica';
 }
-
 async function submitToma() {
   if (!captureData.frontal || !captureData.panoramica) return;
-
   const btn = document.getElementById('submit-toma');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Subiendo...';
-
-  // Marcar localmente como subiendo
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo...';
   if (currentAsig) {
     const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
     if (elem) elem.estado = 'SUBIENDO';
-    renderElementos();
+    renderElementosFotografo();
   }
-
   const payload = {
-    action:              'rfGuardarToma',
-    elementoId:          captureTarget.elementoId,
-    asignacionId:        captureTarget.asignacionId,
-    cliente:             captureTarget.cliente,
-    fecha:               captureTarget.fecha,
-    tipoElemento:        captureTarget.tipoElemento,
-    ubicacion:           captureTarget.ubicacion,
-    fotoFrontalBase64:   captureData.frontal,
-    fotoPanoramicaBase64:captureData.panoramica,
-    videoBase64:         captureData.video || '',
-    fotografo:           currentUser ? currentUser.nombre : '',
-    observaciones:       document.getElementById('obs-input').value
+    action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
+    cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
+    ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
+    videoBase64: captureData.video || '', fotografo: currentUser ? currentUser.nombre : '',
+    observaciones: document.getElementById('obs-input').value
   };
-
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
-
-    // Marcar como completado
     if (currentAsig) {
       const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
       if (elem) elem.estado = 'COMPLETADO';
-      renderElementos();
+      renderElementosFotografo();
     }
     closeCaptureModal();
     showToast('✓ Toma subida a Drive', 'ok');
   } catch(e) {
-    // Sin red → guardar en cola offline
     payload._offline = true;
-    offlineQueue.push(payload);
-    saveQueue();
-    showQueueBanner();
-
-    // Marcar como completado localmente
+    offlineQueue.push(payload); saveQueue(); showQueueBanner();
     if (currentAsig) {
       const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
       if (elem) elem.estado = 'COMPLETADO';
-      renderElementos();
+      renderElementosFotografo();
     }
     closeCaptureModal();
     showToast('📡 Sin conexión — se subirá cuando haya señal', 'warn');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Subir toma ↑';
+    btn.disabled = false; btn.textContent = 'Subir toma ↑';
   }
 }
-
-// ══ COLA OFFLINE ═══════════════════════════════════════════════
-function saveQueue() {
-  try { localStorage.setItem('rf_queue', JSON.stringify(offlineQueue)); } catch(e) {}
-}
-
+function saveQueue() { try { localStorage.setItem('rf_queue', JSON.stringify(offlineQueue)); } catch(e) {} }
 function showQueueBanner() {
-  const wrap = document.getElementById('queue-wrap');
-  const count = document.getElementById('queue-count');
-  if (offlineQueue.length > 0) {
-    wrap.style.display = 'block';
-    count.textContent = offlineQueue.length + ' toma' + (offlineQueue.length>1?'s':'') + ' pendiente' + (offlineQueue.length>1?'s':'') + ' de subir';
-  } else {
-    wrap.style.display = 'none';
-  }
+  const wrap = document.getElementById('queue-wrap'); const count = document.getElementById('queue-count');
+  if (offlineQueue.length > 0) { wrap.style.display = 'block'; count.textContent = offlineQueue.length + ' toma' + (offlineQueue.length>1?'s':'') + ' pendiente' + (offlineQueue.length>1?'s':'') + ' de subir'; }
+  else wrap.style.display = 'none';
 }
-
 async function flushQueue() {
   if (!offlineQueue.length) return;
   showToast('Subiendo ' + offlineQueue.length + ' tomas...', 'warn');
   const failed = [];
   for (const payload of offlineQueue) {
     try {
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ ...payload, _offline: undefined })
-      });
+      const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, _offline: undefined }) });
       const data = await res.json();
       if (!data.ok) failed.push(payload);
     } catch(e) { failed.push(payload); }
   }
-  offlineQueue = failed;
-  saveQueue();
-  showQueueBanner();
-  if (failed.length === 0) {
-    showToast('✓ Todas las tomas subidas', 'ok');
-  } else {
-    showToast(failed.length + ' tomas no pudieron subirse', 'err');
-  }
+  offlineQueue = failed; saveQueue(); showQueueBanner();
+  showToast(failed.length === 0 ? '✓ Todas las tomas subidas' : failed.length + ' tomas no pudieron subirse', failed.length === 0 ? 'ok' : 'err');
 }
-
-// ══ HELPERS ════════════════════════════════════════════════════
-function fileToBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
-
+function fileToBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
 function compressImage(file, maxW, quality) {
   return new Promise((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
+    const img = new Image(); const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
       let w = img.width, h = img.height;
       if (w > maxW) { h = Math.round(h * maxW / w); w = maxW; }
-      const canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
       resolve(canvas.toDataURL('image/jpeg', quality));
     };
     img.src = url;
   });
 }
+window.addEventListener('online', () => { if (offlineQueue.length > 0) flushQueue(); });
+
+async function showEjecutivaLista() {
+  showPage('page-ejecutiva-lista');
+  document.getElementById('fab-new-asig').style.display = 'flex';
+  const list = document.getElementById('ejec-asig-list');
+  list.innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando...</div></div>';
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPendientes');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const todas = await res.json();
+    const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    document.getElementById('ejec-badge').textContent = mias.length;
+    if (!mias.length) {
+      list.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin asignaciones</div><div class="empty-sub">Crea una nueva con el botón + de abajo.</div></div>`;
+      return;
+    }
+    list.innerHTML = mias.map(a => {
+      const total = a.elementos ? a.elementos.length : 0;
+      const completados = a.elementos ? a.elementos.filter(e => e.estado === 'COMPLETADO').length : 0;
+      const pct = total ? Math.round(completados / total * 100) : 0;
+      return `
+        <div class="asig-card${pct===100?' done':''}">
+          <div class="asig-header">
+            <div>
+              <div class="asig-cliente">${a.cliente}</div>
+              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}</div>
+            </div>
+            <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
+          </div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:var(--blue)"></div></div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-title">Sin conexión</div><div class="empty-sub">Revisa tu señal.<br><br><button onclick="showEjecutivaLista()" style="background:var(--blue);color:#fff;padding:10px 20px;border-radius:20px;font-weight:700;font-size:13px">Reintentar</button></div></div>`;
+  }
+}
+
+function showEjecutivaForm() {
+  showPage('page-ejecutiva-form');
+  document.getElementById('fab-new-asig').style.display = 'none';
+  document.getElementById('form-cliente').value = '';
+  document.getElementById('form-fecha-limite').value = '';
+  document.getElementById('form-observaciones').value = '';
+  document.getElementById('elementos-form-list').innerHTML = '';
+  elementosFormCount = 0;
+  addElementoForm();
+}
+
+function addElementoForm() {
+  const idx = elementosFormCount++;
+  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}">${t}</option>`).join('');
+  const div = document.createElement('div');
+  div.className = 'elem-row';
+  div.id = 'elem-row-' + idx;
+  div.innerHTML = `
+    <button class="rm-btn" onclick="document.getElementById('elem-row-${idx}').remove()">✕</button>
+    <label class="form-label">Tipo de elemento</label>
+    <select class="form-select" id="elem-tipo-${idx}"><option value="">— Seleccionar —</option>${opts}</select>
+    <label class="form-label">Ubicación / referencia</label>
+    <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo"/>
+    <label class="form-label">Código de inventario (opcional)</label>
+    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041"/>
+  `;
+  document.getElementById('elementos-form-list').appendChild(div);
+}
+
+async function crearAsignacion() {
+  const cliente = document.getElementById('form-cliente').value.trim();
+  const fechaLimite = document.getElementById('form-fecha-limite').value;
+  const observaciones = document.getElementById('form-observaciones').value.trim();
+  if (!cliente) { showToast('Ingresa el nombre del cliente', 'warn'); return; }
+
+  const rows = document.querySelectorAll('.elem-row');
+  const elementos = [];
+  rows.forEach(row => {
+    const idx = row.id.replace('elem-row-', '');
+    const tipoElemento = document.getElementById('elem-tipo-' + idx).value;
+    const ubicacion = document.getElementById('elem-ubic-' + idx).value.trim();
+    const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
+    if (tipoElemento || ubicacion) elementos.push({ tipoElemento, ubicacion, codigoRef, observaciones: '' });
+  });
+  if (!elementos.length) { showToast('Agrega al menos un elemento', 'warn'); return; }
+
+  const btn = document.getElementById('btn-crear-asignacion');
+  btn.disabled = true; btn.textContent = 'Creando...';
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'rfCrearAsignacion', cliente, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast('✓ Asignación creada con ' + elementos.length + ' elementos', 'ok');
+    showEjecutivaLista();
+  } catch(e) {
+    showToast('❌ ' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Crear asignación';
+  }
+}
 
 function showToast(msg, type) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'show ' + (type || '');
+  t.textContent = msg; t.className = 'show ' + (type || '');
   clearTimeout(t._timer);
   t._timer = setTimeout(() => t.className = '', 3000);
 }
 
-// ══ AUTO-FLUSH cuando vuelve la red ═══════════════════════════
-window.addEventListener('online', () => {
-  if (offlineQueue.length > 0) flushQueue();
-});
-
-// ══ SW ════════════════════════════════════════════════════════
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js');
-}
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
 </script>
 </body>
 </html>
