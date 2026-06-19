@@ -215,15 +215,20 @@
       <div class="section-title blue">Nueva asignación</div>
       <div class="form-card">
         <label class="form-label">Cliente *</label>
-        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente"/>
+        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="onClienteInput()"/>
+        <datalist id="clientes-datalist"></datalist>
         <label class="form-label">Fecha límite</label>
         <input class="form-input" id="form-fecha-limite" type="date"/>
         <label class="form-label">Observaciones generales</label>
         <textarea class="form-textarea" id="form-observaciones" placeholder="Notas para el fotógrafo (opcional)"></textarea>
       </div>
-      <div class="section-title blue">Elementos a fotografiar</div>
+
+      <div class="section-title blue" id="contratados-title" style="display:none">Elementos contratados de este cliente<span class="badge blue" id="contratados-badge">0</span></div>
+      <div id="contratados-list"></div>
+
+      <div class="section-title blue">Elementos manuales adicionales</div>
       <div id="elementos-form-list"></div>
-      <button class="add-elem-btn" onclick="addElementoForm()">+ Agregar elemento</button>
+      <button class="add-elem-btn" onclick="addElementoForm()">+ Agregar elemento manual</button>
       <button class="submit-asig-btn" id="btn-crear-asignacion" onclick="crearAsignacion()">Crear asignación</button>
     </div>
   </div>
@@ -631,8 +636,60 @@ function showEjecutivaForm() {
   document.getElementById('form-fecha-limite').value = '';
   document.getElementById('form-observaciones').value = '';
   document.getElementById('elementos-form-list').innerHTML = '';
+  document.getElementById('contratados-list').innerHTML = '';
+  document.getElementById('contratados-title').style.display = 'none';
   elementosFormCount = 0;
   addElementoForm();
+  loadClientesAutocomplete();
+}
+
+let clientesCache = [];
+let elementosContratadosCache = [];
+
+async function loadClientesAutocomplete() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfGetClientesContratados');
+    clientesCache = await res.json();
+    const dl = document.getElementById('clientes-datalist');
+    dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
+  } catch(e) { /* silencioso, no es crítico */ }
+}
+
+let onClienteInputTimer = null;
+function onClienteInput() {
+  clearTimeout(onClienteInputTimer);
+  onClienteInputTimer = setTimeout(buscarElementosCliente, 400);
+}
+
+async function buscarElementosCliente() {
+  const cliente = document.getElementById('form-cliente').value.trim();
+  const list = document.getElementById('contratados-list');
+  const title = document.getElementById('contratados-title');
+  if (!cliente) { title.style.display = 'none'; list.innerHTML = ''; return; }
+
+  list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
+  title.style.display = 'flex';
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente));
+    const elementos = await res.json();
+    elementosContratadosCache = elementos;
+    document.getElementById('contratados-badge').textContent = elementos.length;
+    if (!elementos.length) {
+      list.innerHTML = '<div class="empty-sub" style="padding:10px 0">Sin elementos contratados encontrados para este cliente.</div>';
+      return;
+    }
+    list.innerHTML = elementos.map((el, i) => `
+      <label class="elem-row" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+        <input type="checkbox" class="contratado-check" data-idx="${i}" style="width:20px;height:20px;margin-top:2px;flex-shrink:0;accent-color:var(--blue)"/>
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:14px">${el.tipo || 'Elemento'} · <span style="color:var(--orange)">${el.codigo}</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
+          ${el.termino ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Vence: ${el.termino}</div>` : ''}
+        </div>
+      </label>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al buscar elementos. Intenta de nuevo.</div>';
+  }
 }
 
 function addElementoForm() {
@@ -659,16 +716,29 @@ async function crearAsignacion() {
   const observaciones = document.getElementById('form-observaciones').value.trim();
   if (!cliente) { showToast('Ingresa el nombre del cliente', 'warn'); return; }
 
-  const rows = document.querySelectorAll('.elem-row');
   const elementos = [];
+
+  // Elementos contratados marcados
+  document.querySelectorAll('.contratado-check:checked').forEach(chk => {
+    const el = elementosContratadosCache[parseInt(chk.dataset.idx)];
+    if (el) elementos.push({
+      tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: ''
+    });
+  });
+
+  // Elementos manuales
+  const rows = document.querySelectorAll('.elem-row[id^="elem-row-"]');
   rows.forEach(row => {
     const idx = row.id.replace('elem-row-', '');
-    const tipoElemento = document.getElementById('elem-tipo-' + idx).value;
+    const tipoSel = document.getElementById('elem-tipo-' + idx);
+    if (!tipoSel) return;
+    const tipoElemento = tipoSel.value;
     const ubicacion = document.getElementById('elem-ubic-' + idx).value.trim();
     const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
     if (tipoElemento || ubicacion) elementos.push({ tipoElemento, ubicacion, codigoRef, observaciones: '' });
   });
-  if (!elementos.length) { showToast('Agrega al menos un elemento', 'warn'); return; }
+
+  if (!elementos.length) { showToast('Selecciona o agrega al menos un elemento', 'warn'); return; }
 
   const btn = document.getElementById('btn-crear-asignacion');
   btn.disabled = true; btn.textContent = 'Creando...';
