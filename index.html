@@ -1018,6 +1018,8 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
   doc.save(`Zaza_Report_${asignacion.cliente.replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`);
   showToast('✓ Reporte PDF descargado', 'ok');
 }
+
+function confirmarAnularAsignacion(asignacionId, cliente) {
   if (!confirm('¿Seguro que quieres anular la asignación de "' + cliente + '"? Esta acción no se puede deshacer.')) return;
   anularAsignacion(asignacionId);
 }
