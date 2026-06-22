@@ -788,6 +788,32 @@ async function cargarJsPDF() {
 // hace desde el servidor (Apps Script) porque el navegador no puede
 // leer estas imágenes vía fetch/canvas por restricciones CORS de
 // Google Drive — DriveApp en el servidor no tiene esa restricción.
+// Lee el ancho/alto real de una imagen en dataURL (necesario para
+// calcular cómo encaja proporcionalmente dentro de un marco, sin
+// estirar ni recortar).
+function dimensionesImagen(dataUrl) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+    img.onerror = () => resolve({ w: 4, h: 3 }); // fallback proporción genérica
+    img.src = dataUrl;
+  });
+}
+
+// Calcula el rectángulo más grande que cabe DENTRO de un marco
+// (frameW x frameH) sin recortar ni distorsionar la imagen, y lo
+// centra dentro de ese marco. Devuelve {w, h, offsetX, offsetY} —
+// offsetX/offsetY son relativos a la esquina del marco, hay que
+// sumarles la posición (x,y) del marco en la diapositiva.
+function encajarProporcional(imgW, imgH, frameW, frameH) {
+  const escala = Math.min(frameW / imgW, frameH / imgH);
+  const w = imgW * escala;
+  const h = imgH * escala;
+  const offsetX = (frameW - w) / 2;
+  const offsetY = (frameH - h) / 2;
+  return { w, h, offsetX, offsetY };
+}
+
 async function descargarFotosEnLote(urls) {
   const urlsUnicas = Array.from(new Set(urls.filter(Boolean)));
   if (!urlsUnicas.length) return {};
@@ -880,34 +906,45 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addText(t.observaciones, { x:0.45,y:4.98,w:2.9,h:1.2, fontSize:11,color:ZR_LABEL,fontFace:'Arial' });
     }
 
-    // Lado derecho: foto frontal + panorámica lado a lado
+    // Lado derecho: foto frontal + panorámica lado a lado, cada una
+    // dentro de un marco fijo pero manteniendo su proporción real
+    // (sin estirar ni recortar) y centrada dentro de ese marco.
     const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
     const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
 
+    const marcoX1 = 3.95, marcoX2 = 8.45, marcoW = 4.3, marcoH = 3.4, marcoY = 0.55;
+
     if (frontalB64) {
-      slide.addImage({ data: frontalB64, x:3.95,y:0.5,w:4.3,h:3.1, sizing:{type:'cover',w:4.3,h:3.1} });
-      slide.addText('FOTO FRONTAL', { x:3.95,y:3.65,w:4.3,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+      const dim = await dimensionesImagen(frontalB64);
+      const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
+      slide.addImage({ data: frontalB64, x: marcoX1 + r.offsetX, y: marcoY + r.offsetY, w: r.w, h: r.h });
+      slide.addText('FOTO FRONTAL', { x:marcoX1,y:marcoY+marcoH+0.1,w:marcoW,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
     }
     if (panoB64) {
-      slide.addImage({ data: panoB64, x:8.45,y:0.5,w:4.3,h:3.1, sizing:{type:'cover',w:4.3,h:3.1} });
-      slide.addText('FOTO PANORÁMICA', { x:8.45,y:3.65,w:4.3,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+      const dim = await dimensionesImagen(panoB64);
+      const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
+      slide.addImage({ data: panoB64, x: marcoX2 + r.offsetX, y: marcoY + r.offsetY, w: r.w, h: r.h });
+      slide.addText('FOTO PANORÁMICA', { x:marcoX2,y:marcoY+marcoH+0.1,w:marcoW,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
     }
 
     // Si hay video: thumbnail estático (usamos la foto frontal como
     // preview, ya que no se puede extraer un frame del mp4 en el
     // navegador) + ícono de play + link de descarga debajo.
     if (t.videoUrl) {
+      const marcoVidY = marcoY + marcoH + 0.55, marcoVidH = 2.3;
       const thumbVideo = frontalB64 || panoB64;
       if (thumbVideo) {
-        slide.addImage({ data: thumbVideo, x:3.95,y:4.15,w:4.2,h:2.55, sizing:{type:'cover',w:4.2,h:2.55} });
+        const dim = await dimensionesImagen(thumbVideo);
+        const r = encajarProporcional(dim.w, dim.h, marcoW, marcoVidH);
+        slide.addImage({ data: thumbVideo, x: marcoX1 + r.offsetX, y: marcoVidY + r.offsetY, w: r.w, h: r.h });
       } else {
-        slide.addShape(pres.shapes.RECTANGLE, { x:3.95,y:4.15,w:4.2,h:2.55, fill:{color:'2A3A5C'},line:{color:'2A3A5C'} });
+        slide.addShape(pres.shapes.RECTANGLE, { x:marcoX1,y:marcoVidY,w:marcoW,h:marcoVidH, fill:{color:'2A3A5C'},line:{color:'2A3A5C'} });
       }
-      slide.addShape(pres.shapes.OVAL, { x:5.75,y:5.1,w:0.6,h:0.6, fill:{color:ZR_ORANGE},line:{color:ZR_WHITE,width:2} });
-      slide.addText('▶', { x:5.75,y:5.1,w:0.6,h:0.6, fontSize:18,color:ZR_WHITE,align:'center',valign:'middle',fontFace:'Arial' });
-      slide.addText('VIDEO', { x:3.95,y:6.78,w:4.2,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
-      slide.addText('Ver / descargar video', { x:8.45,y:4.15,w:4.3,h:0.4, fontSize:12,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
-      slide.addText(t.videoUrl, { x:8.45,y:4.6,w:4.3,h:1.8, fontSize:8,color:ZR_LABEL,fontFace:'Arial',breakLine:true });
+      slide.addShape(pres.shapes.OVAL, { x:marcoX1+marcoW/2-0.3,y:marcoVidY+marcoVidH/2-0.3,w:0.6,h:0.6, fill:{color:ZR_ORANGE},line:{color:ZR_WHITE,width:2} });
+      slide.addText('▶', { x:marcoX1+marcoW/2-0.3,y:marcoVidY+marcoVidH/2-0.3,w:0.6,h:0.6, fontSize:18,color:ZR_WHITE,align:'center',valign:'middle',fontFace:'Arial' });
+      slide.addText('VIDEO', { x:marcoX1,y:marcoVidY+marcoVidH+0.1,w:marcoW,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+      slide.addText('Ver / descargar video', { x:marcoX2,y:marcoVidY,w:marcoW,h:0.4, fontSize:12,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
+      slide.addText(t.videoUrl, { x:marcoX2,y:marcoVidY+0.45,w:marcoW,h:1.8, fontSize:8,color:ZR_LABEL,fontFace:'Arial',breakLine:true });
     }
   }
 
@@ -981,36 +1018,50 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     campo('FOTÓGRAFO', t.fotografo);
     if (t.observaciones) campo('OBSERVACIONES', t.observaciones);
 
-    // Fotos lado a lado
+    // Fotos lado a lado, cada una dentro de un marco fijo pero
+    // manteniendo su proporción real (sin estirar ni recortar) y
+    // centrada dentro de ese marco.
     try {
       const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
       const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+
+      const marcoX1 = 3.95, marcoX2 = 8.45, marcoW = 4.3, marcoH = 3.4, marcoY = 0.55;
+
       if (frontalB64) {
-        doc.addImage(frontalB64, 'JPEG', 3.95, 0.5, 4.3, 3.1);
+        const dim = await dimensionesImagen(frontalB64);
+        const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
+        doc.addImage(frontalB64, 'JPEG', marcoX1 + r.offsetX, marcoY + r.offsetY, r.w, r.h);
         doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('FOTO FRONTAL', 3.95 + 2.15, 3.85, { align: 'center' });
+        doc.text('FOTO FRONTAL', marcoX1 + marcoW/2, marcoY + marcoH + 0.3, { align: 'center' });
       }
       if (panoB64) {
-        doc.addImage(panoB64, 'JPEG', 8.45, 0.5, 4.3, 3.1);
+        const dim = await dimensionesImagen(panoB64);
+        const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
+        doc.addImage(panoB64, 'JPEG', marcoX2 + r.offsetX, marcoY + r.offsetY, r.w, r.h);
         doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('FOTO PANORÁMICA', 8.45 + 2.15, 3.85, { align: 'center' });
+        doc.text('FOTO PANORÁMICA', marcoX2 + marcoW/2, marcoY + marcoH + 0.3, { align: 'center' });
       }
       if (t.videoUrl) {
+        const marcoVidY = marcoY + marcoH + 0.55, marcoVidH = 2.3;
         const thumbVideo = frontalB64 || panoB64;
-        if (thumbVideo) doc.addImage(thumbVideo, 'JPEG', 3.95, 4.15, 4.2, 2.55);
+        if (thumbVideo) {
+          const dim = await dimensionesImagen(thumbVideo);
+          const r = encajarProporcional(dim.w, dim.h, marcoW, marcoVidH);
+          doc.addImage(thumbVideo, 'JPEG', marcoX1 + r.offsetX, marcoVidY + r.offsetY, r.w, r.h);
+        }
         doc.setFillColor(...orangeRGB);
-        doc.circle(6.05, 5.42, 0.3, 'F');
+        doc.circle(marcoX1 + marcoW/2, marcoVidY + marcoVidH/2, 0.3, 'F');
         doc.setTextColor(255,255,255); doc.setFontSize(14);
-        doc.text('▶', 6.05, 5.5, { align: 'center' });
+        doc.text('▶', marcoX1 + marcoW/2, marcoVidY + marcoVidH/2 + 0.08, { align: 'center' });
         doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('VIDEO', 3.95 + 2.1, 6.9, { align: 'center' });
+        doc.text('VIDEO', marcoX1 + marcoW/2, marcoVidY + marcoVidH + 0.3, { align: 'center' });
 
         doc.setTextColor(17, 85, 204);
         doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.textWithLink('Ver / descargar video', 8.45, 4.4, { url: t.videoUrl });
+        doc.textWithLink('Ver / descargar video', marcoX2, marcoVidY + 0.25, { url: t.videoUrl });
         doc.setTextColor(...labelRGB);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
-        doc.text(t.videoUrl, 8.45, 4.7, { maxWidth: 4.3 });
+        doc.text(t.videoUrl, marcoX2, marcoVidY + 0.7, { maxWidth: marcoW });
       }
     } catch(e) { /* si falla una imagen, seguimos con el resto del reporte */ }
   }
