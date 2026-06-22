@@ -706,7 +706,11 @@ async function showEjecutivaLista() {
 
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
-      const acciones = isDone ? '' : `
+      const acciones = isDone ? `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="event.stopPropagation();exportarReporte('${a.id}','pptx')" style="flex:1;padding:8px;background:rgba(255,107,0,0.12);color:var(--orange);border-radius:8px;font-size:12px;font-weight:700">📊 Exportar PPT</button>
+          <button onclick="event.stopPropagation();exportarReporte('${a.id}','pdf')" style="flex:1;padding:8px;background:rgba(34,197,94,0.12);color:var(--green);border-radius:8px;font-size:12px;font-weight:700">📄 Exportar PDF</button>
+        </div>` : `
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
           <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
@@ -741,7 +745,279 @@ async function showEjecutivaLista() {
 let misAsignacionesCache = [];
 let asignacionEnEdicion = null; // null = creando nueva; objeto = editando existente
 
-function confirmarAnularAsignacion(asignacionId, cliente) {
+// ══════════════════════════════════════════════════════════════
+//  EXPORTAR REPORTE FOTOGRÁFICO (PPT / PDF) — mismo estilo visual
+//  que el PPT de "Disponibles" en ZazaNexus: portada navy con barra
+//  naranja lateral, panel navy izquierdo en cada slide, acentos
+//  naranja/blanco. Un slide por ubicación: foto frontal + panorámica
+//  lado a lado, y si hay video, un thumbnail estático + link debajo.
+// ══════════════════════════════════════════════════════════════
+const ZR_NAVY   = '1A2B4A';
+const ZR_ORANGE = 'F47B20';
+const ZR_WHITE  = 'FFFFFF';
+const ZR_LABEL  = '8A9BB5';
+
+async function cargarPptxGenJS() {
+  if (typeof PptxGenJS !== 'undefined') return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+    s.onload = resolve;
+    s.onerror = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://unpkg.com/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+      s2.onload = resolve; s2.onerror = reject;
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s);
+  });
+}
+
+async function cargarJsPDF() {
+  if (typeof window.jspdf !== 'undefined') return;
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// Descarga en LOTE (una sola llamada al backend) todas las URLs de
+// Drive necesarias para el reporte y las devuelve ya en base64. Se
+// hace desde el servidor (Apps Script) porque el navegador no puede
+// leer estas imágenes vía fetch/canvas por restricciones CORS de
+// Google Drive — DriveApp en el servidor no tiene esa restricción.
+async function descargarFotosEnLote(urls) {
+  const urlsUnicas = Array.from(new Set(urls.filter(Boolean)));
+  if (!urlsUnicas.length) return {};
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'rfDescargarArchivosDrive', urls: urlsUnicas })
+    });
+    const data = await res.json();
+    const mapa = {};
+    urlsUnicas.forEach((url, i) => { mapa[url] = (data.dataUrls && data.dataUrls[i]) || null; });
+    return mapa;
+  } catch(e) {
+    return {};
+  }
+}
+
+async function exportarReporte(asignacionId, formato) {
+  const a = misAsignacionesCache.find(x => x.id === asignacionId);
+  if (!a) { showToast('No se encontró la asignación', 'err'); return; }
+
+  showToast('⏳ Generando reporte, espera un momento...', 'warn');
+
+  try {
+    // Traer las tomas reales (con URLs de Drive) para este cliente
+    const res = await fetch(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente));
+    if (!res.ok) throw new Error('No se pudieron obtener las tomas');
+    const todasTomas = await res.json();
+    // Filtrar solo las tomas que pertenecen a ESTA asignación
+    const tomas = todasTomas.filter(t => String(t.asignacionId) === String(asignacionId));
+
+    if (!tomas.length) { showToast('Esta asignación no tiene tomas registradas', 'err'); return; }
+
+    // Descargar TODAS las fotos necesarias en un solo lote desde el
+    // backend (evita problemas de CORS y es más rápido que una por una)
+    const todasUrls = [];
+    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl); });
+    const fotosMap = await descargarFotosEnLote(todasUrls);
+
+    if (formato === 'pptx') {
+      await generarReportePPT(a, tomas, fotosMap);
+    } else {
+      await generarReportePDF(a, tomas, fotosMap);
+    }
+  } catch(e) {
+    showToast('❌ Error generando reporte: ' + e.message, 'err');
+  }
+}
+
+async function generarReportePPT(asignacion, tomas, fotosMap) {
+  await cargarPptxGenJS();
+  const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_WIDE';
+  pres.title = 'Zaza Report · ' + asignacion.cliente;
+
+  // ── PORTADA ──────────────────────────────────────────────
+  const cover = pres.addSlide();
+  cover.background = { color: ZR_NAVY };
+  cover.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:0.5,h:7.5, fill:{color:ZR_ORANGE}, line:{color:ZR_ORANGE} });
+  cover.addText('ZAZA REPORT', { x:0.9,y:1.8,w:8,h:1, fontSize:46,bold:true,color:ZR_WHITE,fontFace:'Arial Black',charSpacing:6 });
+  cover.addText('REPORTE FOTOGRÁFICO DE INSTALACIÓN OOH', { x:0.9,y:2.9,w:10,h:0.6, fontSize:15,color:ZR_ORANGE,fontFace:'Arial',charSpacing:2 });
+  cover.addText(asignacion.cliente, { x:0.9,y:3.6,w:8,h:0.8, fontSize:32,bold:true,color:ZR_WHITE,fontFace:'Arial' });
+  cover.addText(tomas.length + ' elemento' + (tomas.length!==1?'s':'') + ' fotografiado' + (tomas.length!==1?'s':''), { x:0.9,y:4.45,w:6,h:0.5, fontSize:14,color:ZR_LABEL,fontFace:'Arial' });
+  cover.addText('Fecha límite: ' + (asignacion.fechaLimite || 'N/D'), { x:0.9,y:4.85,w:6,h:0.4, fontSize:12,color:ZR_LABEL,fontFace:'Arial' });
+  cover.addText('zazacorp.com.ec', { x:0.9,y:6.8,w:6,h:0.4, fontSize:11,color:ZR_LABEL,fontFace:'Arial' });
+
+  // ── UN SLIDE POR UBICACIÓN ──────────────────────────────────
+  for (const t of tomas) {
+    const slide = pres.addSlide();
+    slide.background = { color: ZR_WHITE };
+
+    // Panel navy izquierdo con datos del elemento
+    slide.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:3.6,h:7.5, fill:{color:ZR_NAVY},line:{color:ZR_NAVY} });
+    slide.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:0.12,h:7.5, fill:{color:ZR_ORANGE},line:{color:ZR_ORANGE} });
+
+    slide.addText(t.tipoElemento || 'Elemento', { x:0.45,y:0.55,w:2.9,h:0.6, fontSize:20,bold:true,color:ZR_WHITE,fontFace:'Arial' });
+    slide.addText((t.ubicacion || '—').toUpperCase(), { x:0.45,y:1.15,w:2.9,h:1.0, fontSize:12,color:ZR_LABEL,fontFace:'Arial' });
+
+    slide.addText('CLIENTE', { x:0.45,y:2.3,w:2.9,h:0.3, fontSize:9,color:ZR_ORANGE,fontFace:'Arial',charSpacing:1 });
+    slide.addText(asignacion.cliente, { x:0.45,y:2.58,w:2.9,h:0.4, fontSize:13,color:ZR_WHITE,fontFace:'Arial' });
+
+    slide.addText('FECHA', { x:0.45,y:3.1,w:2.9,h:0.3, fontSize:9,color:ZR_ORANGE,fontFace:'Arial',charSpacing:1 });
+    slide.addText(t.fecha || '—', { x:0.45,y:3.38,w:2.9,h:0.4, fontSize:13,color:ZR_WHITE,fontFace:'Arial' });
+
+    slide.addText('FOTÓGRAFO', { x:0.45,y:3.9,w:2.9,h:0.3, fontSize:9,color:ZR_ORANGE,fontFace:'Arial',charSpacing:1 });
+    slide.addText(t.fotografo || '—', { x:0.45,y:4.18,w:2.9,h:0.4, fontSize:13,color:ZR_WHITE,fontFace:'Arial' });
+
+    if (t.observaciones) {
+      slide.addText('OBSERVACIONES', { x:0.45,y:4.7,w:2.9,h:0.3, fontSize:9,color:ZR_ORANGE,fontFace:'Arial',charSpacing:1 });
+      slide.addText(t.observaciones, { x:0.45,y:4.98,w:2.9,h:1.2, fontSize:11,color:ZR_LABEL,fontFace:'Arial' });
+    }
+
+    // Lado derecho: foto frontal + panorámica lado a lado
+    const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
+    const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+
+    if (frontalB64) {
+      slide.addImage({ data: frontalB64, x:3.95,y:0.5,w:4.3,h:3.1, sizing:{type:'cover',w:4.3,h:3.1} });
+      slide.addText('FOTO FRONTAL', { x:3.95,y:3.65,w:4.3,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+    }
+    if (panoB64) {
+      slide.addImage({ data: panoB64, x:8.45,y:0.5,w:4.3,h:3.1, sizing:{type:'cover',w:4.3,h:3.1} });
+      slide.addText('FOTO PANORÁMICA', { x:8.45,y:3.65,w:4.3,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+    }
+
+    // Si hay video: thumbnail estático (usamos la foto frontal como
+    // preview, ya que no se puede extraer un frame del mp4 en el
+    // navegador) + ícono de play + link de descarga debajo.
+    if (t.videoUrl) {
+      const thumbVideo = frontalB64 || panoB64;
+      if (thumbVideo) {
+        slide.addImage({ data: thumbVideo, x:3.95,y:4.15,w:4.2,h:2.55, sizing:{type:'cover',w:4.2,h:2.55} });
+      } else {
+        slide.addShape(pres.shapes.RECTANGLE, { x:3.95,y:4.15,w:4.2,h:2.55, fill:{color:'2A3A5C'},line:{color:'2A3A5C'} });
+      }
+      slide.addShape(pres.shapes.OVAL, { x:5.75,y:5.1,w:0.6,h:0.6, fill:{color:ZR_ORANGE},line:{color:ZR_WHITE,width:2} });
+      slide.addText('▶', { x:5.75,y:5.1,w:0.6,h:0.6, fontSize:18,color:ZR_WHITE,align:'center',valign:'middle',fontFace:'Arial' });
+      slide.addText('VIDEO', { x:3.95,y:6.78,w:4.2,h:0.3, fontSize:9,color:ZR_LABEL,fontFace:'Arial',charSpacing:1,align:'center' });
+      slide.addText('Ver / descargar video', { x:8.45,y:4.15,w:4.3,h:0.4, fontSize:12,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
+      slide.addText(t.videoUrl, { x:8.45,y:4.6,w:4.3,h:1.8, fontSize:8,color:ZR_LABEL,fontFace:'Arial',breakLine:true });
+    }
+  }
+
+  await pres.writeFile({ fileName: `Zaza_Report_${asignacion.cliente.replace(/[^a-zA-Z0-9]+/g,'_')}.pptx` });
+  showToast('✓ Reporte PPT descargado', 'ok');
+}
+
+async function generarReportePDF(asignacion, tomas, fotosMap) {
+  await cargarJsPDF();
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'in', format: [13.333, 7.5] });
+
+  const navyRGB = [26, 43, 74];
+  const orangeRGB = [244, 123, 32];
+  const labelRGB = [138, 155, 181];
+
+  // ── PORTADA ──────────────────────────────────────────────
+  doc.setFillColor(...navyRGB);
+  doc.rect(0, 0, 13.333, 7.5, 'F');
+  doc.setFillColor(...orangeRGB);
+  doc.rect(0, 0, 0.5, 7.5, 'F');
+
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(38);
+  doc.text('ZAZA REPORT', 0.9, 2.3);
+
+  doc.setTextColor(...orangeRGB);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(14);
+  doc.text('REPORTE FOTOGRÁFICO DE INSTALACIÓN OOH', 0.9, 3.0);
+
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(26);
+  doc.text(asignacion.cliente, 0.9, 3.8);
+
+  doc.setTextColor(...labelRGB);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
+  doc.text(tomas.length + ' elemento' + (tomas.length!==1?'s':'') + ' fotografiado' + (tomas.length!==1?'s':''), 0.9, 4.5);
+  doc.text('Fecha límite: ' + (asignacion.fechaLimite || 'N/D'), 0.9, 4.85);
+  doc.text('zazacorp.com.ec', 0.9, 6.9);
+
+  // ── UNA PÁGINA POR UBICACIÓN ─────────────────────────────
+  for (const t of tomas) {
+    doc.addPage([13.333, 7.5], 'landscape');
+    doc.setFillColor(255,255,255);
+    doc.rect(0, 0, 13.333, 7.5, 'F');
+    doc.setFillColor(...navyRGB);
+    doc.rect(0, 0, 3.6, 7.5, 'F');
+    doc.setFillColor(...orangeRGB);
+    doc.rect(0, 0, 0.12, 7.5, 'F');
+
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
+    doc.text(t.tipoElemento || 'Elemento', 0.45, 0.85, { maxWidth: 2.9 });
+
+    doc.setTextColor(...labelRGB);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text((t.ubicacion || '—'), 0.45, 1.3, { maxWidth: 2.9 });
+
+    let y = 2.3;
+    const campo = (label, valor) => {
+      doc.setTextColor(...orangeRGB);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      doc.text(label, 0.45, y);
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+      doc.text(String(valor || '—'), 0.45, y + 0.28, { maxWidth: 2.9 });
+      y += 0.8;
+    };
+    campo('CLIENTE', asignacion.cliente);
+    campo('FECHA', t.fecha);
+    campo('FOTÓGRAFO', t.fotografo);
+    if (t.observaciones) campo('OBSERVACIONES', t.observaciones);
+
+    // Fotos lado a lado
+    try {
+      const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
+      const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+      if (frontalB64) {
+        doc.addImage(frontalB64, 'JPEG', 3.95, 0.5, 4.3, 3.1);
+        doc.setTextColor(...labelRGB); doc.setFontSize(8);
+        doc.text('FOTO FRONTAL', 3.95 + 2.15, 3.85, { align: 'center' });
+      }
+      if (panoB64) {
+        doc.addImage(panoB64, 'JPEG', 8.45, 0.5, 4.3, 3.1);
+        doc.setTextColor(...labelRGB); doc.setFontSize(8);
+        doc.text('FOTO PANORÁMICA', 8.45 + 2.15, 3.85, { align: 'center' });
+      }
+      if (t.videoUrl) {
+        const thumbVideo = frontalB64 || panoB64;
+        if (thumbVideo) doc.addImage(thumbVideo, 'JPEG', 3.95, 4.15, 4.2, 2.55);
+        doc.setFillColor(...orangeRGB);
+        doc.circle(6.05, 5.42, 0.3, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(14);
+        doc.text('▶', 6.05, 5.5, { align: 'center' });
+        doc.setTextColor(...labelRGB); doc.setFontSize(8);
+        doc.text('VIDEO', 3.95 + 2.1, 6.9, { align: 'center' });
+
+        doc.setTextColor(17, 85, 204);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.textWithLink('Ver / descargar video', 8.45, 4.4, { url: t.videoUrl });
+        doc.setTextColor(...labelRGB);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+        doc.text(t.videoUrl, 8.45, 4.7, { maxWidth: 4.3 });
+      }
+    } catch(e) { /* si falla una imagen, seguimos con el resto del reporte */ }
+  }
+
+  doc.save(`Zaza_Report_${asignacion.cliente.replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`);
+  showToast('✓ Reporte PDF descargado', 'ok');
+}
   if (!confirm('¿Seguro que quieres anular la asignación de "' + cliente + '"? Esta acción no se puede deshacer.')) return;
   anularAsignacion(asignacionId);
 }
