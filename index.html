@@ -117,16 +117,16 @@
     #capture-step { color: var(--orange); font-size: 12px; font-weight: 600; }
     #capture-close { color: #fff; font-size: 22px; background: none; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; }
     #capture-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; align-items: center; padding: 20px; }
-    .capture-slot { width: 100%; max-width: 380px; margin-bottom: 16px; flex-shrink: 0; }
+    .capture-slot { width: 100%; max-width: 600px; margin-bottom: 16px; flex-shrink: 0; }
     .slot-label { font-size: 11px; font-weight: 700; color: var(--orange); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-    .slot-zone { width: 100%; height: 140px; border-radius: 14px; border: 2px dashed rgba(255,107,0,0.4); background: var(--dark2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; position: relative; overflow: hidden; }
+    .slot-zone { width: 100%; height: 280px; border-radius: 14px; border: 2px dashed rgba(255,107,0,0.4); background: var(--dark2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; position: relative; overflow: hidden; }
     .slot-zone.filled { border-style: solid; border-color: var(--orange); }
     .slot-zone img, .slot-zone video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
     .slot-zone .slot-icon { font-size: 32px; }
     .slot-zone .slot-text { color: var(--muted); font-size: 13px; font-weight: 500; }
     .slot-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; border-radius: 12px; }
     .slot-change-btn { background: rgba(255,255,255,0.9); color: #000; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 20px; }
-    .slot-zone.video-slot { height: 90px; }
+    .slot-zone.video-slot { height: 180px; }
     #capture-footer { flex-shrink: 0; padding: 14px 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 14px); background: rgba(0,0,0,0.9); border-top: 1px solid rgba(255,255,255,0.08); }
     .obs-input { width: 100%; padding: 10px 14px; background: var(--dark3); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 13px; resize: none; margin-bottom: 12px; }
     #submit-toma { width: 100%; padding: 16px; background: var(--orange); color: #fff; border-radius: 14px; font-size: 16px; font-weight: 800; }
@@ -214,8 +214,8 @@
     </div>
 
     <div id="page-ejecutiva-form" class="page">
-      <button class="back-btn" onclick="showEjecutivaLista()" style="color:var(--blue)">← Volver</button>
-      <div class="section-title blue">Nueva asignación</div>
+      <button class="back-btn" onclick="asignacionEnEdicion=null;showEjecutivaLista()" style="color:var(--blue)">← Volver</button>
+      <div class="section-title blue" id="form-titulo-zr">Nueva asignación</div>
       <div class="form-card">
         <label class="form-label">Cliente *</label>
         <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="onClienteInput()"/>
@@ -236,7 +236,7 @@
     </div>
   </div>
 
-  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="showEjecutivaForm()">+</button>
+  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="asignacionEnEdicion=null;showEjecutivaForm()">+</button>
 </div>
 
 <div id="capture-modal">
@@ -245,7 +245,7 @@
     <button id="capture-close" onclick="closeCaptureModal()">✕</button>
   </div>
   <div id="capture-body">
-    <div style="width:100%;max-width:380px">
+    <div style="width:100%;max-width:600px">
       <div class="capture-slot">
         <div class="slot-label">📸 Foto Frontal <span style="color:var(--red)">*</span></div>
         <div class="slot-zone" id="slot-frontal" onclick="triggerCapture('frontal')"><div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div></div>
@@ -377,6 +377,7 @@ function doLogin() {
 }
 
 function doLogout() {
+  detenerPollingFotografo();
   currentUser = null; currentRole = null;
   document.getElementById('app').style.display = 'none';
   document.getElementById('role-screen').style.display = 'flex';
@@ -385,6 +386,24 @@ function doLogout() {
 function showPage(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
+  // El polling automático de nuevas asignaciones solo corre mientras
+  // el fotógrafo está viendo la lista principal — se detiene en
+  // cualquier otra pantalla para no interrumpir lo que esté haciendo
+  // (ej. mientras está fotografiando un elemento).
+  if (id === 'page-asignaciones') {
+    iniciarPollingFotografo();
+  } else {
+    detenerPollingFotografo();
+  }
+}
+
+let pollingFotografoInterval = null;
+function iniciarPollingFotografo() {
+  if (pollingFotografoInterval) return; // ya está corriendo
+  pollingFotografoInterval = setInterval(refrescarAsignacionesSilencioso, 20000); // cada 20s
+}
+function detenerPollingFotografo() {
+  if (pollingFotografoInterval) { clearInterval(pollingFotografoInterval); pollingFotografoInterval = null; }
 }
 
 async function loadAsignacionesFotografo() {
@@ -514,7 +533,17 @@ async function refrescarAsignacionesSilencioso() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) return;
-    asignaciones = await res.json();
+    const nuevasAsignaciones = await res.json();
+    const cambioCantidad = nuevasAsignaciones.length !== asignaciones.length;
+    asignaciones = nuevasAsignaciones;
+    // Si la pantalla de lista está activa y no hay un modal de captura
+    // abierto, repinta para reflejar asignaciones nuevas o % actualizado.
+    const listaVisible = document.getElementById('page-asignaciones').classList.contains('active');
+    const captureAbierto = document.getElementById('capture-modal').classList.contains('open');
+    if (listaVisible && !captureAbierto) {
+      renderAsignacionesFotografo();
+      if (cambioCantidad) showToast('📋 Nueva asignación recibida', 'ok');
+    }
   } catch(e) { /* silencioso */ }
 }
 
@@ -661,6 +690,7 @@ async function showEjecutivaLista() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
     const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
 
     function pctDe(a) {
       const total = a.elementos ? a.elementos.length : 0;
@@ -676,6 +706,11 @@ async function showEjecutivaLista() {
 
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
+      const acciones = isDone ? '' : `
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
+          <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
+        </div>`;
       return `
         <div class="asig-card${isDone?' done':''}">
           <div class="asig-header">
@@ -686,6 +721,7 @@ async function showEjecutivaLista() {
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
           <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:${isDone?'var(--green)':'var(--blue)'}"></div></div>
+          ${acciones}
         </div>`;
     }
 
@@ -702,17 +738,65 @@ async function showEjecutivaLista() {
   }
 }
 
+let misAsignacionesCache = [];
+let asignacionEnEdicion = null; // null = creando nueva; objeto = editando existente
+
+function confirmarAnularAsignacion(asignacionId, cliente) {
+  if (!confirm('¿Seguro que quieres anular la asignación de "' + cliente + '"? Esta acción no se puede deshacer.')) return;
+  anularAsignacion(asignacionId);
+}
+
+async function anularAsignacion(asignacionId) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'rfAnularAsignacion', asignacionId })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast('✓ Asignación anulada', 'ok');
+    showEjecutivaLista();
+  } catch(e) {
+    showToast('❌ ' + e.message, 'err');
+  }
+}
+
+function editarAsignacion(asignacionId) {
+  const a = misAsignacionesCache.find(x => x.id === asignacionId);
+  if (!a) { showToast('No se encontró la asignación', 'err'); return; }
+  asignacionEnEdicion = a;
+  showEjecutivaForm();
+}
+
 function showEjecutivaForm() {
   showPage('page-ejecutiva-form');
   document.getElementById('fab-new-asig').style.display = 'none';
-  document.getElementById('form-cliente').value = '';
-  document.getElementById('form-fecha-limite').value = '';
-  document.getElementById('form-observaciones').value = '';
   document.getElementById('elementos-form-list').innerHTML = '';
   document.getElementById('contratados-list').innerHTML = '';
   document.getElementById('contratados-title').style.display = 'none';
   elementosFormCount = 0;
-  addElementoForm();
+
+  const formTitle = document.getElementById('form-titulo-zr');
+  const btn = document.getElementById('btn-crear-asignacion');
+
+  if (asignacionEnEdicion) {
+    const a = asignacionEnEdicion;
+    if (formTitle) formTitle.textContent = 'Editar asignación';
+    btn.textContent = 'Guardar cambios';
+    document.getElementById('form-cliente').value = a.cliente || '';
+    document.getElementById('form-fecha-limite').value = a.fechaLimite || '';
+    document.getElementById('form-observaciones').value = a.observaciones || '';
+    // Precargar los elementos existentes como filas manuales editables
+    (a.elementos || []).forEach(el => addElementoForm(el));
+    if (!((a.elementos||[]).length)) addElementoForm();
+  } else {
+    if (formTitle) formTitle.textContent = 'Nueva asignación';
+    btn.textContent = 'Crear asignación';
+    document.getElementById('form-cliente').value = '';
+    document.getElementById('form-fecha-limite').value = '';
+    document.getElementById('form-observaciones').value = '';
+    addElementoForm();
+  }
   loadClientesAutocomplete();
 }
 
@@ -766,20 +850,23 @@ async function buscarElementosCliente() {
   }
 }
 
-function addElementoForm() {
+function addElementoForm(precarga) {
+  precarga = precarga || {};
   const idx = elementosFormCount++;
-  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}">${t}</option>`).join('');
+  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
   const div = document.createElement('div');
   div.className = 'elem-row';
   div.id = 'elem-row-' + idx;
+  const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
   div.innerHTML = `
+    ${tagEstado}
     <button class="rm-btn" onclick="document.getElementById('elem-row-${idx}').remove()">✕</button>
-    <label class="form-label">Tipo de elemento</label>
+    <label class="form-label" style="${tagEstado?'margin-top:20px':''}">Tipo de elemento</label>
     <select class="form-select" id="elem-tipo-${idx}"><option value="">— Seleccionar —</option>${opts}</select>
     <label class="form-label">Ubicación / referencia</label>
-    <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo"/>
+    <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" value="${(precarga.ubicacion||'').replace(/"/g,'&quot;')}"/>
     <label class="form-label">Código de inventario (opcional)</label>
-    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041"/>
+    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}"/>
   `;
   document.getElementById('elementos-form-list').appendChild(div);
 }
@@ -815,20 +902,26 @@ async function crearAsignacion() {
   if (!elementos.length) { showToast('Selecciona o agrega al menos un elemento', 'warn'); return; }
 
   const btn = document.getElementById('btn-crear-asignacion');
-  btn.disabled = true; btn.textContent = 'Creando...';
+  const esEdicion = !!asignacionEnEdicion;
+  btn.disabled = true; btn.textContent = esEdicion ? 'Guardando...' : 'Creando...';
   try {
+    const payload = esEdicion
+      ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente, fechaLimite, observaciones, elementos }
+      : { action: 'rfCrearAsignacion', cliente, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos };
+
     const res = await fetch(SCRIPT_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'rfCrearAsignacion', cliente, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos })
+      body: JSON.stringify(payload)
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
-    showToast('✓ Asignación creada con ' + elementos.length + ' elementos', 'ok');
+    showToast(esEdicion ? '✓ Asignación actualizada' : '✓ Asignación creada con ' + elementos.length + ' elementos', 'ok');
+    asignacionEnEdicion = null;
     showEjecutivaLista();
   } catch(e) {
     showToast('❌ ' + e.message, 'err');
   } finally {
-    btn.disabled = false; btn.textContent = 'Crear asignación';
+    btn.disabled = false; btn.textContent = esEdicion ? 'Guardar cambios' : 'Crear asignación';
   }
 }
 
