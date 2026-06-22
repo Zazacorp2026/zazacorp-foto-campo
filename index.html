@@ -206,8 +206,11 @@
     </div>
 
     <div id="page-ejecutiva-lista" class="page">
-      <div class="section-title blue">Mis asignaciones creadas<span class="badge blue" id="ejec-badge">0</span></div>
+      <div class="section-title blue">Asignaciones activas<span class="badge blue" id="ejec-badge">0</span></div>
       <div id="ejec-asig-list"></div>
+
+      <div class="section-title" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
+      <div id="ejec-asig-list-done"></div>
     </div>
 
     <div id="page-ejecutiva-form" class="page">
@@ -387,7 +390,7 @@ function showPage(id) {
 async function loadAsignacionesFotografo() {
   document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPendientes');
+    const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     asignaciones = await res.json();
     renderAsignacionesFotografo();
@@ -408,15 +411,22 @@ function renderAsignacionesFotografo() {
   const badge = document.getElementById('asig-badge');
   if (!asignaciones.length) {
     badge.textContent = '0';
-    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones pendientes por ahora.</div></div>`;
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones por ahora.</div></div>`;
     return;
   }
-  badge.textContent = asignaciones.length;
-  list.innerHTML = asignaciones.map(a => {
+
+  function pctDe(a) {
     const total = a.elementos ? a.elementos.length : 0;
     const completados = a.elementos ? a.elementos.filter(e => e.estado === 'COMPLETADO').length : 0;
-    const pct = total ? Math.round(completados / total * 100) : 0;
-    const done = pct === 100;
+    return { total, completados, pct: total ? Math.round(completados / total * 100) : 0 };
+  }
+
+  const activas = asignaciones.filter(a => pctDe(a).pct < 100);
+  const completadas = asignaciones.filter(a => pctDe(a).pct === 100);
+  badge.textContent = activas.length;
+
+  function cardHtml(a, done) {
+    const { total, completados, pct } = pctDe(a);
     return `
       <div class="asig-card${done?' done':''}" onclick="openAsignacionFotografo('${a.id}')">
         <div class="asig-header">
@@ -427,9 +437,21 @@ function renderAsignacionesFotografo() {
           </div>
           <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total}</div></div>
         </div>
-        <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%"></div></div>
+        <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:${done?'var(--green)':'var(--orange)'}"></div></div>
       </div>`;
-  }).join('');
+  }
+
+  let html = '';
+  html += activas.length
+    ? activas.map(a => cardHtml(a, false)).join('')
+    : `<div class="empty-sub" style="padding:10px 0 20px">No tienes asignaciones pendientes por ahora.</div>`;
+
+  html += `<div class="section-title" style="margin-top:22px;color:var(--green)">Completadas<span class="badge" style="background:rgba(34,197,94,0.12);color:var(--green)">${completadas.length}</span></div>`;
+  html += completadas.length
+    ? completadas.map(a => cardHtml(a, true)).join('')
+    : `<div class="empty-sub" style="padding:10px 0">Aún no hay asignaciones completadas.</div>`;
+
+  list.innerHTML = html;
 }
 
 function openAsignacionFotografo(id) {
@@ -445,8 +467,11 @@ function renderElementosFotografo() {
   const list = document.getElementById('elem-list');
   const elems = currentAsig.elementos || [];
   if (!elems.length) { list.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin elementos</div></div>'; return; }
-  list.innerHTML = elems.map((el, i) => {
-    const done = el.estado === 'COMPLETADO';
+
+  const pendientes = elems.filter(el => el.estado !== 'COMPLETADO');
+  const completados = elems.filter(el => el.estado === 'COMPLETADO');
+
+  function cardHtml(el, i, done) {
     const uploading = el.estado === 'SUBIENDO';
     return `
       <div class="elem-card">
@@ -457,12 +482,25 @@ function renderElementosFotografo() {
             <div class="elem-ubic">${el.ubicacion || '—'}</div>
             ${el.codigoRef ? `<div class="elem-ubic" style="color:var(--orange)">${el.codigoRef}</div>` : ''}
           </div>
-          ${done ? `<span class="elem-action done-tag">✓ Listo</span>`
-            : uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
+          ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
+            : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
             : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>📷 Fotografiar</button>`}
         </div>
       </div>`;
-  }).join('');
+  }
+
+  let html = '';
+  html += `<div class="section-title" style="margin-top:0">Pendientes<span class="badge">${pendientes.length}</span></div>`;
+  html += pendientes.length
+    ? pendientes.map((el, i) => cardHtml(el, i, false)).join('')
+    : `<div class="empty-sub" style="padding:10px 0 20px">Todo fotografiado en esta asignación ✅</div>`;
+
+  html += `<div class="section-title" style="margin-top:22px;color:var(--green)">Completados<span class="badge" style="background:rgba(34,197,94,0.12);color:var(--green)">${completados.length}</span></div>`;
+  html += completados.length
+    ? completados.map((el, i) => cardHtml(el, i, true)).join('')
+    : `<div class="empty-sub" style="padding:10px 0">Aún no hay elementos completados.</div>`;
+
+  list.innerHTML = html;
 }
 
 function goBackToList() { showPage('page-asignaciones'); renderAsignacionesFotografo(); }
@@ -597,23 +635,31 @@ async function showEjecutivaLista() {
   showPage('page-ejecutiva-lista');
   document.getElementById('fab-new-asig').style.display = 'flex';
   const list = document.getElementById('ejec-asig-list');
+  const listDone = document.getElementById('ejec-asig-list-done');
   list.innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando...</div></div>';
+  listDone.innerHTML = '';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPendientes');
+    const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
     const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
-    document.getElementById('ejec-badge').textContent = mias.length;
-    if (!mias.length) {
-      list.innerHTML = `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin asignaciones</div><div class="empty-sub">Crea una nueva con el botón + de abajo.</div></div>`;
-      return;
-    }
-    list.innerHTML = mias.map(a => {
+
+    function pctDe(a) {
       const total = a.elementos ? a.elementos.length : 0;
       const completados = a.elementos ? a.elementos.filter(e => e.estado === 'COMPLETADO').length : 0;
-      const pct = total ? Math.round(completados / total * 100) : 0;
+      return { total, completados, pct: total ? Math.round(completados / total * 100) : 0 };
+    }
+
+    const activas = mias.filter(a => pctDe(a).pct < 100);
+    const completadas = mias.filter(a => pctDe(a).pct === 100);
+
+    document.getElementById('ejec-badge').textContent = activas.length;
+    document.getElementById('ejec-badge-done').textContent = completadas.length;
+
+    function renderCard(a, isDone) {
+      const { total, completados, pct } = pctDe(a);
       return `
-        <div class="asig-card${pct===100?' done':''}">
+        <div class="asig-card${isDone?' done':''}">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
@@ -621,9 +667,18 @@ async function showEjecutivaLista() {
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
-          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:var(--blue)"></div></div>
+          <div class="progress-bar-wrap"><div class="progress-bar" style="width:${pct}%;background:${isDone?'var(--green)':'var(--blue)'}"></div></div>
         </div>`;
-    }).join('');
+    }
+
+    list.innerHTML = activas.length
+      ? activas.map(a => renderCard(a, false)).join('')
+      : `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin asignaciones activas</div><div class="empty-sub">Crea una nueva con el botón + de abajo.</div></div>`;
+
+    listDone.innerHTML = completadas.length
+      ? completadas.map(a => renderCard(a, true)).join('')
+      : `<div class="empty-sub" style="padding:14px 0">Aún no tienes asignaciones completadas.</div>`;
+
   } catch(e) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">📡</div><div class="empty-title">Sin conexión</div><div class="empty-sub">Revisa tu señal.<br><br><button onclick="showEjecutivaLista()" style="background:var(--blue);color:#fff;padding:10px 20px;border-radius:20px;font-weight:700;font-size:13px">Reintentar</button></div></div>`;
   }
