@@ -815,7 +815,7 @@ async function loadClientesAutocomplete() {
 let onClienteInputTimer = null;
 function onClienteInput() {
   clearTimeout(onClienteInputTimer);
-  onClienteInputTimer = setTimeout(buscarElementosCliente, 400);
+  onClienteInputTimer = setTimeout(buscarElementosCliente, 700);
 }
 
 async function buscarElementosCliente() {
@@ -838,7 +838,7 @@ async function buscarElementosCliente() {
     list.innerHTML = elementos.map((el, i) => `
       <label class="elem-row" style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
         <input type="checkbox" class="contratado-check" data-idx="${i}" style="width:20px;height:20px;margin-top:2px;flex-shrink:0;accent-color:var(--blue)"/>
-        ${el.foto ? `<img src="${el.foto}" style="width:54px;height:54px;border-radius:8px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>` : `<div style="width:54px;height:54px;border-radius:8px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--muted)">📷</div>`}
+        ${el.foto ? `<img src="${el.foto}" style="width:96px;height:96px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>` : `<div style="width:96px;height:96px;border-radius:10px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)">📷</div>`}
         <div>
           <div style="font-weight:700;color:#fff;font-size:14px">${el.tipo || 'Elemento'} · <span style="color:var(--orange)">${el.codigo}</span></div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
