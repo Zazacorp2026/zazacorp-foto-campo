@@ -576,11 +576,21 @@ let rutaDelDiaCache = [];
 
 function obtenerUbicacionActual() {
   return new Promise((resolve) => {
-    if (!navigator.geolocation) { resolve(null); return; }
+    if (!navigator.geolocation) { resolve({ error: 'Tu navegador no soporta geolocalización.' }); return; }
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      resolve({ error: 'La ubicación solo funciona en conexión segura (https). Abre la app con https://' });
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000 }
+      (err) => {
+        let msg = 'No se pudo obtener tu ubicación.';
+        if (err.code === 1) msg = 'Permiso de ubicación denegado. Activa el permiso de ubicación para esta app en tu navegador.';
+        else if (err.code === 2) msg = 'No se pudo determinar tu ubicación (GPS apagado o sin señal).';
+        else if (err.code === 3) msg = 'Se agotó el tiempo esperando tu ubicación. Intenta de nuevo con mejor señal.';
+        resolve({ error: msg });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
     );
   });
 }
@@ -592,7 +602,8 @@ async function verRutaDelDia() {
     const ubic = await obtenerUbicacionActual();
     cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
     let url = SCRIPT_URL + '?action=rfGetRutaDelDia';
-    if (ubic) url += '&lat=' + ubic.lat + '&lon=' + ubic.lon;
+    const tieneUbicacion = ubic && !ubic.error;
+    if (tieneUbicacion) url += '&lat=' + ubic.lat + '&lon=' + ubic.lon;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta del día');
@@ -601,7 +612,8 @@ async function verRutaDelDia() {
       cont.innerHTML = '<div class="empty-sub" style="padding:10px 0">No tienes elementos pendientes por fotografiar.</div>';
       return;
     }
-    const avisoGPS = ubic ? '' : '<div style="font-size:11px;color:var(--muted);margin-bottom:8px">📍 No se pudo usar tu ubicación actual; la ruta empieza desde el primer punto disponible.</div>';
+    const avisoGPS = tieneUbicacion ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ ' + (ubic && ubic.error ? ubic.error : 'No se pudo usar tu ubicación actual.') + ' La ruta empieza desde el primer punto disponible.</div>';
+    const sinMapaAviso = data.mapsUrl ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ Ninguno de los elementos pendientes tiene coordenadas GPS guardadas, así que no se puede generar el link de Google Maps.</div>';
     const pasos = rutaDelDiaCache.map(function(el, i) {
       return '<div class="ruta-step" style="cursor:pointer" onclick="abrirCapturaDesdeRuta(' + i + ')">' +
         '<div class="ruta-num">' + (i+1) + '</div>' +
@@ -615,6 +627,7 @@ async function verRutaDelDia() {
     cont.innerHTML =
       '<div class="ruta-card">' +
         avisoGPS +
+        sinMapaAviso +
         pasos +
         (data.mapsUrl ? '<a class="ruta-maps-link" href="' + data.mapsUrl + '" target="_blank">📍 Abrir ruta completa en Google Maps (' + rutaDelDiaCache.length + ' puntos)</a>' : '') +
       '</div>';
