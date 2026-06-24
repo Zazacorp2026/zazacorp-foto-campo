@@ -229,7 +229,10 @@
     </div>
 
     <div id="page-asignaciones" class="page">
-      <div class="section-title">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Asignaciones del día<span class="badge" id="asig-badge">0</span></span>
+        <button onclick="sincronizarFotografo()" id="btn-sync" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px">🔄 Sincronizar</button>
+      </div>
       <button class="ruta-btn global" onclick="verRutaGlobal()">🧭 Agrupar puntos cercanos (todos los clientes)</button>
       <div id="ruta-global-resultado"></div>
       <div id="asig-list"></div>
@@ -449,6 +452,13 @@ function iniciarPollingFotografo() {
 }
 function detenerPollingFotografo() {
   if (pollingFotografoInterval) { clearInterval(pollingFotografoInterval); pollingFotografoInterval = null; }
+}
+
+async function sincronizarFotografo() {
+  const btn = document.getElementById('btn-sync');
+  if (btn) { btn.textContent = '⏳ Sincronizando...'; btn.disabled = true; }
+  await loadAsignacionesFotografo();
+  if (btn) { btn.textContent = '🔄 Sincronizar'; btn.disabled = false; }
 }
 
 async function loadAsignacionesFotografo() {
