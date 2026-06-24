@@ -250,7 +250,10 @@
     </div>
 
     <div id="page-ejecutiva-lista" class="page">
-      <div class="section-title blue">Asignaciones activas<span class="badge blue" id="ejec-badge">0</span></div>
+      <div class="section-title blue" style="display:flex;align-items:center;justify-content:space-between">
+        <span>Asignaciones activas<span class="badge blue" id="ejec-badge">0</span></span>
+        <button onclick="sincronizarEjecutiva()" id="btn-sync-ejec" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px">🔄 Sincronizar</button>
+      </div>
       <div id="ejec-asig-list"></div>
 
       <div class="section-title" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
@@ -803,6 +806,13 @@ function compressImage(file, maxW, quality) {
   });
 }
 window.addEventListener('online', () => { if (offlineQueue.length > 0) flushQueue(); });
+
+async function sincronizarEjecutiva() {
+  const btn = document.getElementById('btn-sync-ejec');
+  if (btn) { btn.textContent = '⏳ Sincronizando...'; btn.disabled = true; }
+  await showEjecutivaLista();
+  if (btn) { btn.textContent = '🔄 Sincronizar'; btn.disabled = false; }
+}
 
 async function showEjecutivaLista() {
   showPage('page-ejecutiva-lista');
