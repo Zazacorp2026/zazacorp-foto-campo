@@ -1462,7 +1462,7 @@ async function crearAsignacion() {
     if (!el) return;
     const turnoGroup = document.getElementById('contratado-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
-    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '' };
+    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '', lat: el.lat || '', lon: el.lon || '' };
     elementos.push(...expandirPorTurno(base, turno));
   });
 
