@@ -862,7 +862,8 @@ async function showEjecutivaLista() {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
-    const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    const esSupervisor = currentUser.nombre.toUpperCase() === 'JORGE';
+    const mias = esSupervisor ? todas : todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
     misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
 
     function pctDe(a) {
@@ -893,7 +894,7 @@ async function showEjecutivaLista() {
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
-              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}</div>
+              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}${esSupervisor ? ' · 👤 ' + (a.creadoPor || '—') : ''}</div>
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
