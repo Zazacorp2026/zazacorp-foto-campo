@@ -243,6 +243,7 @@
       <div style="margin-bottom:14px">
         <div style="font-size:19px;font-weight:800;color:#fff" id="asig-detail-cliente"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px" id="asig-detail-meta"></div>
+        <div id="asig-detail-contacto" style="margin-top:8px"></div>
       </div>
       <button class="ruta-btn" onclick="verRutaSugerida()">🗺️ Ver ruta sugerida</button>
       <div id="ruta-resultado"></div>
@@ -536,9 +537,25 @@ function openAsignacionFotografo(id) {
   if (!currentAsig) return;
   document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
   document.getElementById('asig-detail-meta').textContent = `${(currentAsig.elementos||[]).length} elementos · Límite: ${currentAsig.fechaLimite || 'Sin fecha'}`;
+  document.getElementById('asig-detail-contacto').innerHTML = renderBotonContactoEjecutiva(currentAsig);
   document.getElementById('ruta-resultado').innerHTML = '';
   renderElementosFotografo();
   showPage('page-elementos');
+}
+
+function renderBotonContactoEjecutiva(asig) {
+  const nombre = asig.creadoPor || '';
+  if (!nombre) return '';
+  const tel = asig.creadoPorTel || '';
+  const email = asig.creadoPorEmail || '';
+  if (tel) {
+    const msg = encodeURIComponent('Hola ' + nombre + ', te escribo por la asignación de ' + (asig.cliente || '') + ' en Zaza Report.');
+    return '<a href="https://wa.me/' + tel + '?text=' + msg + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--green);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">💬 Escribir a ' + nombre + '</a>';
+  }
+  if (email) {
+    return '<a href="mailto:' + email + '" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">✉️ Escribir a ' + nombre + '</a>';
+  }
+  return '<div style="font-size:12px;color:var(--muted)">👤 Asignada por ' + nombre + '</div>';
 }
 
 async function verRutaSugerida() {
@@ -615,12 +632,19 @@ async function verRutaDelDia() {
     const avisoGPS = tieneUbicacion ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ ' + (ubic && ubic.error ? ubic.error : 'No se pudo usar tu ubicación actual.') + ' La ruta empieza desde el primer punto disponible.</div>';
     const sinMapaAviso = data.mapsUrl ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ Ninguno de los elementos pendientes tiene coordenadas GPS guardadas, así que no se puede generar el link de Google Maps.</div>';
     const pasos = rutaDelDiaCache.map(function(el, i) {
+      const ej = el.ejecutiva || {};
+      let contactoBtn = '';
+      if (ej.tel) {
+        const msg = encodeURIComponent('Hola ' + ej.nombre + ', te escribo por una novedad en ' + (el.clienteAsignacion || '') + ' (' + (el.ubicacion || '') + ').');
+        contactoBtn = '<a href="https://wa.me/' + ej.tel + '?text=' + msg + '" target="_blank" onclick="event.stopPropagation()" style="font-size:16px;padding:4px">💬</a>';
+      }
       return '<div class="ruta-step" style="cursor:pointer" onclick="abrirCapturaDesdeRuta(' + i + ')">' +
         '<div class="ruta-num">' + (i+1) + '</div>' +
         '<div style="flex:1">' +
           '<div style="font-weight:700;color:#fff;font-size:13px">' + (el.tipoElemento || 'Elemento') + (!el.lat ? ' <span style="color:var(--muted);font-weight:400">(sin GPS)</span>' : '') + '</div>' +
-          '<div style="font-size:12px;color:var(--muted)">' + (el.clienteAsignacion || '—') + ' · ' + (el.ubicacion || '—') + '</div>' +
+          '<div style="font-size:12px;color:var(--muted)">' + (el.clienteAsignacion || '—') + ' · ' + (el.ubicacion || '—') + (ej.nombre ? ' · 👤 ' + ej.nombre : '') + '</div>' +
         '</div>' +
+        contactoBtn +
         '<div style="font-size:18px">📷</div>' +
       '</div>';
     }).join('');
@@ -889,12 +913,14 @@ async function showEjecutivaLista() {
           <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
           <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
         </div>`;
+      const contactoEjecutivaJorge = esSupervisor ? renderBotonContactoEjecutiva(a) : '';
       return `
         <div class="asig-card${isDone?' done':''}">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
               <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}${esSupervisor ? ' · 👤 ' + (a.creadoPor || '—') : ''}</div>
+              ${contactoEjecutivaJorge ? '<div style="margin-top:6px">' + contactoEjecutivaJorge + '</div>' : ''}
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
