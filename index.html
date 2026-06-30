@@ -1660,35 +1660,38 @@ async function cargarVallasLED() {
 // ── LED multi-cliente: tipo → lista de elementos del inventario ──
 let ledSeleccionados = []; // array de objetos {codigo, tipo, ubicacion, lugar, lat, lon, foto}
 
-function onLedTipoChange() {
+async function onLedTipoChange() {
   const tipo = document.getElementById('led-tipo-selector').value;
   const lista = document.getElementById('led-elementos-lista');
-  if (!tipo) { lista.innerHTML = ''; return; }
+  if (!tipo) { lista.innerHTML = ''; window._ledFiltradosActuales = []; return; }
 
-  // Filtrar elementosContratadosCache por tipo (ya cargado al elegir cliente)
-  const filtrados = elementosContratadosCache.filter(el =>
-    String(el.tipo||'').trim().toUpperCase() === tipo.toUpperCase()
-  );
+  lista.innerHTML = '<div class="empty" style="padding:12px"><div class="spinner" style="margin:0 auto 6px"></div><div class="empty-sub">Cargando elementos...</div></div>';
 
-  if (!filtrados.length) {
-    lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;font-size:12px">No hay elementos de este tipo contratados para este cliente.</div>';
-    return;
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorTipo&tipo=' + encodeURIComponent(tipo));
+    const filtrados = await res.json();
+    window._ledFiltradosActuales = filtrados;
+
+    if (!filtrados.length) {
+      lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;font-size:12px">No hay elementos de este tipo en el inventario contratado.</div>';
+      return;
+    }
+
+    lista.innerHTML = filtrados.map((el, i) => `
+      <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;margin-bottom:8px;cursor:pointer">
+        <input type="checkbox" class="led-elem-check" data-led-idx="${i}" data-codigo="${(el.codigo||'').replace(/"/g,'&quot;')}" style="width:20px;height:20px;accent-color:#818cf8;flex-shrink:0"/>
+        ${el.foto && String(el.foto).startsWith('http') ? `<img src="${el.foto}" style="width:64px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0"/>` : `<div style="width:64px;height:48px;background:var(--dark3);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px">📷</div>`}
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:13px">${el.tipo} · <span style="color:#818cf8">${el.codigo}</span></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">👤 ${el.cliente || '—'} · 📍 ${el.lugar || '—'}</div>
+          <div style="font-size:11px;color:var(--orange);margin-top:2px">🎬 Solo video · No aplica día/noche</div>
+        </div>
+      </label>
+    `).join('');
+  } catch(e) {
+    lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;color:var(--red);font-size:12px">Error cargando elementos. Intenta de nuevo.</div>';
   }
-
-  lista.innerHTML = filtrados.map((el, i) => `
-    <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;margin-bottom:8px;cursor:pointer">
-      <input type="checkbox" class="led-elem-check" data-led-idx="${i}" data-codigo="${(el.codigo||'').replace(/"/g,'&quot;')}" style="width:20px;height:20px;accent-color:#818cf8;flex-shrink:0"/>
-      ${el.foto && String(el.foto).startsWith('http') ? `<img src="${el.foto}" style="width:64px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0"/>` : `<div style="width:64px;height:48px;background:var(--dark3);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px">📷</div>`}
-      <div>
-        <div style="font-weight:700;color:#fff;font-size:13px">${el.tipo} · <span style="color:#818cf8">${el.codigo}</span></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
-        <div style="font-size:11px;color:var(--orange);margin-top:2px">🎬 Solo video · No aplica día/noche</div>
-      </div>
-    </label>
-  `).join('');
-
-  // Guardar referencia para crearAsignacion
-  window._ledFiltradosActuales = filtrados;
 }
 
 // ── Sección manuales: validar que ubic + ciudad estén llenos ──
