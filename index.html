@@ -331,9 +331,49 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
 
 const FOTOGRAFOS = {
-  'fotografo1': { nombre: 'Fotógrafo 1', pin: '1234' },
-  'fotografo2': { nombre: 'Fotógrafo 2', pin: '5678' }
+  'CRISTOPHER': { nombre: 'Cristopher', pin: '1111' },
+  'CARLOS':     { nombre: 'Carlos',     pin: '2222' },
+  'YESSENIA':   { nombre: 'Yessenia',   pin: '3333' },
+  'SASKYA':     { nombre: 'Saskya',     pin: '4444' }
 };
+
+// Zonas por fotógrafo, según columna LUGAR de BITÁCORA.
+// Cristopher y Carlos comparten zona libre (cualquiera de los 2 ve y toma).
+// Saskya cubre solo Quito. Yessenia es catch-all: cualquier ciudad que NO
+// esté en una lista explícita de otro fotógrafo cae en su zona.
+const ZONAS_FOTOGRAFO = {
+  'CRISTOPHER': ['GUAYAQUIL', 'LA AURORA', 'VIA A LA COSTA'],
+  'CARLOS':     ['GUAYAQUIL', 'LA AURORA', 'VIA A LA COSTA'],
+  'SASKYA':     ['QUITO'],
+  'YESSENIA':   null // null = catch-all (todas las demás ciudades)
+};
+
+// ¿Esta ciudad le corresponde a este fotógrafo? Si el elemento no trae
+// ciudad (ej. elemento manual sin BITÁCORA), se muestra a todos para no
+// esconder trabajo por falta de dato.
+function zonaPermiteCiudad(fotografoId, ciudad) {
+  const ciudadUp = String(ciudad || '').trim().toUpperCase();
+  if (!ciudadUp) return true;
+  const zonas = ZONAS_FOTOGRAFO[fotografoId];
+  if (zonas === null) {
+    const todasExplicitas = new Set();
+    Object.values(ZONAS_FOTOGRAFO).forEach(z => { if (z) z.forEach(c => todasExplicitas.add(c)); });
+    return !todasExplicitas.has(ciudadUp);
+  }
+  return zonas.indexOf(ciudadUp) !== -1;
+}
+
+// Devuelve una copia de las asignaciones con los elementos filtrados
+// a la zona del fotógrafo actual. Las asignaciones que se queden sin
+// elementos visibles (todo es de otra ciudad) se ocultan por completo.
+function filtrarAsignacionesPorZona(lista, fotografoId) {
+  if (!fotografoId || !ZONAS_FOTOGRAFO.hasOwnProperty(fotografoId)) return lista;
+  return lista
+    .map(a => Object.assign({}, a, {
+      elementos: (a.elementos || []).filter(el => zonaPermiteCiudad(fotografoId, el.ciudad))
+    }))
+    .filter(a => a.elementos.length > 0);
+}
 
 const EJECUTIVAS = {
   'JORGE':            'Elise0101',
@@ -477,7 +517,8 @@ async function loadAsignacionesFotografo() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    asignaciones = await res.json();
+    const todas = await res.json();
+    asignaciones = filtrarAsignacionesPorZona(todas, currentUser.id);
     renderAsignacionesFotografo();
   } catch(e) {
     document.getElementById('asig-list').innerHTML = `
@@ -725,7 +766,8 @@ async function refrescarAsignacionesSilencioso() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) return;
-    const nuevasAsignaciones = await res.json();
+    const todasNuevas = await res.json();
+    const nuevasAsignaciones = filtrarAsignacionesPorZona(todasNuevas, currentUser.id);
     const cambioCantidad = nuevasAsignaciones.length !== asignaciones.length;
     asignaciones = nuevasAsignaciones;
     // Si la pantalla de lista está activa y no hay un modal de captura
@@ -954,8 +996,18 @@ async function showEjecutivaLista() {
     document.getElementById('ejec-badge').textContent = activas.length;
     document.getElementById('ejec-badge-done').textContent = completadas.length;
 
+    function ciudadesFaltantes(a) {
+      const pendientes = (a.elementos || []).filter(e => e.estado !== 'COMPLETADO');
+      const set = new Set();
+      pendientes.forEach(e => set.add((e.ciudad || '').trim() || 'Sin ciudad'));
+      return Array.from(set);
+    }
+
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
+      const faltan = isDone ? [] : ciudadesFaltantes(a);
+      const tagFaltan = faltan.length
+        ? `<div style="margin-top:4px;font-size:11px;color:var(--orange)">📍 Falta: ${faltan.join(', ')}</div>` : '';
       const acciones = isDone ? `
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pptx')" style="flex:1;padding:8px;background:rgba(255,107,0,0.12);color:var(--orange);border-radius:8px;font-size:12px;font-weight:700">📊 Exportar PPT</button>
@@ -972,6 +1024,7 @@ async function showEjecutivaLista() {
             <div>
               <div class="asig-cliente">${a.cliente}</div>
               <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}${esSupervisor ? ' · 👤 ' + (a.creadoPor || '—') : ''}</div>
+              ${tagFaltan}
               ${contactoEjecutivaJorge ? '<div style="margin-top:6px">' + contactoEjecutivaJorge + '</div>' : ''}
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
@@ -1594,6 +1647,16 @@ function addElementoForm(precarga) {
     <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" value="${(precarga.ubicacion||'').replace(/"/g,'&quot;')}"/>
     <label class="form-label">Código de inventario (opcional)</label>
     <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}"/>
+    <label class="form-label">Ciudad (para asignar al fotógrafo correcto)</label>
+    <select class="form-select" id="elem-ciudad-${idx}" onchange="document.getElementById('elem-ciudad-otra-${idx}').style.display = this.value==='OTRA' ? 'block' : 'none'">
+      <option value="">— Sin especificar (visible para todos) —</option>
+      <option value="GUAYAQUIL"${precarga.ciudad==='GUAYAQUIL'?' selected':''}>Guayaquil</option>
+      <option value="LA AURORA"${precarga.ciudad==='LA AURORA'?' selected':''}>La Aurora</option>
+      <option value="VIA A LA COSTA"${precarga.ciudad==='VIA A LA COSTA'?' selected':''}>Vía a la Costa</option>
+      <option value="QUITO"${precarga.ciudad==='QUITO'?' selected':''}>Quito</option>
+      <option value="OTRA"${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?' selected':''}>Otra ciudad</option>
+    </select>
+    <input class="form-input" id="elem-ciudad-otra-${idx}" placeholder="Nombre de la ciudad" style="display:${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?'block':'none'};margin-top:8px" value="${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?precarga.ciudad.replace(/"/g,'&quot;'):''}"/>
     <label class="form-label">Foto requerida</label>
     <div class="turno-group" id="elem-turno-${idx}" data-value="${turnoActual}">
       <div class="turno-btn${turnoActual==='DIA'?' active':''}" data-turno="DIA" onclick="setTurnoElemento(${idx},'DIA')">☀️ Día</div>
@@ -1642,7 +1705,7 @@ async function crearAsignacion() {
     if (!el) return;
     const turnoGroup = document.getElementById('contratado-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
-    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '', lat: el.lat || '', lon: el.lon || '' };
+    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '', lat: el.lat || '', lon: el.lon || '', ciudad: el.lugar || '' };
     elementos.push(...expandirPorTurno(base, turno));
   });
 
@@ -1657,12 +1720,13 @@ async function crearAsignacion() {
     const ubicacionLED = match ? (match.direccion || match.lugar || '') : '';
     const latLED = match ? (match.lat || '') : '';
     const lonLED = match ? (match.lon || '') : '';
+    const ciudadLED = match ? (match.lugar || '') : '';
     row.querySelectorAll('[id^="led-cliente-"]').forEach(inp => {
       const clienteLED = inp.value.trim();
       if (!clienteLED) return;
       elementos.push({
         tipoElemento: 'Valla LED', ubicacion: ubicacionLED, codigoRef: codigo,
-        observaciones: '', turno: 'AMBAS', lat: latLED, lon: lonLED,
+        observaciones: '', turno: 'AMBAS', lat: latLED, lon: lonLED, ciudad: ciudadLED,
         requiereVideo: true, cliente: clienteLED
       });
     });
@@ -1679,8 +1743,14 @@ async function crearAsignacion() {
     const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
     const turnoGroup = document.getElementById('elem-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
+    const ciudadSel = document.getElementById('elem-ciudad-' + idx);
+    let ciudad = ciudadSel ? ciudadSel.value : '';
+    if (ciudad === 'OTRA') {
+      const otraInput = document.getElementById('elem-ciudad-otra-' + idx);
+      ciudad = otraInput ? otraInput.value.trim() : '';
+    }
     if (tipoElemento || ubicacion) {
-      const base = { tipoElemento, ubicacion, codigoRef, observaciones: '' };
+      const base = { tipoElemento, ubicacion, codigoRef, observaciones: '', ciudad };
       elementos.push(...expandirPorTurno(base, turno));
     }
   });
