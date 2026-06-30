@@ -1448,7 +1448,9 @@ async function showEjecutivaForm() {
   document.getElementById('contratados-title').style.display = 'none';
   elementosFormCount = 0;
   ledFormCount = 0;
-  cargarVallasLED();
+  // cargarVallasLED se llama en modo lazy: solo cuando el usuario
+  // hace click en "+ Agregar valla LED", no al abrir el formulario.
+  // Esto reduce las peticiones simultáneas al backend al mínimo.
 
   const formTitle = document.getElementById('form-titulo-zr');
   const btn = document.getElementById('btn-crear-asignacion');
