@@ -1519,18 +1519,30 @@ function onClienteInput() {
   onClienteInputTimer = setTimeout(buscarElementosCliente, 700);
 }
 
-async function buscarElementosCliente(esReintento) {
+let buscarElementosClienteSeq = 0;
+
+async function buscarElementosCliente(esReintento, miTurno) {
   const cliente = document.getElementById('form-cliente').value.trim();
   const list = document.getElementById('contratados-list');
   const title = document.getElementById('contratados-title');
   if (!cliente) { title.style.display = 'none'; list.innerHTML = ''; return; }
 
+  // Cada búsqueda nueva (no-reintento) toma el siguiente número de turno.
+  // Si una respuesta vieja llega después de que ya hay una más reciente en
+  // curso, se descarta en vez de pisar la pantalla con datos desactualizados
+  // — esto pasaba al escribir rápido: cada letra disparaba una búsqueda y
+  // las respuestas podían llegar fuera de orden.
+  if (!esReintento) { buscarElementosClienteSeq++; miTurno = buscarElementosClienteSeq; }
+  const turno = miTurno;
+
   list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   title.style.display = 'flex';
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente));
+    if (turno !== buscarElementosClienteSeq) return; // ya hay una búsqueda más nueva en curso
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const elementos = await res.json();
+    if (turno !== buscarElementosClienteSeq) return;
     if (elementos && elementos.error) throw new Error(elementos.error);
     elementosContratadosCache = elementos;
     document.getElementById('contratados-badge').textContent = elementos.length;
@@ -1556,6 +1568,7 @@ async function buscarElementosCliente(esReintento) {
         </div>
       </label>`).join('');
   } catch(e) {
+    if (turno !== buscarElementosClienteSeq) return;
     // Reintento automático UNA vez: Apps Script suele tardar más de lo
     // normal en su primera ejecución después de un rato sin uso ("arranque
     // en frío"), lo que puede hacer fallar este primer intento aunque todo
@@ -1564,7 +1577,7 @@ async function buscarElementosCliente(esReintento) {
     if (!esReintento) {
       list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div><div class="empty-sub" style="margin-top:8px">Reintentando...</div></div>';
       await new Promise(r => setTimeout(r, 2000));
-      return buscarElementosCliente(true);
+      return buscarElementosCliente(true, turno);
     }
     list.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al buscar elementos. Intenta de nuevo.</div>';
   }
