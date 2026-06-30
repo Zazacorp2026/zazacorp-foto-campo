@@ -280,12 +280,33 @@
       <div id="contratados-list"></div>
 
       <div class="section-title" style="color:#818cf8">📺 Elementos LED (multi-cliente)</div>
-      <div id="led-form-list"></div>
-      <button class="add-elem-btn" onclick="addElementoLED()" style="border-color:rgba(99,102,241,0.4);color:#818cf8">+ Agregar valla LED</button>
+      <div class="form-card" id="led-selector-card">
+        <label class="form-label">Tipo de elemento LED</label>
+        <select class="form-select" id="led-tipo-selector" onchange="onLedTipoChange()">
+          <option value="">— Seleccionar tipo —</option>
+          <option value="Valla LED">Valla LED</option>
+          <option value="Pantalla">Pantalla</option>
+          <option value="Paso Peatonal LED">Paso Peatonal LED</option>
+          <option value="Paso Vehicular LED">Paso Vehicular LED</option>
+          <option value="Paradero LED">Paradero LED</option>
+        </select>
+        <div id="led-elementos-lista" style="margin-top:8px"></div>
+      </div>
+      <div id="led-seleccionados-lista" style="margin-bottom:8px"></div>
 
       <div class="section-title blue">Elementos manuales adicionales</div>
-      <div id="elementos-form-list"></div>
-      <button class="add-elem-btn" onclick="cargarVallasLED();addElementoForm()">+ Agregar elemento manual</button>
+      <div class="form-card">
+        <label class="form-label">Tipo de elemento</label>
+        <select class="form-select" id="manual-tipo">
+          <option value="">— Seleccionar —</option>
+        </select>
+        <label class="form-label">Ubicación / referencia <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="manual-ubic" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" oninput="validarManual()"/>
+        <label class="form-label">Ciudad <span style="color:var(--red)">*</span></label>
+        <input class="form-input" id="manual-ciudad" placeholder="Ej: Guayaquil" oninput="validarManual()"/>
+        <button class="add-elem-btn" id="btn-add-manual" onclick="agregarElementoManual()" disabled style="opacity:0.4">+ Agregar elemento manualmente</button>
+      </div>
+      <div id="elementos-manuales-lista" style="margin-bottom:8px"></div>
       <button class="submit-asig-btn" id="btn-crear-asignacion" onclick="crearAsignacion()">Crear asignación</button>
     </div>
   </div>
@@ -1449,15 +1470,22 @@ function editarAsignacion(asignacionId) {
 async function showEjecutivaForm() {
   showPage('page-ejecutiva-form');
   document.getElementById('fab-new-asig').style.display = 'none';
-  document.getElementById('elementos-form-list').innerHTML = '';
-  document.getElementById('led-form-list').innerHTML = '';
+  document.getElementById('elementos-form-list') && (document.getElementById('elementos-form-list').innerHTML = '');
+  document.getElementById('led-elementos-lista').innerHTML = '';
+  document.getElementById('led-seleccionados-lista').innerHTML = '';
+  document.getElementById('elementos-manuales-lista').innerHTML = '';
   document.getElementById('contratados-list').innerHTML = '';
   document.getElementById('contratados-title').style.display = 'none';
+  document.getElementById('led-tipo-selector').value = '';
+  document.getElementById('manual-tipo').value = '';
+  document.getElementById('manual-ubic').value = '';
+  document.getElementById('manual-ciudad').value = '';
+  validarManual();
+  elementosManualesData = [];
+  window._ledFiltradosActuales = [];
   elementosFormCount = 0;
   ledFormCount = 0;
-  // cargarVallasLED se llama en modo lazy: solo cuando el usuario
-  // hace click en "+ Agregar valla LED", no al abrir el formulario.
-  // Esto reduce las peticiones simultáneas al backend al mínimo.
+  initManualTipos();
 
   const formTitle = document.getElementById('form-titulo-zr');
   const btn = document.getElementById('btn-crear-asignacion');
@@ -1626,144 +1654,153 @@ async function cargarVallasLED() {
     const res = await fetch(SCRIPT_URL + '?action=rfGetVallasLED');
     vallasLEDCache = await res.json();
     vallasLEDCargadas = true;
-    const dl = document.getElementById('led-datalist');
-    if (dl) dl.innerHTML = vallasLEDCache.map(v => `<option value="${(v.codigo||'').replace(/"/g,'&quot;')}"></option>`).join('');
   } catch(e) { /* silencioso */ }
 }
 
-function addElementoLED() {
-  cargarVallasLED();
-  const idx = ledFormCount++;
+// ── LED multi-cliente: tipo → lista de elementos del inventario ──
+let ledSeleccionados = []; // array de objetos {codigo, tipo, ubicacion, lugar, lat, lon, foto}
+
+function onLedTipoChange() {
+  const tipo = document.getElementById('led-tipo-selector').value;
+  const lista = document.getElementById('led-elementos-lista');
+  if (!tipo) { lista.innerHTML = ''; return; }
+
+  // Filtrar elementosContratadosCache por tipo (ya cargado al elegir cliente)
+  const filtrados = elementosContratadosCache.filter(el =>
+    String(el.tipo||'').trim().toUpperCase() === tipo.toUpperCase()
+  );
+
+  if (!filtrados.length) {
+    lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;font-size:12px">No hay elementos de este tipo contratados para este cliente.</div>';
+    return;
+  }
+
+  lista.innerHTML = filtrados.map((el, i) => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;margin-bottom:8px;cursor:pointer">
+      <input type="checkbox" class="led-elem-check" data-led-idx="${i}" data-codigo="${(el.codigo||'').replace(/"/g,'&quot;')}" style="width:20px;height:20px;accent-color:#818cf8;flex-shrink:0"/>
+      ${el.foto && String(el.foto).startsWith('http') ? `<img src="${el.foto}" style="width:64px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0"/>` : `<div style="width:64px;height:48px;background:var(--dark3);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px">📷</div>`}
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:13px">${el.tipo} · <span style="color:#818cf8">${el.codigo}</span></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
+        <div style="font-size:11px;color:var(--orange);margin-top:2px">🎬 Solo video · No aplica día/noche</div>
+      </div>
+    </label>
+  `).join('');
+
+  // Guardar referencia para crearAsignacion
+  window._ledFiltradosActuales = filtrados;
+}
+
+// ── Sección manuales: validar que ubic + ciudad estén llenos ──
+function validarManual() {
+  const ubic = (document.getElementById('manual-ubic').value || '').trim();
+  const ciudad = (document.getElementById('manual-ciudad').value || '').trim();
+  const btn = document.getElementById('btn-add-manual');
+  const ok = ubic.length > 0 && ciudad.length > 0;
+  btn.disabled = !ok;
+  btn.style.opacity = ok ? '1' : '0.4';
+}
+
+// Inicializar selector de tipos manuales con todos los tipos
+function initManualTipos() {
+  const sel = document.getElementById('manual-tipo');
+  if (!sel || sel.options.length > 1) return;
+  TIPOS_ELEMENTO.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+}
+
+let elementosManualesData = []; // array de objetos ya confirmados
+
+function agregarElementoManual() {
+  const tipo = document.getElementById('manual-tipo').value;
+  const ubic = document.getElementById('manual-ubic').value.trim();
+  const ciudad = document.getElementById('manual-ciudad').value.trim();
+  if (!ubic || !ciudad) return;
+
+  const esLEDManual = ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'].indexOf(tipo) !== -1;
+  const obj = { tipoElemento: tipo, ubicacion: ubic, ciudad, requiereVideo: esLEDManual, turno: 'AMBAS', codigoRef: '', lat: '', lon: '' };
+  elementosManualesData.push(obj);
+
+  const cont = document.getElementById('elementos-manuales-lista');
+  const idx = elementosManualesData.length - 1;
   const div = document.createElement('div');
   div.className = 'elem-row';
-  div.id = 'led-row-' + idx;
+  div.id = 'manual-item-' + idx;
   div.innerHTML = `
-    <button class="rm-btn" onclick="document.getElementById('led-row-${idx}').remove()">✕</button>
-    <label class="form-label">Código de valla LED</label>
-    <input class="form-input" id="led-codigo-${idx}" placeholder="Buscar código de valla LED..." list="led-datalist" oninput="onLedCodigoInput(${idx})"/>
-    <datalist id="led-datalist"></datalist>
-    <div id="led-preview-${idx}"></div>
-    <label class="form-label" style="margin-top:10px">Clientes en esta valla LED <span style="color:var(--red)">*</span></label>
-    <div id="led-clientes-${idx}"></div>
-    <button type="button" onclick="addClienteLED(${idx})" style="margin-top:6px;padding:8px;width:100%;background:rgba(99,102,241,0.1);border:1px dashed rgba(99,102,241,0.4);border-radius:8px;color:#818cf8;font-size:12px;font-weight:700">+ Agregar cliente a esta valla</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:13px">${tipo || 'Sin tipo'}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${ubic}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${ciudad}${esLEDManual ? ' · 🎬 Solo video' : ''}</div>
+      </div>
+      <button onclick="eliminarManual(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);padding:4px 10px;border-radius:8px;font-size:12px;flex-shrink:0">✕</button>
+    </div>
   `;
-  document.getElementById('led-form-list').appendChild(div);
-  addClienteLED(idx); // arranca con un cliente vacío listo para llenar
+  cont.appendChild(div);
+
+  // Reset campos
+  document.getElementById('manual-tipo').value = '';
+  document.getElementById('manual-ubic').value = '';
+  document.getElementById('manual-ciudad').value = '';
+  validarManual();
 }
 
-function onLedCodigoInput(idx) {
-  const codigo = document.getElementById('led-codigo-' + idx).value.trim();
-  const preview = document.getElementById('led-preview-' + idx);
-  const match = vallasLEDCache.find(v => String(v.codigo).trim().toUpperCase() === codigo.toUpperCase());
-  if (match && match.foto) {
-    preview.innerHTML = `
-      <div style="display:flex;gap:10px;align-items:center;margin-top:6px;padding:8px;background:rgba(255,255,255,0.04);border-radius:8px">
-        <img src="${match.foto}" style="width:70px;height:52px;object-fit:cover;border-radius:6px"/>
-        <div style="font-size:11px;color:var(--muted)">${match.direccion || match.lugar || ''}</div>
-      </div>`;
-  } else if (match) {
-    preview.innerHTML = `<div style="font-size:11px;color:var(--muted);margin-top:6px">📍 ${match.direccion || match.lugar || ''} (sin foto en bitácora)</div>`;
-  } else {
-    preview.innerHTML = codigo ? `<div style="font-size:11px;color:#FBBF24;margin-top:6px">⚠️ Código no encontrado en bitácora — puedes escribirlo igual si es correcto</div>` : '';
-  }
-}
-
-let ledClienteCount = 0;
-function addClienteLED(ledIdx) {
-  const cIdx = ledClienteCount++;
-  const cont = document.getElementById('led-clientes-' + ledIdx);
-  const row = document.createElement('div');
-  row.style.display = 'flex'; row.style.gap = '6px'; row.style.marginTop = '6px';
-  row.id = 'led-cliente-row-' + cIdx;
-  row.innerHTML = `
-    <input class="form-input" id="led-cliente-${cIdx}" placeholder="Cliente de esta pauta" list="clientes-datalist" style="flex:1"/>
-    <button type="button" onclick="document.getElementById('led-cliente-row-${cIdx}').remove()" style="padding:0 12px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px">✕</button>
-  `;
-  cont.appendChild(row);
+function eliminarManual(idx) {
+  elementosManualesData[idx] = null; // marcar como eliminado
+  const div = document.getElementById('manual-item-' + idx);
+  if (div) div.remove();
 }
 
 function esLED(tipo) {
-  return ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED']
-    .indexOf(tipo) !== -1;
+  return ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'].indexOf(tipo) !== -1;
 }
 
+// Ya no se usa addElementoForm para nuevos — solo para precargar en edición
 function addElementoForm(precarga) {
-  precarga = precarga || {};
-  const idx = elementosFormCount++;
-  const opts = TIPOS_ELEMENTO_MANUAL.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
+  if (!precarga) return;
+  // En modo edición de asignación, elementos ya creados se muestran en la lista manual
+  const esLEDManual = esLED(precarga.tipoElemento || '');
+  const obj = {
+    tipoElemento: precarga.tipoElemento || '',
+    ubicacion: precarga.ubicacion || '',
+    ciudad: precarga.ciudad || '',
+    codigoRef: precarga.codigoRef || '',
+    lat: precarga.lat || '',
+    lon: precarga.lon || '',
+    requiereVideo: precarga.requiereVideo || esLEDManual,
+    turno: precarga.turno || 'AMBAS',
+    estado: precarga.estado || 'PENDIENTE'
+  };
+  elementosManualesData.push(obj);
+  const cont = document.getElementById('elementos-manuales-lista');
+  const idx = elementosManualesData.length - 1;
   const div = document.createElement('div');
   div.className = 'elem-row';
-  div.id = 'elem-row-' + idx;
-  const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
-
-  // Pre-buscar foto si ya viene código
-  const fotoInicial = precarga._foto ? `<img src="${precarga._foto}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"/>` : '';
-
+  div.id = 'manual-item-' + idx;
+  const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
   div.innerHTML = `
-    ${tagEstado}
-    <button class="rm-btn" onclick="document.getElementById('elem-row-${idx}').remove()">✕</button>
-    <label class="form-label" style="${tagEstado?'margin-top:20px':''}">Tipo de elemento LED</label>
-    <select class="form-select" id="elem-tipo-${idx}" onchange="onTipoElemChange(${idx})">
-      <option value="">— Seleccionar —</option>${opts}
-    </select>
-    <label class="form-label">Código de inventario</label>
-    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: PLED-GYE-001" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}" oninput="onElemCodInput(${idx})"/>
-    <div id="elem-foto-${idx}" style="margin-bottom:8px">${fotoInicial}</div>
-    <label class="form-label">Ubicación / referencia</label>
-    <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" value="${(precarga.ubicacion||'').replace(/"/g,'&quot;')}"/>
-    <label class="form-label">Ciudad (para asignar al fotógrafo correcto)</label>
-    <select class="form-select" id="elem-ciudad-${idx}" onchange="document.getElementById('elem-ciudad-otra-${idx}').style.display = this.value==='OTRA' ? 'block' : 'none'">
-      <option value="">— Sin especificar (visible para todos) —</option>
-      <option value="GUAYAQUIL"${precarga.ciudad==='GUAYAQUIL'?' selected':''}>Guayaquil</option>
-      <option value="LA AURORA"${precarga.ciudad==='LA AURORA'?' selected':''}>La Aurora</option>
-      <option value="VIA A LA COSTA"${precarga.ciudad==='VIA A LA COSTA'?' selected':''}>Vía a la Costa</option>
-      <option value="QUITO"${precarga.ciudad==='QUITO'?' selected':''}>Quito</option>
-      <option value="OTRA"${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?' selected':''}>Otra ciudad</option>
-    </select>
-    <input class="form-input" id="elem-ciudad-otra-${idx}" placeholder="Nombre de la ciudad" style="display:${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?'block':'none'};margin-top:8px" value="${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?precarga.ciudad.replace(/"/g,'&quot;'):''}"/>
-    <div id="elem-info-led-${idx}" style="background:rgba(255,107,0,0.08);border:1px solid rgba(255,107,0,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--orange);margin-top:4px">
-      🎬 Elemento LED — solo se requiere <strong>video</strong>. No aplica día/noche.
+    <div style="display:flex;justify-content:space-between;align-items:flex-start">
+      <div>
+        ${tagEstado}
+        <div style="font-weight:700;color:#fff;font-size:13px">${obj.tipoElemento || 'Sin tipo'}${obj.codigoRef ? ' · <span style="color:var(--orange)">' + obj.codigoRef + '</span>' : ''}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${obj.ubicacion}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${obj.ciudad || 'Sin ciudad'}${obj.requiereVideo ? ' · 🎬 Solo video' : ' · ' + (obj.turno||'AMBAS')}</div>
+      </div>
+      <button onclick="eliminarManual(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);padding:4px 10px;border-radius:8px;font-size:12px;flex-shrink:0">✕</button>
     </div>
-    <input type="hidden" id="elem-turno-${idx}" data-value="AMBAS"/>
   `;
-  document.getElementById('elementos-form-list').appendChild(div);
-}
-
-// Al cambiar el tipo, actualiza info visual (ya todo es LED así que es cosmético)
-function onTipoElemChange(idx) { /* todos los tipos son LED, nada extra que hacer */ }
-
-// Al escribir el código, busca la foto en el caché de vallas LED
-function onElemCodInput(idx) {
-  const cod = (document.getElementById('elem-cod-' + idx) || {}).value || '';
-  const match = vallasLEDCache.find(v => String(v.codigo||'').trim().toUpperCase() === cod.trim().toUpperCase());
-  const fotoDiv = document.getElementById('elem-foto-' + idx);
-  if (!fotoDiv) return;
-  if (match && match.foto && String(match.foto).startsWith('http')) {
-    fotoDiv.innerHTML = `<img src="${match.foto}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"/>`;
-    // Autocompletar ubicación si está vacía
-    const ubicInput = document.getElementById('elem-ubic-' + idx);
-    if (ubicInput && !ubicInput.value) ubicInput.value = match.direccion || match.lugar || '';
-    // Autocompletar ciudad
-    const ciudadSel = document.getElementById('elem-ciudad-' + idx);
-    if (ciudadSel && !ciudadSel.value && match.lugar) {
-      const lugarUp = match.lugar.trim().toUpperCase();
-      const opts = ['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'];
-      if (opts.includes(lugarUp)) ciudadSel.value = lugarUp;
-    }
-  } else {
-    fotoDiv.innerHTML = '';
-  }
+  cont.appendChild(div);
 }
 
 async function crearAsignacion() {
   const cliente = document.getElementById('form-cliente').value.trim();
   const fechaLimite = document.getElementById('form-fecha-limite').value;
   const observaciones = document.getElementById('form-observaciones').value.trim();
-  if (!cliente) { showToast('Ingresa el nombre del cliente', 'warn'); return; }
+  if (!cliente) { showToast('Selecciona un cliente', 'warn'); return; }
 
-  // Expande un elemento en 1 o 2 filas según su turno requerido.
-  // 'AMBAS' se separa en dos asignaciones (DIA y NOCHE) para que el
-  // fotógrafo pueda subir cada una en el momento correcto del día.
   function expandirPorTurno(base, turno) {
     const t = turno || 'AMBAS';
     if (t === 'AMBAS') {
@@ -1777,7 +1814,7 @@ async function crearAsignacion() {
 
   const elementos = [];
 
-  // Elementos contratados marcados
+  // 1) Elementos contratados seleccionados (checkboxes)
   document.querySelectorAll('.contratado-check:checked').forEach(chk => {
     const idx = chk.dataset.idx;
     const el = elementosContratadosCache[parseInt(idx)];
@@ -1788,55 +1825,27 @@ async function crearAsignacion() {
     elementos.push(...expandirPorTurno(base, turno));
   });
 
-  // Elementos LED multi-cliente
-  document.querySelectorAll('.elem-row[id^="led-row-"]').forEach(row => {
-    const ledIdx = row.id.replace('led-row-', '');
-    const codigoInput = document.getElementById('led-codigo-' + ledIdx);
-    if (!codigoInput) return;
-    const codigo = codigoInput.value.trim();
-    if (!codigo) return;
-    const match = vallasLEDCache.find(v => String(v.codigo).trim().toUpperCase() === codigo.toUpperCase());
-    const ubicacionLED = match ? (match.direccion || match.lugar || '') : '';
-    const latLED = match ? (match.lat || '') : '';
-    const lonLED = match ? (match.lon || '') : '';
-    const ciudadLED = match ? (match.lugar || '') : '';
-    row.querySelectorAll('[id^="led-cliente-"]').forEach(inp => {
-      const clienteLED = inp.value.trim();
-      if (!clienteLED) return;
-      elementos.push({
-        tipoElemento: 'Valla LED', ubicacion: ubicacionLED, codigoRef: codigo,
-        observaciones: '', turno: 'AMBAS', lat: latLED, lon: lonLED, ciudad: ciudadLED,
-        requiereVideo: true, cliente: clienteLED
-      });
+  // 2) Elementos LED seleccionados del selector tipo → lista
+  document.querySelectorAll('.led-elem-check:checked').forEach(chk => {
+    const i = parseInt(chk.dataset.ledIdx);
+    const fl = window._ledFiltradosActuales || [];
+    const el = fl[i];
+    if (!el) return;
+    elementos.push({
+      tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar,
+      codigoRef: el.codigo, observaciones: '',
+      turno: 'AMBAS', requiereVideo: true,
+      ciudad: el.lugar || '', lat: el.lat || '', lon: el.lon || ''
     });
   });
 
-  // Elementos manuales (todos son LED — solo video, no turno día/noche)
-  const rows = document.querySelectorAll('.elem-row[id^="elem-row-"]');
-  rows.forEach(row => {
-    const idx = row.id.replace('elem-row-', '');
-    const tipoSel = document.getElementById('elem-tipo-' + idx);
-    if (!tipoSel) return;
-    const tipoElemento = tipoSel.value;
-    const ubicacion = document.getElementById('elem-ubic-' + idx).value.trim();
-    const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
-    const ciudadSel = document.getElementById('elem-ciudad-' + idx);
-    let ciudad = ciudadSel ? ciudadSel.value : '';
-    if (ciudad === 'OTRA') {
-      const otraInput = document.getElementById('elem-ciudad-otra-' + idx);
-      ciudad = otraInput ? otraInput.value.trim() : '';
-    }
-    // Buscar lat/lon y foto del caché LED por código
-    const matchLED = codigoRef
-      ? vallasLEDCache.find(v => String(v.codigo||'').trim().toUpperCase() === codigoRef.toUpperCase())
-      : null;
-    const lat = matchLED ? (matchLED.lat || '') : '';
-    const lon = matchLED ? (matchLED.lon || '') : '';
-    if (tipoElemento || ubicacion) {
-      elementos.push({
-        tipoElemento, ubicacion, codigoRef, observaciones: '',
-        turno: 'AMBAS', requiereVideo: true, ciudad, lat, lon
-      });
+  // 3) Elementos manuales confirmados
+  elementosManualesData.forEach(el => {
+    if (!el) return; // eliminados
+    if (el.requiereVideo) {
+      elementos.push(Object.assign({}, el, { turno: 'AMBAS' }));
+    } else {
+      elementos.push(...expandirPorTurno(el, el.turno || 'AMBAS'));
     }
   });
 
