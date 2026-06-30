@@ -266,7 +266,9 @@
       <div class="section-title blue" id="form-titulo-zr">Nueva asignación</div>
       <div class="form-card">
         <label class="form-label">Cliente *</label>
-        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="onClienteInput()"/>
+        <select class="form-select" id="form-cliente" onchange="buscarElementosCliente()">
+          <option value="">— Selecciona un cliente —</option>
+        </select>
         <datalist id="clientes-datalist"></datalist>
         <label class="form-label">Fecha límite</label>
         <input class="form-input" id="form-fecha-limite" type="date"/>
@@ -1437,7 +1439,7 @@ function editarAsignacion(asignacionId) {
   showEjecutivaForm();
 }
 
-function showEjecutivaForm() {
+async function showEjecutivaForm() {
   showPage('page-ejecutiva-form');
   document.getElementById('fab-new-asig').style.display = 'none';
   document.getElementById('elementos-form-list').innerHTML = '';
@@ -1450,6 +1452,11 @@ function showEjecutivaForm() {
 
   const formTitle = document.getElementById('form-titulo-zr');
   const btn = document.getElementById('btn-crear-asignacion');
+
+  // El dropdown de clientes debe estar lleno ANTES de intentar seleccionar
+  // el cliente de la asignación en edición (si no, el <select> no tiene
+  // ninguna opción todavía y no puede mostrar el valor).
+  await loadClientesAutocomplete(asignacionEnEdicion ? asignacionEnEdicion.cliente : null);
 
   if (asignacionEnEdicion) {
     const a = asignacionEnEdicion;
@@ -1475,6 +1482,8 @@ function showEjecutivaForm() {
     // Precargar los elementos restantes (no LED) como filas manuales editables
     elementosNormales.forEach(el => addElementoForm(el));
     if (!elementosNormales.length && !elementosLED.length) addElementoForm();
+    // Mostrar de una vez los contratados ya marcables de este cliente
+    buscarElementosCliente();
   } else {
     if (formTitle) formTitle.textContent = 'Nueva asignación';
     btn.textContent = 'Crear asignación';
@@ -1483,7 +1492,6 @@ function showEjecutivaForm() {
     document.getElementById('form-observaciones').value = '';
     addElementoForm();
   }
-  loadClientesAutocomplete();
 }
 
 function precargarFilaLED(codigo, clientes) {
@@ -1504,19 +1512,30 @@ function precargarFilaLED(codigo, clientes) {
 let clientesCache = [];
 let elementosContratadosCache = [];
 
-async function loadClientesAutocomplete() {
+// Carga el dropdown de clientes contratados. Filtra por la ejecutiva que
+// inició sesión (cada una solo ve sus propios clientes); Jorge, como
+// supervisor/admin, ve todos. `clienteAsegurar` permite garantizar que un
+// cliente específico (de una asignación en edición) aparezca en la lista
+// aunque no esté dentro de los contratados de esa ejecutiva.
+async function loadClientesAutocomplete(clienteAsegurar) {
+  const sel = document.getElementById('form-cliente');
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetClientesContratados');
+    const esSupervisor = currentUser && currentUser.nombre && currentUser.nombre.toUpperCase() === 'JORGE';
+    const url = esSupervisor
+      ? SCRIPT_URL + '?action=rfGetClientesContratados'
+      : SCRIPT_URL + '?action=rfGetClientesContratadosPorEjecutiva&ejecutiva=' + encodeURIComponent(currentUser.nombre || '');
+    const res = await fetch(url);
     clientesCache = await res.json();
+    if (clienteAsegurar && !clientesCache.includes(clienteAsegurar)) {
+      clientesCache = [clienteAsegurar].concat(clientesCache);
+    }
+    sel.innerHTML = '<option value="">— Selecciona un cliente —</option>' +
+      clientesCache.map(c => `<option value="${c}">${c}</option>`).join('');
     const dl = document.getElementById('clientes-datalist');
-    dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
-  } catch(e) { /* silencioso, no es crítico */ }
-}
-
-let onClienteInputTimer = null;
-function onClienteInput() {
-  clearTimeout(onClienteInputTimer);
-  onClienteInputTimer = setTimeout(buscarElementosCliente, 700);
+    if (dl) dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
+  } catch(e) {
+    sel.innerHTML = '<option value="">— Error cargando clientes, reintenta —</option>';
+  }
 }
 
 let buscarElementosClienteSeq = 0;
