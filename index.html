@@ -285,7 +285,7 @@
 
       <div class="section-title blue">Elementos manuales adicionales</div>
       <div id="elementos-form-list"></div>
-      <button class="add-elem-btn" onclick="addElementoForm()">+ Agregar elemento manual</button>
+      <button class="add-elem-btn" onclick="cargarVallasLED();addElementoForm()">+ Agregar elemento manual</button>
       <button class="submit-asig-btn" id="btn-crear-asignacion" onclick="crearAsignacion()">Crear asignación</button>
     </div>
   </div>
@@ -394,6 +394,13 @@ const TIPOS_ELEMENTO = [
   'Paso Peatonal con Caja de luz','Paso Peatonal LED','Paso Vehicular LED',
   'Paradero LED','Paradero Vinil','Paradero Backlight','Paradero',
   'Cenefa','Caja de Luz','Cercha','Otro'
+];
+
+// Tipos que se muestran en el formulario manual de asignación.
+// Solo LEDs: la ejecutiva usa esta sección para agregar elementos
+// que no están en BITÁCORA como contratados, pero que son LED.
+const TIPOS_ELEMENTO_MANUAL = [
+  'Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'
 ];
 
 let currentRole = null;
@@ -1675,24 +1682,35 @@ function addClienteLED(ledIdx) {
   cont.appendChild(row);
 }
 
+function esLED(tipo) {
+  return ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED']
+    .indexOf(tipo) !== -1;
+}
+
 function addElementoForm(precarga) {
   precarga = precarga || {};
   const idx = elementosFormCount++;
-  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
-  const turnoActual = precarga.turno || 'AMBAS';
+  const opts = TIPOS_ELEMENTO_MANUAL.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
   const div = document.createElement('div');
   div.className = 'elem-row';
   div.id = 'elem-row-' + idx;
   const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
+
+  // Pre-buscar foto si ya viene código
+  const fotoInicial = precarga._foto ? `<img src="${precarga._foto}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"/>` : '';
+
   div.innerHTML = `
     ${tagEstado}
     <button class="rm-btn" onclick="document.getElementById('elem-row-${idx}').remove()">✕</button>
-    <label class="form-label" style="${tagEstado?'margin-top:20px':''}">Tipo de elemento</label>
-    <select class="form-select" id="elem-tipo-${idx}"><option value="">— Seleccionar —</option>${opts}</select>
+    <label class="form-label" style="${tagEstado?'margin-top:20px':''}">Tipo de elemento LED</label>
+    <select class="form-select" id="elem-tipo-${idx}" onchange="onTipoElemChange(${idx})">
+      <option value="">— Seleccionar —</option>${opts}
+    </select>
+    <label class="form-label">Código de inventario</label>
+    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: PLED-GYE-001" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}" oninput="onElemCodInput(${idx})"/>
+    <div id="elem-foto-${idx}" style="margin-bottom:8px">${fotoInicial}</div>
     <label class="form-label">Ubicación / referencia</label>
     <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" value="${(precarga.ubicacion||'').replace(/"/g,'&quot;')}"/>
-    <label class="form-label">Código de inventario (opcional)</label>
-    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}"/>
     <label class="form-label">Ciudad (para asignar al fotógrafo correcto)</label>
     <select class="form-select" id="elem-ciudad-${idx}" onchange="document.getElementById('elem-ciudad-otra-${idx}').style.display = this.value==='OTRA' ? 'block' : 'none'">
       <option value="">— Sin especificar (visible para todos) —</option>
@@ -1703,23 +1721,38 @@ function addElementoForm(precarga) {
       <option value="OTRA"${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?' selected':''}>Otra ciudad</option>
     </select>
     <input class="form-input" id="elem-ciudad-otra-${idx}" placeholder="Nombre de la ciudad" style="display:${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?'block':'none'};margin-top:8px" value="${precarga.ciudad&&!['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'].includes(precarga.ciudad)?precarga.ciudad.replace(/"/g,'&quot;'):''}"/>
-    <label class="form-label">Foto requerida</label>
-    <div class="turno-group" id="elem-turno-${idx}" data-value="${turnoActual}">
-      <div class="turno-btn${turnoActual==='DIA'?' active':''}" data-turno="DIA" onclick="setTurnoElemento(${idx},'DIA')">☀️ Día</div>
-      <div class="turno-btn${turnoActual==='NOCHE'?' active':''}" data-turno="NOCHE" onclick="setTurnoElemento(${idx},'NOCHE')">🌙 Noche</div>
-      <div class="turno-btn${turnoActual==='AMBAS'?' active':''}" data-turno="AMBAS" onclick="setTurnoElemento(${idx},'AMBAS')">☀️🌙 Ambas</div>
+    <div id="elem-info-led-${idx}" style="background:rgba(255,107,0,0.08);border:1px solid rgba(255,107,0,0.3);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--orange);margin-top:4px">
+      🎬 Elemento LED — solo se requiere <strong>video</strong>. No aplica día/noche.
     </div>
+    <input type="hidden" id="elem-turno-${idx}" data-value="AMBAS"/>
   `;
   document.getElementById('elementos-form-list').appendChild(div);
 }
 
-function setTurnoElemento(idx, turno) {
-  const group = document.getElementById('elem-turno-' + idx);
-  if (!group) return;
-  group.dataset.value = turno;
-  group.querySelectorAll('.turno-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.turno === turno);
-  });
+// Al cambiar el tipo, actualiza info visual (ya todo es LED así que es cosmético)
+function onTipoElemChange(idx) { /* todos los tipos son LED, nada extra que hacer */ }
+
+// Al escribir el código, busca la foto en el caché de vallas LED
+function onElemCodInput(idx) {
+  const cod = (document.getElementById('elem-cod-' + idx) || {}).value || '';
+  const match = vallasLEDCache.find(v => String(v.codigo||'').trim().toUpperCase() === cod.trim().toUpperCase());
+  const fotoDiv = document.getElementById('elem-foto-' + idx);
+  if (!fotoDiv) return;
+  if (match && match.foto && String(match.foto).startsWith('http')) {
+    fotoDiv.innerHTML = `<img src="${match.foto}" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:8px"/>`;
+    // Autocompletar ubicación si está vacía
+    const ubicInput = document.getElementById('elem-ubic-' + idx);
+    if (ubicInput && !ubicInput.value) ubicInput.value = match.direccion || match.lugar || '';
+    // Autocompletar ciudad
+    const ciudadSel = document.getElementById('elem-ciudad-' + idx);
+    if (ciudadSel && !ciudadSel.value && match.lugar) {
+      const lugarUp = match.lugar.trim().toUpperCase();
+      const opts = ['GUAYAQUIL','LA AURORA','VIA A LA COSTA','QUITO'];
+      if (opts.includes(lugarUp)) ciudadSel.value = lugarUp;
+    }
+  } else {
+    fotoDiv.innerHTML = '';
+  }
 }
 
 async function crearAsignacion() {
@@ -1778,7 +1811,7 @@ async function crearAsignacion() {
     });
   });
 
-  // Elementos manuales
+  // Elementos manuales (todos son LED — solo video, no turno día/noche)
   const rows = document.querySelectorAll('.elem-row[id^="elem-row-"]');
   rows.forEach(row => {
     const idx = row.id.replace('elem-row-', '');
@@ -1787,17 +1820,23 @@ async function crearAsignacion() {
     const tipoElemento = tipoSel.value;
     const ubicacion = document.getElementById('elem-ubic-' + idx).value.trim();
     const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
-    const turnoGroup = document.getElementById('elem-turno-' + idx);
-    const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
     const ciudadSel = document.getElementById('elem-ciudad-' + idx);
     let ciudad = ciudadSel ? ciudadSel.value : '';
     if (ciudad === 'OTRA') {
       const otraInput = document.getElementById('elem-ciudad-otra-' + idx);
       ciudad = otraInput ? otraInput.value.trim() : '';
     }
+    // Buscar lat/lon y foto del caché LED por código
+    const matchLED = codigoRef
+      ? vallasLEDCache.find(v => String(v.codigo||'').trim().toUpperCase() === codigoRef.toUpperCase())
+      : null;
+    const lat = matchLED ? (matchLED.lat || '') : '';
+    const lon = matchLED ? (matchLED.lon || '') : '';
     if (tipoElemento || ubicacion) {
-      const base = { tipoElemento, ubicacion, codigoRef, observaciones: '', ciudad };
-      elementos.push(...expandirPorTurno(base, turno));
+      elementos.push({
+        tipoElemento, ubicacion, codigoRef, observaciones: '',
+        turno: 'AMBAS', requiereVideo: true, ciudad, lat, lon
+      });
     }
   });
 
