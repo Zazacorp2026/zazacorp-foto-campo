@@ -229,11 +229,8 @@
     </div>
 
     <div id="page-asignaciones" class="page">
-      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Asignaciones del día<span class="badge" id="asig-badge">0</span></span>
-        <button onclick="sincronizarFotografo()" id="btn-sync" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px">🔄 Sincronizar</button>
-      </div>
-      <button class="ruta-btn global" onclick="verRutaDelDia()">🧭 Ver ruta optimizada del día</button>
+      <div class="section-title">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
+      <button class="ruta-btn global" onclick="verRutaGlobal()">🧭 Agrupar puntos cercanos (todos los clientes)</button>
       <div id="ruta-global-resultado"></div>
       <div id="asig-list"></div>
     </div>
@@ -243,7 +240,6 @@
       <div style="margin-bottom:14px">
         <div style="font-size:19px;font-weight:800;color:#fff" id="asig-detail-cliente"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px" id="asig-detail-meta"></div>
-        <div id="asig-detail-contacto" style="margin-top:8px"></div>
       </div>
       <button class="ruta-btn" onclick="verRutaSugerida()">🗺️ Ver ruta sugerida</button>
       <div id="ruta-resultado"></div>
@@ -251,10 +247,7 @@
     </div>
 
     <div id="page-ejecutiva-lista" class="page">
-      <div class="section-title blue" style="display:flex;align-items:center;justify-content:space-between">
-        <span>Asignaciones activas<span class="badge blue" id="ejec-badge">0</span></span>
-        <button onclick="sincronizarEjecutiva()" id="btn-sync-ejec" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px">🔄 Sincronizar</button>
-      </div>
+      <div class="section-title blue">Asignaciones activas<span class="badge blue" id="ejec-badge">0</span></div>
       <div id="ejec-asig-list"></div>
 
       <div class="section-title" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
@@ -266,9 +259,7 @@
       <div class="section-title blue" id="form-titulo-zr">Nueva asignación</div>
       <div class="form-card">
         <label class="form-label">Cliente *</label>
-        <select class="form-select" id="form-cliente" onchange="buscarElementosCliente()">
-          <option value="">— Selecciona un cliente —</option>
-        </select>
+        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="onClienteInput()"/>
         <datalist id="clientes-datalist"></datalist>
         <label class="form-label">Fecha límite</label>
         <input class="form-input" id="form-fecha-limite" type="date"/>
@@ -279,34 +270,9 @@
       <div class="section-title blue" id="contratados-title" style="display:none">Elementos contratados de este cliente<span class="badge blue" id="contratados-badge">0</span></div>
       <div id="contratados-list"></div>
 
-      <div class="section-title" style="color:#818cf8">📺 Elementos LED (multi-cliente)</div>
-      <div class="form-card" id="led-selector-card">
-        <label class="form-label">Tipo de elemento LED</label>
-        <select class="form-select" id="led-tipo-selector" onchange="onLedTipoChange()">
-          <option value="">— Seleccionar tipo —</option>
-          <option value="Valla LED">Valla LED</option>
-          <option value="Pantalla">Pantalla</option>
-          <option value="Paso Peatonal LED">Paso Peatonal LED</option>
-          <option value="Paso Vehicular LED">Paso Vehicular LED</option>
-          <option value="Paradero LED">Paradero LED</option>
-        </select>
-        <div id="led-elementos-lista" style="margin-top:8px"></div>
-      </div>
-      <div id="led-seleccionados-lista" style="margin-bottom:8px"></div>
-
       <div class="section-title blue">Elementos manuales adicionales</div>
-      <div class="form-card">
-        <label class="form-label">Tipo de elemento</label>
-        <select class="form-select" id="manual-tipo">
-          <option value="">— Seleccionar —</option>
-        </select>
-        <label class="form-label">Ubicación / referencia <span style="color:var(--red)">*</span></label>
-        <input class="form-input" id="manual-ubic" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" oninput="validarManual()"/>
-        <label class="form-label">Ciudad <span style="color:var(--red)">*</span></label>
-        <input class="form-input" id="manual-ciudad" placeholder="Ej: Guayaquil" oninput="validarManual()"/>
-        <button class="add-elem-btn" id="btn-add-manual" onclick="agregarElementoManual()" disabled style="opacity:0.4">+ Agregar elemento manualmente</button>
-      </div>
-      <div id="elementos-manuales-lista" style="margin-bottom:8px"></div>
+      <div id="elementos-form-list"></div>
+      <button class="add-elem-btn" onclick="addElementoForm()">+ Agregar elemento manual</button>
       <button class="submit-asig-btn" id="btn-crear-asignacion" onclick="crearAsignacion()">Crear asignación</button>
     </div>
   </div>
@@ -354,52 +320,12 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
 
 const FOTOGRAFOS = {
-  'CRISTOPHER': { nombre: 'Cristopher', pin: '1111' },
-  'CARLOS':     { nombre: 'Carlos',     pin: '2222' },
-  'YESSENIA':   { nombre: 'Yessenia',   pin: '3333' },
-  'SASKYA':     { nombre: 'Saskya',     pin: '4444' }
+  'fotografo1': { nombre: 'Fotógrafo 1', pin: '1234' },
+  'fotografo2': { nombre: 'Fotógrafo 2', pin: '5678' }
 };
-
-// Zonas por fotógrafo, según columna LUGAR de BITÁCORA.
-// Cristopher y Carlos comparten zona libre (cualquiera de los 2 ve y toma).
-// Saskya cubre solo Quito. Yessenia es catch-all: cualquier ciudad que NO
-// esté en una lista explícita de otro fotógrafo cae en su zona.
-const ZONAS_FOTOGRAFO = {
-  'CRISTOPHER': ['GUAYAQUIL', 'LA AURORA', 'VIA A LA COSTA'],
-  'CARLOS':     ['GUAYAQUIL', 'LA AURORA', 'VIA A LA COSTA'],
-  'SASKYA':     ['QUITO'],
-  'YESSENIA':   null // null = catch-all (todas las demás ciudades)
-};
-
-// ¿Esta ciudad le corresponde a este fotógrafo? Si el elemento no trae
-// ciudad (ej. elemento manual sin BITÁCORA), se muestra a todos para no
-// esconder trabajo por falta de dato.
-function zonaPermiteCiudad(fotografoId, ciudad) {
-  const ciudadUp = String(ciudad || '').trim().toUpperCase();
-  if (!ciudadUp) return true;
-  const zonas = ZONAS_FOTOGRAFO[fotografoId];
-  if (zonas === null) {
-    const todasExplicitas = new Set();
-    Object.values(ZONAS_FOTOGRAFO).forEach(z => { if (z) z.forEach(c => todasExplicitas.add(c)); });
-    return !todasExplicitas.has(ciudadUp);
-  }
-  return zonas.indexOf(ciudadUp) !== -1;
-}
-
-// Devuelve una copia de las asignaciones con los elementos filtrados
-// a la zona del fotógrafo actual. Las asignaciones que se queden sin
-// elementos visibles (todo es de otra ciudad) se ocultan por completo.
-function filtrarAsignacionesPorZona(lista, fotografoId) {
-  if (!fotografoId || !ZONAS_FOTOGRAFO.hasOwnProperty(fotografoId)) return lista;
-  return lista
-    .map(a => Object.assign({}, a, {
-      elementos: (a.elementos || []).filter(el => zonaPermiteCiudad(fotografoId, el.ciudad))
-    }))
-    .filter(a => a.elementos.length > 0);
-}
 
 const EJECUTIVAS = {
-  'JORGE':            'Elise0101',
+  'JORGE':            'Zaza2026J',
   'LORENA':           'Zaza2026L',
   'RICARDO':          'Zaza2026R',
   'SASKYA':           'Zaza2026S',
@@ -417,24 +343,14 @@ const TIPOS_ELEMENTO = [
   'Cenefa','Caja de Luz','Cercha','Otro'
 ];
 
-// Tipos que se muestran en el formulario manual de asignación.
-// Solo LEDs: la ejecutiva usa esta sección para agregar elementos
-// que no están en BITÁCORA como contratados, pero que son LED.
-const TIPOS_ELEMENTO_MANUAL = [
-  'Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'
-];
-
 let currentRole = null;
 let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
 let captureTarget = null;
-let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
+let captureData = { frontal: null, panoramica: null, video: null };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
 let elementosFormCount = 0;
-let ledFormCount = 0;
-let vallasLEDCache = [];
-let vallasLEDCargadas = false;
 
 function goToPin(role) {
   currentRole = role;
@@ -535,20 +451,12 @@ function detenerPollingFotografo() {
   if (pollingFotografoInterval) { clearInterval(pollingFotografoInterval); pollingFotografoInterval = null; }
 }
 
-async function sincronizarFotografo() {
-  const btn = document.getElementById('btn-sync');
-  if (btn) { btn.textContent = '⏳ Sincronizando...'; btn.disabled = true; }
-  await loadAsignacionesFotografo();
-  if (btn) { btn.textContent = '🔄 Sincronizar'; btn.disabled = false; }
-}
-
 async function loadAsignacionesFotografo() {
   document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const todas = await res.json();
-    asignaciones = filtrarAsignacionesPorZona(todas, currentUser.id);
+    asignaciones = await res.json();
     renderAsignacionesFotografo();
   } catch(e) {
     document.getElementById('asig-list').innerHTML = `
@@ -615,25 +523,9 @@ function openAsignacionFotografo(id) {
   if (!currentAsig) return;
   document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
   document.getElementById('asig-detail-meta').textContent = `${(currentAsig.elementos||[]).length} elementos · Límite: ${currentAsig.fechaLimite || 'Sin fecha'}`;
-  document.getElementById('asig-detail-contacto').innerHTML = renderBotonContactoEjecutiva(currentAsig);
   document.getElementById('ruta-resultado').innerHTML = '';
   renderElementosFotografo();
   showPage('page-elementos');
-}
-
-function renderBotonContactoEjecutiva(asig) {
-  const nombre = asig.creadoPor || '';
-  if (!nombre) return '';
-  const tel = asig.creadoPorTel || '';
-  const email = asig.creadoPorEmail || '';
-  if (tel) {
-    const msg = encodeURIComponent('Hola ' + nombre + ', te escribo por la asignación de ' + (asig.cliente || '') + ' en Zaza Report.');
-    return '<a href="https://wa.me/' + tel + '?text=' + msg + '" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.35);color:var(--green);padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">💬 Escribir a ' + nombre + '</a>';
-  }
-  if (email) {
-    return '<a href="mailto:' + email + '" style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700">✉️ Escribir a ' + nombre + '</a>';
-  }
-  return '<div style="font-size:12px;color:var(--muted)">👤 Asignada por ' + nombre + '</div>';
 }
 
 async function verRutaSugerida() {
@@ -667,80 +559,38 @@ async function verRutaSugerida() {
   }
 }
 
-let rutaDelDiaCache = [];
-
-function obtenerUbicacionActual() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) { resolve({ error: 'Tu navegador no soporta geolocalización.' }); return; }
-    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-      resolve({ error: 'La ubicación solo funciona en conexión segura (https). Abre la app con https://' });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
-      (err) => {
-        let msg = 'No se pudo obtener tu ubicación.';
-        if (err.code === 1) msg = 'Permiso de ubicación denegado. Activa el permiso de ubicación para esta app en tu navegador.';
-        else if (err.code === 2) msg = 'No se pudo determinar tu ubicación (GPS apagado o sin señal).';
-        else if (err.code === 3) msg = 'Se agotó el tiempo esperando tu ubicación. Intenta de nuevo con mejor señal.';
-        resolve({ error: msg });
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  });
-}
-
-async function verRutaDelDia() {
+async function verRutaGlobal() {
   const cont = document.getElementById('ruta-global-resultado');
-  cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div><div class="empty-sub">Obteniendo tu ubicación...</div></div>';
+  cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   try {
-    const ubic = await obtenerUbicacionActual();
-    cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
-    let url = SCRIPT_URL + '?action=rfGetRutaDelDia';
-    const tieneUbicacion = ubic && !ubic.error;
-    if (tieneUbicacion) url += '&lat=' + ubic.lat + '&lon=' + ubic.lon;
-    const res = await fetch(url);
+    const fotografoNombre = currentUser ? currentUser.nombre : '';
+    const res = await fetch(SCRIPT_URL + '?action=rfGetRutaGlobal&fotografo=' + encodeURIComponent(fotografoNombre));
     const data = await res.json();
-    if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta del día');
-    rutaDelDiaCache = data.ruta || [];
-    if (!rutaDelDiaCache.length) {
-      cont.innerHTML = '<div class="empty-sub" style="padding:10px 0">No tienes elementos pendientes por fotografiar.</div>';
+    if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta global');
+    const grupos = data.gruposCercanos || [];
+    if (!grupos.length) {
+      cont.innerHTML = '<div class="empty-sub" style="padding:10px 0">No hay puntos de distintas asignaciones cercanos entre sí por ahora.</div>';
       return;
     }
-    const avisoGPS = tieneUbicacion ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ ' + (ubic && ubic.error ? ubic.error : 'No se pudo usar tu ubicación actual.') + ' La ruta empieza desde el primer punto disponible.</div>';
-    const sinMapaAviso = data.mapsUrl ? '' : '<div style="font-size:11px;color:#FBBF24;margin-bottom:8px">⚠️ Ninguno de los elementos pendientes tiene coordenadas GPS guardadas, así que no se puede generar el link de Google Maps.</div>';
-    const pasos = rutaDelDiaCache.map(function(el, i) {
-      const ej = el.ejecutiva || {};
-      let contactoBtn = '';
-      if (ej.tel) {
-        const msg = encodeURIComponent('Hola ' + ej.nombre + ', te escribo por una novedad en ' + (el.clienteAsignacion || '') + ' (' + (el.ubicacion || '') + ').');
-        contactoBtn = '<a href="https://wa.me/' + ej.tel + '?text=' + msg + '" target="_blank" onclick="event.stopPropagation()" style="font-size:16px;padding:4px">💬</a>';
-      }
-      return '<div class="ruta-step" style="cursor:pointer" onclick="abrirCapturaDesdeRuta(' + i + ')">' +
-        '<div class="ruta-num">' + (i+1) + '</div>' +
-        '<div style="flex:1">' +
-          '<div style="font-weight:700;color:#fff;font-size:13px">' + (el.tipoElemento || 'Elemento') + (!el.lat ? ' <span style="color:var(--muted);font-weight:400">(sin GPS)</span>' : '') + '</div>' +
-          '<div style="font-size:12px;color:var(--muted)">' + (el.clienteAsignacion || '—') + ' · ' + (el.ubicacion || '—') + (ej.nombre ? ' · 👤 ' + ej.nombre : '') + '</div>' +
-        '</div>' +
-        contactoBtn +
-        '<div style="font-size:18px">📷</div>' +
+    cont.innerHTML = grupos.map(function(g, gi) {
+      const pasos = g.elementos.map(function(el, i) {
+        return '<div class="ruta-step">' +
+          '<div class="ruta-num">' + (i+1) + '</div>' +
+          '<div>' +
+            '<div style="font-weight:700;color:#fff;font-size:13px">' + (el.tipoElemento || 'Elemento') + '</div>' +
+            '<div style="font-size:12px;color:var(--muted)">' + (el.clienteAsignacion || '—') + ' · ' + (el.ubicacion || '—') + '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+      return '<div class="grupo-card">' +
+        '<div class="grupo-card-title">📍 Grupo ' + (gi+1) + ' · Clientes: ' + g.clientes.join(', ') + '</div>' +
+        pasos +
+        (g.mapsUrl ? '<a class="ruta-maps-link" href="' + g.mapsUrl + '" target="_blank">📍 Abrir ruta en Google Maps</a>' : '') +
       '</div>';
     }).join('');
-    cont.innerHTML =
-      '<div class="ruta-card">' +
-        avisoGPS +
-        sinMapaAviso +
-        pasos +
-        (data.mapsUrl ? '<a class="ruta-maps-link" href="' + data.mapsUrl + '" target="_blank">📍 Abrir ruta completa en Google Maps (' + rutaDelDiaCache.length + ' puntos)</a>' : '') +
-      '</div>';
   } catch(e) {
-    cont.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al calcular la ruta: ' + e.message + '</div>';
+    cont.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al calcular la ruta global: ' + e.message + '</div>';
   }
-}
-
-function abrirCapturaDesdeRuta(idx) {
-  const el = rutaDelDiaCache[idx];
-  if (el) openCapture(el);
 }
 
 function renderElementosFotografo() {
@@ -753,20 +603,18 @@ function renderElementosFotografo() {
 
   function cardHtml(el, i, done) {
     const uploading = el.estado === 'SUBIENDO';
-    const esLED = !!el.requiereVideo;
     return `
       <div class="elem-card">
         <div class="elem-header">
           <div class="elem-num${done?' done':uploading?' uploading':''}">${done?'✓':uploading?'⟳':String(i+1).padStart(2,'0')}</div>
           <div class="elem-info">
-            <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${esLED ? '<span class="turno-tag" style="background:rgba(99,102,241,0.15);color:#818cf8">📺 LED</span>' : (el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : '')}</div>
+            <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : ''}</div>
             <div class="elem-ubic">${el.ubicacion || '—'}</div>
             ${el.codigoRef ? `<div class="elem-ubic" style="color:var(--orange)">${el.codigoRef}</div>` : ''}
-            ${esLED && el.cliente ? `<div class="elem-ubic" style="color:#818cf8">👤 Cliente: ${el.cliente}</div>` : ''}
           </div>
           ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
             : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
-            : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esLED ? '🎥 Grabar video' : '📷 Fotografiar'}</button>`}
+            : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>📷 Fotografiar</button>`}
         </div>
       </div>`;
   }
@@ -796,8 +644,7 @@ async function refrescarAsignacionesSilencioso() {
   try {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) return;
-    const todasNuevas = await res.json();
-    const nuevasAsignaciones = filtrarAsignacionesPorZona(todasNuevas, currentUser.id);
+    const nuevasAsignaciones = await res.json();
     const cambioCantidad = nuevasAsignaciones.length !== asignaciones.length;
     asignaciones = nuevasAsignaciones;
     // Si la pantalla de lista está activa y no hay un modal de captura
@@ -812,61 +659,23 @@ async function refrescarAsignacionesSilencioso() {
 }
 
 function openCapture(el) {
-  const asigId = el.asignacionId || (currentAsig ? currentAsig.id : '');
-  const cliente = el.cliente || el.clienteAsignacion || (currentAsig ? currentAsig.cliente : '');
   captureTarget = {
-    elementoId: el.id, asignacionId: asigId, cliente: cliente,
+    elementoId: el.id, asignacionId: currentAsig.id, cliente: currentAsig.cliente,
     fecha: new Date().toISOString().split('T')[0],
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
-    turno: el.turno || 'AMBAS', requiereVideo: !!el.requiereVideo
+    turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
+  captureData = { frontal: null, panoramica: null, video: null };
   resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video');
   document.getElementById('obs-input').value = '';
-
-  // LED multi-cliente: solo se pide video, sin foto frontal/panorámica
-  document.getElementById('slot-frontal').parentElement.style.display = captureTarget.requiereVideo ? 'none' : '';
-  document.getElementById('slot-panoramica').parentElement.style.display = captureTarget.requiereVideo ? 'none' : '';
-  const labelVideo = document.querySelector('#slot-video').parentElement.querySelector('.slot-label');
-  if (labelVideo) labelVideo.innerHTML = captureTarget.requiereVideo
-    ? '🎬 Video <span style="color:var(--red)">*</span>'
-    : '🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional)</span>';
-
   document.getElementById('capture-title').innerHTML =
     (el.tipoElemento || '') + (el.ubicacion ? ' · ' + el.ubicacion.slice(0,30) : '') +
-    (cliente && captureTarget.requiereVideo ? ' <span class="turno-tag" style="background:rgba(99,102,241,0.15);color:#818cf8">📺 ' + cliente + '</span>' : '') +
     (el.turno === 'DIA' ? ' <span class="turno-tag DIA">☀️ Foto de DÍA</span>'
      : el.turno === 'NOCHE' ? ' <span class="turno-tag NOCHE">🌙 Foto de NOCHE</span>' : '');
   updateSubmitBtn();
   document.getElementById('capture-modal').classList.add('open');
 }
 function closeCaptureModal() { document.getElementById('capture-modal').classList.remove('open'); }
-function generarFrameDeVideo(videoUrl) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.src = videoUrl;
-    video.muted = true;
-    video.playsInline = true;
-    video.crossOrigin = 'anonymous';
-    video.onloadeddata = () => {
-      // Buscar un poco más adelante del frame 0 (suele venir negro/borroso)
-      video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
-    };
-    video.onseeked = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 360;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      } catch(e) { reject(e); }
-    };
-    video.onerror = () => reject(new Error('No se pudo leer el video'));
-    setTimeout(() => reject(new Error('Tiempo agotado generando preview')), 6000);
-  });
-}
-
 function triggerCapture(tipo) { document.getElementById('inp-' + tipo).click(); }
 function resetSlot(tipo) {
   const zone = document.getElementById('slot-' + tipo);
@@ -888,10 +697,6 @@ async function handleFile(event, tipo) {
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
-    if (tipo === 'video') {
-      try { captureData.videoPreview = await generarFrameDeVideo(url); }
-      catch(e) { captureData.videoPreview = null; }
-    }
   }
   updateCaptureStep(); updateSubmitBtn();
 }
@@ -901,14 +706,12 @@ function updateCaptureStep() {
 }
 function updateSubmitBtn() {
   const btn = document.getElementById('submit-toma');
-  const esLED = captureTarget && captureTarget.requiereVideo;
-  const ready = esLED ? !!captureData.video : (captureData.frontal && captureData.panoramica);
+  const ready = captureData.frontal && captureData.panoramica;
   btn.disabled = !ready;
-  btn.textContent = ready ? 'Subir toma ↑' : (esLED ? 'Graba el video de la pauta' : 'Toma la foto frontal y panorámica');
+  btn.textContent = ready ? 'Subir toma ↑' : 'Toma la foto frontal y panorámica';
 }
 async function submitToma() {
-  const esLED = captureTarget && captureTarget.requiereVideo;
-  if (esLED ? !captureData.video : (!captureData.frontal || !captureData.panoramica)) return;
+  if (!captureData.frontal || !captureData.panoramica) return;
   const btn = document.getElementById('submit-toma');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo...';
   if (currentAsig) {
@@ -919,9 +722,8 @@ async function submitToma() {
   const payload = {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
     cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
-    ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal || '', fotoPanoramicaBase64: captureData.panoramica || '',
-    videoBase64: captureData.video || '', videoPreviewBase64: captureData.videoPreview || '',
-    fotografo: currentUser ? currentUser.nombre : '',
+    ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
+    videoBase64: captureData.video || '', fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
   };
@@ -992,13 +794,6 @@ function compressImage(file, maxW, quality) {
 }
 window.addEventListener('online', () => { if (offlineQueue.length > 0) flushQueue(); });
 
-async function sincronizarEjecutiva() {
-  const btn = document.getElementById('btn-sync-ejec');
-  if (btn) { btn.textContent = '⏳ Sincronizando...'; btn.disabled = true; }
-  await showEjecutivaLista();
-  if (btn) { btn.textContent = '🔄 Sincronizar'; btn.disabled = false; }
-}
-
 async function showEjecutivaLista() {
   showPage('page-ejecutiva-lista');
   document.getElementById('fab-new-asig').style.display = 'flex';
@@ -1010,8 +805,7 @@ async function showEjecutivaLista() {
     const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
-    const esSupervisor = currentUser.nombre.toUpperCase() === 'JORGE';
-    const mias = esSupervisor ? todas : todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
     misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
 
     function pctDe(a) {
@@ -1026,18 +820,8 @@ async function showEjecutivaLista() {
     document.getElementById('ejec-badge').textContent = activas.length;
     document.getElementById('ejec-badge-done').textContent = completadas.length;
 
-    function ciudadesFaltantes(a) {
-      const pendientes = (a.elementos || []).filter(e => e.estado !== 'COMPLETADO');
-      const set = new Set();
-      pendientes.forEach(e => set.add((e.ciudad || '').trim() || 'Sin ciudad'));
-      return Array.from(set);
-    }
-
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
-      const faltan = isDone ? [] : ciudadesFaltantes(a);
-      const tagFaltan = faltan.length
-        ? `<div style="margin-top:4px;font-size:11px;color:var(--orange)">📍 Falta: ${faltan.join(', ')}</div>` : '';
       const acciones = isDone ? `
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pptx')" style="flex:1;padding:8px;background:rgba(255,107,0,0.12);color:var(--orange);border-radius:8px;font-size:12px;font-weight:700">📊 Exportar PPT</button>
@@ -1047,15 +831,12 @@ async function showEjecutivaLista() {
           <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
           <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
         </div>`;
-      const contactoEjecutivaJorge = esSupervisor ? renderBotonContactoEjecutiva(a) : '';
       return `
         <div class="asig-card${isDone?' done':''}">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
-              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}${esSupervisor ? ' · 👤 ' + (a.creadoPor || '—') : ''}</div>
-              ${tagFaltan}
-              ${contactoEjecutivaJorge ? '<div style="margin-top:6px">' + contactoEjecutivaJorge + '</div>' : ''}
+              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}</div>
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
@@ -1229,33 +1010,26 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     slide.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:0.35,h:7.5, fill:{color:WHITE},line:{color:WHITE} });
 
     // Foto frontal grande dentro del panel naranja
-    // Para LED (sin foto frontal real), se usa el frame del video como imagen principal.
-    const esLED = !!t.requiereVideo;
-    const frontalB64 = fotosMap[t.fotoFrontalUrl] || (esLED ? fotosMap[t.fotoPanoramicaUrl] : null) || null;
-    const panoB64 = esLED ? null : (fotosMap[t.fotoPanoramicaUrl] || null);
+    const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
+    const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
     if (frontalB64) {
       const dim = await dimensionesImagen(frontalB64);
       const r = encajarProporcional(dim.w, dim.h, 6.6, 4.7);
       slide.addImage({ data: frontalB64, x: 0.35 + r.offsetX, y: 1.4 + r.offsetY, w: r.w, h: r.h });
-      if (esLED) {
-        // Ícono de "play" superpuesto para indicar que es preview de video
-        slide.addShape(pres.shapes.OVAL, { x:3.2,y:3.45,w:0.7,h:0.7, fill:{color:'1A2B4A',transparency:25},line:{color:WHITE,width:2} });
-        slide.addText('▶', { x:3.2,y:3.45,w:0.7,h:0.7, fontSize:20,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
-      }
     } else {
       slide.addShape(pres.shapes.RECTANGLE, { x:0.5,y:1.4,w:6.6,h:4.7, fill:{color:'D96A10'},line:{color:'D96A10'} });
-      slide.addText(esLED ? 'Preview de video no disponible' : 'Foto no disponible', { x:0.5,y:3.6,w:6.6,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
+      slide.addText('Foto no disponible', { x:0.5,y:3.6,w:6.6,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
     slide.addText((t.tipoElemento || 'Elemento'), { x:0.5,y:0.5,w:6.4,h:0.7, fontSize:22,bold:true,color:WHITE,fontFace:'Arial' });
 
     // ── PANEL DERECHO ────────────────────────────────────────
     const rx = 7.55;
 
-    // Badge: LED multi-cliente, o turno DIA / NOCHE / AMBAS para el resto
+    // Badge de turno DIA / NOCHE / AMBAS
     const turno = t.turno || 'AMBAS';
-    const badgeTxt = esLED ? '📺 VALLA LED' : (turno === 'DIA' ? '☀️ FOTO DE DÍA' : turno === 'NOCHE' ? '🌙 FOTO DE NOCHE' : 'FOTO REGISTRADA');
-    const badgeColor = esLED ? '818CF8' : (turno === 'NOCHE' ? '6366F1' : GREEN);
-    const badgeBg = esLED ? 'E8E6FB' : (turno === 'NOCHE' ? 'E8E6FB' : 'E8F5EE');
+    const badgeTxt = turno === 'DIA' ? '☀️ FOTO DE DÍA' : turno === 'NOCHE' ? '🌙 FOTO DE NOCHE' : 'FOTO REGISTRADA';
+    const badgeColor = turno === 'NOCHE' ? '6366F1' : GREEN;
+    const badgeBg = turno === 'NOCHE' ? 'E8E6FB' : 'E8F5EE';
     slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:0.35,w:2.6,h:0.35, fill:{color:badgeBg},line:{color:badgeColor,width:1} });
     slide.addText(badgeTxt, { x:rx,y:0.35,w:2.6,h:0.35, fontSize:8,bold:true,color:badgeColor,align:'center',fontFace:'Arial',charSpacing:1 });
 
@@ -1267,7 +1041,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
 
     // Grid de datos: cliente, fecha, fotógrafo
     const details = [
-      {label:'CLIENTE',    value: t.cliente || asignacion.cliente || '—'},
+      {label:'CLIENTE',    value: asignacion.cliente || '—'},
       {label:'FECHA',      value: t.fecha || '—'},
       {label:'FOTÓGRAFO',  value: t.fotografo || '—'},
     ];
@@ -1292,26 +1066,17 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     }
 
     // Foto panorámica como miniatura en el panel derecho, abajo
-    let bloqueInferiorY = 5.55;
     if (panoB64) {
       const dimP = await dimensionesImagen(panoB64);
       const rP = encajarProporcional(dimP.w, dimP.h, 5.5, 1.55);
       slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:5.55,w:5.5,h:1.55, fill:{color:'F4F6F8'},line:{color:'E5E7EB',width:1} });
       slide.addImage({ data: panoB64, x: rx + rP.offsetX, y: 5.55 + rP.offsetY, w: rP.w, h: rP.h });
       slide.addText('VISTA PANORÁMICA', { x:rx,y:5.55,w:1.6,h:0.22, fontSize:7,color:LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
-      bloqueInferiorY = 7.15; // el video, si existe, va debajo de la panorámica
-    }
-    // El link/ícono de video se muestra SIEMPRE que exista video, sin importar
-    // si también hay foto panorámica (antes uno tapaba al otro).
-    if (t.videoUrl) {
-      if (!panoB64) {
-        slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:5.55,w:5.5,h:1.55, fill:{color:'F4F6F8'},line:{color:'E5E7EB',width:1} });
-        slide.addShape(pres.shapes.OVAL, { x:rx+2.45,y:5.95,w:0.6,h:0.6, fill:{color:ORANGE},line:{color:WHITE,width:2} });
-        slide.addText('▶', { x:rx+2.45,y:5.95,w:0.6,h:0.6, fontSize:18,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
-        slide.addText('🎥 Ver / descargar video', { x:rx,y:6.75,w:5.5,h:0.3, fontSize:10,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
-      } else {
-        slide.addText('🎥 Ver / descargar video', { x:rx,y:7.0,w:5.5,h:0.3, fontSize:10,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
-      }
+    } else if (t.videoUrl) {
+      slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:5.55,w:5.5,h:1.55, fill:{color:'F4F6F8'},line:{color:'E5E7EB',width:1} });
+      slide.addShape(pres.shapes.OVAL, { x:rx+2.45,y:5.95,w:0.6,h:0.6, fill:{color:ORANGE},line:{color:WHITE,width:2} });
+      slide.addText('▶', { x:rx+2.45,y:5.95,w:0.6,h:0.6, fontSize:18,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
+      slide.addText('Ver / descargar video', { x:rx,y:6.75,w:5.5,h:0.3, fontSize:10,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
     }
 
     // Logo naranja esquina inferior derecha (igual a Disponibles)
@@ -1383,7 +1148,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.text(String(valor || '—'), 0.45, y + 0.28, { maxWidth: 2.9 });
       y += 0.8;
     };
-    campo('CLIENTE', t.cliente || asignacion.cliente);
+    campo('CLIENTE', asignacion.cliente);
     campo('FECHA', t.fecha);
     campo('FOTÓGRAFO', t.fotografo);
     if (t.observaciones) campo('OBSERVACIONES', t.observaciones);
@@ -1467,33 +1232,16 @@ function editarAsignacion(asignacionId) {
   showEjecutivaForm();
 }
 
-async function showEjecutivaForm() {
+function showEjecutivaForm() {
   showPage('page-ejecutiva-form');
   document.getElementById('fab-new-asig').style.display = 'none';
-  document.getElementById('elementos-form-list') && (document.getElementById('elementos-form-list').innerHTML = '');
-  document.getElementById('led-elementos-lista').innerHTML = '';
-  document.getElementById('led-seleccionados-lista').innerHTML = '';
-  document.getElementById('elementos-manuales-lista').innerHTML = '';
+  document.getElementById('elementos-form-list').innerHTML = '';
   document.getElementById('contratados-list').innerHTML = '';
   document.getElementById('contratados-title').style.display = 'none';
-  document.getElementById('led-tipo-selector').value = '';
-  document.getElementById('manual-tipo').value = '';
-  document.getElementById('manual-ubic').value = '';
-  document.getElementById('manual-ciudad').value = '';
-  validarManual();
-  elementosManualesData = [];
-  window._ledFiltradosActuales = [];
   elementosFormCount = 0;
-  ledFormCount = 0;
-  initManualTipos();
 
   const formTitle = document.getElementById('form-titulo-zr');
   const btn = document.getElementById('btn-crear-asignacion');
-
-  // El dropdown de clientes debe estar lleno ANTES de intentar seleccionar
-  // el cliente de la asignación en edición (si no, el <select> no tiene
-  // ninguna opción todavía y no puede mostrar el valor).
-  await loadClientesAutocomplete(asignacionEnEdicion ? asignacionEnEdicion.cliente : null);
 
   if (asignacionEnEdicion) {
     const a = asignacionEnEdicion;
@@ -1502,25 +1250,9 @@ async function showEjecutivaForm() {
     document.getElementById('form-cliente').value = a.cliente || '';
     document.getElementById('form-fecha-limite').value = a.fechaLimite || '';
     document.getElementById('form-observaciones').value = a.observaciones || '';
-
-    const elementosLED = (a.elementos || []).filter(el => el.requiereVideo);
-    const elementosNormales = (a.elementos || []).filter(el => !el.requiereVideo);
-
-    // Agrupar los LED existentes por código para precargar una fila por valla,
-    // con todos sus clientes ya guardados dentro de esa fila.
-    const ledPorCodigo = {};
-    elementosLED.forEach(el => {
-      const key = el.codigoRef || el.ubicacion || 'sin-codigo';
-      if (!ledPorCodigo[key]) ledPorCodigo[key] = { codigo: el.codigoRef || '', clientes: [] };
-      ledPorCodigo[key].clientes.push(el.cliente || '');
-    });
-    Object.values(ledPorCodigo).forEach(grupo => precargarFilaLED(grupo.codigo, grupo.clientes));
-
-    // Precargar los elementos restantes (no LED) como filas manuales editables
-    elementosNormales.forEach(el => addElementoForm(el));
-    if (!elementosNormales.length && !elementosLED.length) addElementoForm();
-    // Mostrar de una vez los contratados ya marcables de este cliente
-    buscarElementosCliente();
+    // Precargar los elementos existentes como filas manuales editables
+    (a.elementos || []).forEach(el => addElementoForm(el));
+    if (!((a.elementos||[]).length)) addElementoForm();
   } else {
     if (formTitle) formTitle.textContent = 'Nueva asignación';
     btn.textContent = 'Crear asignación';
@@ -1529,77 +1261,38 @@ async function showEjecutivaForm() {
     document.getElementById('form-observaciones').value = '';
     addElementoForm();
   }
-}
-
-function precargarFilaLED(codigo, clientes) {
-  addElementoLED();
-  const idx = ledFormCount - 1;
-  document.getElementById('led-codigo-' + idx).value = codigo || '';
-  onLedCodigoInput(idx);
-  // addElementoLED ya agregó una fila de cliente vacía; la usamos para el primero
-  const contCli = document.getElementById('led-clientes-' + idx);
-  contCli.innerHTML = '';
-  (clientes.length ? clientes : ['']).forEach(cliente => {
-    addClienteLED(idx);
-    const ultimoInput = contCli.querySelector('div:last-child input');
-    if (ultimoInput) ultimoInput.value = cliente;
-  });
+  loadClientesAutocomplete();
 }
 
 let clientesCache = [];
 let elementosContratadosCache = [];
 
-// Carga el dropdown de clientes contratados. Filtra por la ejecutiva que
-// inició sesión (cada una solo ve sus propios clientes); Jorge, como
-// supervisor/admin, ve todos. `clienteAsegurar` permite garantizar que un
-// cliente específico (de una asignación en edición) aparezca en la lista
-// aunque no esté dentro de los contratados de esa ejecutiva.
-async function loadClientesAutocomplete(clienteAsegurar) {
-  const sel = document.getElementById('form-cliente');
+async function loadClientesAutocomplete() {
   try {
-    const esSupervisor = currentUser && currentUser.nombre && currentUser.nombre.toUpperCase() === 'JORGE';
-    const url = esSupervisor
-      ? SCRIPT_URL + '?action=rfGetClientesContratados'
-      : SCRIPT_URL + '?action=rfGetClientesContratadosPorEjecutiva&ejecutiva=' + encodeURIComponent(currentUser.nombre || '');
-    const res = await fetch(url);
+    const res = await fetch(SCRIPT_URL + '?action=rfGetClientesContratados');
     clientesCache = await res.json();
-    if (clienteAsegurar && !clientesCache.includes(clienteAsegurar)) {
-      clientesCache = [clienteAsegurar].concat(clientesCache);
-    }
-    sel.innerHTML = '<option value="">— Selecciona un cliente —</option>' +
-      clientesCache.map(c => `<option value="${c}">${c}</option>`).join('');
     const dl = document.getElementById('clientes-datalist');
-    if (dl) dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
-  } catch(e) {
-    sel.innerHTML = '<option value="">— Error cargando clientes, reintenta —</option>';
-  }
+    dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
+  } catch(e) { /* silencioso, no es crítico */ }
 }
 
-let buscarElementosClienteSeq = 0;
+let onClienteInputTimer = null;
+function onClienteInput() {
+  clearTimeout(onClienteInputTimer);
+  onClienteInputTimer = setTimeout(buscarElementosCliente, 700);
+}
 
-async function buscarElementosCliente(esReintento, miTurno) {
+async function buscarElementosCliente() {
   const cliente = document.getElementById('form-cliente').value.trim();
   const list = document.getElementById('contratados-list');
   const title = document.getElementById('contratados-title');
   if (!cliente) { title.style.display = 'none'; list.innerHTML = ''; return; }
 
-  // Cada búsqueda nueva (no-reintento) toma el siguiente número de turno.
-  // Si una respuesta vieja llega después de que ya hay una más reciente en
-  // curso, se descarta en vez de pisar la pantalla con datos desactualizados
-  // — esto pasaba al escribir rápido: cada letra disparaba una búsqueda y
-  // las respuestas podían llegar fuera de orden.
-  if (!esReintento) { buscarElementosClienteSeq++; miTurno = buscarElementosClienteSeq; }
-  const turno = miTurno;
-
   list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   title.style.display = 'flex';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now());
-    if (turno !== buscarElementosClienteSeq) return; // ya hay una búsqueda más nueva en curso
-    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente));
     const elementos = await res.json();
-    if (turno !== buscarElementosClienteSeq) return;
-    if (elementos && elementos.error) throw new Error(elementos.error);
     elementosContratadosCache = elementos;
     document.getElementById('contratados-badge').textContent = elementos.length;
     if (!elementos.length) {
@@ -1624,17 +1317,6 @@ async function buscarElementosCliente(esReintento, miTurno) {
         </div>
       </label>`).join('');
   } catch(e) {
-    if (turno !== buscarElementosClienteSeq) return;
-    // Reintento automático UNA vez: Apps Script suele tardar más de lo
-    // normal en su primera ejecución después de un rato sin uso ("arranque
-    // en frío"), lo que puede hacer fallar este primer intento aunque todo
-    // esté bien. Antes había que reintentar manualmente; ahora se reintenta
-    // solo, igual que ya hace ZazaNexus.
-    if (!esReintento) {
-      list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div><div class="empty-sub" style="margin-top:8px">Reintentando...</div></div>';
-      await new Promise(r => setTimeout(r, 2000));
-      return buscarElementosCliente(true, turno);
-    }
     list.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al buscar elementos. Intenta de nuevo.</div>';
   }
 }
@@ -1648,162 +1330,52 @@ function setTurnoContratado(idx, turno) {
   });
 }
 
-async function cargarVallasLED() {
-  if (vallasLEDCargadas) return;
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetVallasLED');
-    vallasLEDCache = await res.json();
-    vallasLEDCargadas = true;
-  } catch(e) { /* silencioso */ }
-}
-
-// ── LED multi-cliente: tipo → lista de elementos del inventario ──
-let ledSeleccionados = []; // array de objetos {codigo, tipo, ubicacion, lugar, lat, lon, foto}
-
-async function onLedTipoChange() {
-  const tipo = document.getElementById('led-tipo-selector').value;
-  const lista = document.getElementById('led-elementos-lista');
-  if (!tipo) { lista.innerHTML = ''; window._ledFiltradosActuales = []; return; }
-
-  lista.innerHTML = '<div class="empty" style="padding:12px"><div class="spinner" style="margin:0 auto 6px"></div><div class="empty-sub">Cargando elementos...</div></div>';
-
-  try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorTipo&tipo=' + encodeURIComponent(tipo));
-    const filtrados = await res.json();
-    window._ledFiltradosActuales = filtrados;
-
-    if (!filtrados.length) {
-      lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;font-size:12px">No hay elementos de este tipo en el inventario contratado.</div>';
-      return;
-    }
-
-    lista.innerHTML = filtrados.map((el, i) => `
-      <label style="display:flex;align-items:center;gap:10px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;margin-bottom:8px;cursor:pointer">
-        <input type="checkbox" class="led-elem-check" data-led-idx="${i}" data-codigo="${(el.codigo||'').replace(/"/g,'&quot;')}" style="width:20px;height:20px;accent-color:#818cf8;flex-shrink:0"/>
-        ${el.foto && String(el.foto).startsWith('http') ? `<img src="${el.foto}" style="width:64px;height:48px;object-fit:cover;border-radius:6px;flex-shrink:0"/>` : `<div style="width:64px;height:48px;background:var(--dark3);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:20px">📷</div>`}
-        <div>
-          <div style="font-weight:700;color:#fff;font-size:13px">${el.tipo} · <span style="color:#818cf8">${el.codigo}</span></div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:1px">👤 ${el.cliente || '—'} · 📍 ${el.lugar || '—'}</div>
-          <div style="font-size:11px;color:var(--orange);margin-top:2px">🎬 Solo video · No aplica día/noche</div>
-        </div>
-      </label>
-    `).join('');
-  } catch(e) {
-    lista.innerHTML = '<div class="empty-sub" style="padding:8px 0;color:var(--red);font-size:12px">Error cargando elementos. Intenta de nuevo.</div>';
-  }
-}
-
-// ── Sección manuales: validar que ubic + ciudad estén llenos ──
-function validarManual() {
-  const ubic = (document.getElementById('manual-ubic').value || '').trim();
-  const ciudad = (document.getElementById('manual-ciudad').value || '').trim();
-  const btn = document.getElementById('btn-add-manual');
-  const ok = ubic.length > 0 && ciudad.length > 0;
-  btn.disabled = !ok;
-  btn.style.opacity = ok ? '1' : '0.4';
-}
-
-// Inicializar selector de tipos manuales con todos los tipos
-function initManualTipos() {
-  const sel = document.getElementById('manual-tipo');
-  if (!sel || sel.options.length > 1) return;
-  TIPOS_ELEMENTO.forEach(t => {
-    const opt = document.createElement('option');
-    opt.value = t; opt.textContent = t;
-    sel.appendChild(opt);
-  });
-}
-
-let elementosManualesData = []; // array de objetos ya confirmados
-
-function agregarElementoManual() {
-  const tipo = document.getElementById('manual-tipo').value;
-  const ubic = document.getElementById('manual-ubic').value.trim();
-  const ciudad = document.getElementById('manual-ciudad').value.trim();
-  if (!ubic || !ciudad) return;
-
-  const esLEDManual = ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'].indexOf(tipo) !== -1;
-  const obj = { tipoElemento: tipo, ubicacion: ubic, ciudad, requiereVideo: esLEDManual, turno: 'AMBAS', codigoRef: '', lat: '', lon: '' };
-  elementosManualesData.push(obj);
-
-  const cont = document.getElementById('elementos-manuales-lista');
-  const idx = elementosManualesData.length - 1;
-  const div = document.createElement('div');
-  div.className = 'elem-row';
-  div.id = 'manual-item-' + idx;
-  div.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        <div style="font-weight:700;color:#fff;font-size:13px">${tipo || 'Sin tipo'}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${ubic}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${ciudad}${esLEDManual ? ' · 🎬 Solo video' : ''}</div>
-      </div>
-      <button onclick="eliminarManual(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);padding:4px 10px;border-radius:8px;font-size:12px;flex-shrink:0">✕</button>
-    </div>
-  `;
-  cont.appendChild(div);
-
-  // Reset campos
-  document.getElementById('manual-tipo').value = '';
-  document.getElementById('manual-ubic').value = '';
-  document.getElementById('manual-ciudad').value = '';
-  validarManual();
-}
-
-function eliminarManual(idx) {
-  elementosManualesData[idx] = null; // marcar como eliminado
-  const div = document.getElementById('manual-item-' + idx);
-  if (div) div.remove();
-}
-
-function esLED(tipo) {
-  return ['Valla LED','Pantalla','Paso Peatonal LED','Paso Vehicular LED','Paradero LED'].indexOf(tipo) !== -1;
-}
-
-// Ya no se usa addElementoForm para nuevos — solo para precargar en edición
 function addElementoForm(precarga) {
-  if (!precarga) return;
-  // En modo edición de asignación, elementos ya creados se muestran en la lista manual
-  const esLEDManual = esLED(precarga.tipoElemento || '');
-  const obj = {
-    tipoElemento: precarga.tipoElemento || '',
-    ubicacion: precarga.ubicacion || '',
-    ciudad: precarga.ciudad || '',
-    codigoRef: precarga.codigoRef || '',
-    lat: precarga.lat || '',
-    lon: precarga.lon || '',
-    requiereVideo: precarga.requiereVideo || esLEDManual,
-    turno: precarga.turno || 'AMBAS',
-    estado: precarga.estado || 'PENDIENTE'
-  };
-  elementosManualesData.push(obj);
-  const cont = document.getElementById('elementos-manuales-lista');
-  const idx = elementosManualesData.length - 1;
+  precarga = precarga || {};
+  const idx = elementosFormCount++;
+  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
+  const turnoActual = precarga.turno || 'AMBAS';
   const div = document.createElement('div');
   div.className = 'elem-row';
-  div.id = 'manual-item-' + idx;
-  const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
+  div.id = 'elem-row-' + idx;
+  const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
   div.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div>
-        ${tagEstado}
-        <div style="font-weight:700;color:#fff;font-size:13px">${obj.tipoElemento || 'Sin tipo'}${obj.codigoRef ? ' · <span style="color:var(--orange)">' + obj.codigoRef + '</span>' : ''}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">${obj.ubicacion}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${obj.ciudad || 'Sin ciudad'}${obj.requiereVideo ? ' · 🎬 Solo video' : ' · ' + (obj.turno||'AMBAS')}</div>
-      </div>
-      <button onclick="eliminarManual(${idx})" style="background:rgba(239,68,68,0.12);color:var(--red);padding:4px 10px;border-radius:8px;font-size:12px;flex-shrink:0">✕</button>
+    ${tagEstado}
+    <button class="rm-btn" onclick="document.getElementById('elem-row-${idx}').remove()">✕</button>
+    <label class="form-label" style="${tagEstado?'margin-top:20px':''}">Tipo de elemento</label>
+    <select class="form-select" id="elem-tipo-${idx}"><option value="">— Seleccionar —</option>${opts}</select>
+    <label class="form-label">Ubicación / referencia</label>
+    <input class="form-input" id="elem-ubic-${idx}" placeholder="Ej: Av. 9 de Octubre y Pedro Carbo" value="${(precarga.ubicacion||'').replace(/"/g,'&quot;')}"/>
+    <label class="form-label">Código de inventario (opcional)</label>
+    <input class="form-input" id="elem-cod-${idx}" placeholder="Ej: VF-GYE-041" value="${(precarga.codigoRef||'').replace(/"/g,'&quot;')}"/>
+    <label class="form-label">Foto requerida</label>
+    <div class="turno-group" id="elem-turno-${idx}" data-value="${turnoActual}">
+      <div class="turno-btn${turnoActual==='DIA'?' active':''}" data-turno="DIA" onclick="setTurnoElemento(${idx},'DIA')">☀️ Día</div>
+      <div class="turno-btn${turnoActual==='NOCHE'?' active':''}" data-turno="NOCHE" onclick="setTurnoElemento(${idx},'NOCHE')">🌙 Noche</div>
+      <div class="turno-btn${turnoActual==='AMBAS'?' active':''}" data-turno="AMBAS" onclick="setTurnoElemento(${idx},'AMBAS')">☀️🌙 Ambas</div>
     </div>
   `;
-  cont.appendChild(div);
+  document.getElementById('elementos-form-list').appendChild(div);
+}
+
+function setTurnoElemento(idx, turno) {
+  const group = document.getElementById('elem-turno-' + idx);
+  if (!group) return;
+  group.dataset.value = turno;
+  group.querySelectorAll('.turno-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.turno === turno);
+  });
 }
 
 async function crearAsignacion() {
   const cliente = document.getElementById('form-cliente').value.trim();
   const fechaLimite = document.getElementById('form-fecha-limite').value;
   const observaciones = document.getElementById('form-observaciones').value.trim();
-  if (!cliente) { showToast('Selecciona un cliente', 'warn'); return; }
+  if (!cliente) { showToast('Ingresa el nombre del cliente', 'warn'); return; }
 
+  // Expande un elemento en 1 o 2 filas según su turno requerido.
+  // 'AMBAS' se separa en dos asignaciones (DIA y NOCHE) para que el
+  // fotógrafo pueda subir cada una en el momento correcto del día.
   function expandirPorTurno(base, turno) {
     const t = turno || 'AMBAS';
     if (t === 'AMBAS') {
@@ -1817,38 +1389,31 @@ async function crearAsignacion() {
 
   const elementos = [];
 
-  // 1) Elementos contratados seleccionados (checkboxes)
+  // Elementos contratados marcados
   document.querySelectorAll('.contratado-check:checked').forEach(chk => {
     const idx = chk.dataset.idx;
     const el = elementosContratadosCache[parseInt(idx)];
     if (!el) return;
     const turnoGroup = document.getElementById('contratado-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
-    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '', lat: el.lat || '', lon: el.lon || '', ciudad: el.lugar || '' };
+    const base = { tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar, codigoRef: el.codigo, observaciones: '' };
     elementos.push(...expandirPorTurno(base, turno));
   });
 
-  // 2) Elementos LED seleccionados del selector tipo → lista
-  document.querySelectorAll('.led-elem-check:checked').forEach(chk => {
-    const i = parseInt(chk.dataset.ledIdx);
-    const fl = window._ledFiltradosActuales || [];
-    const el = fl[i];
-    if (!el) return;
-    elementos.push({
-      tipoElemento: el.tipo, ubicacion: el.direccion || el.lugar,
-      codigoRef: el.codigo, observaciones: '',
-      turno: 'AMBAS', requiereVideo: true,
-      ciudad: el.lugar || '', lat: el.lat || '', lon: el.lon || ''
-    });
-  });
-
-  // 3) Elementos manuales confirmados
-  elementosManualesData.forEach(el => {
-    if (!el) return; // eliminados
-    if (el.requiereVideo) {
-      elementos.push(Object.assign({}, el, { turno: 'AMBAS' }));
-    } else {
-      elementos.push(...expandirPorTurno(el, el.turno || 'AMBAS'));
+  // Elementos manuales
+  const rows = document.querySelectorAll('.elem-row[id^="elem-row-"]');
+  rows.forEach(row => {
+    const idx = row.id.replace('elem-row-', '');
+    const tipoSel = document.getElementById('elem-tipo-' + idx);
+    if (!tipoSel) return;
+    const tipoElemento = tipoSel.value;
+    const ubicacion = document.getElementById('elem-ubic-' + idx).value.trim();
+    const codigoRef = document.getElementById('elem-cod-' + idx).value.trim();
+    const turnoGroup = document.getElementById('elem-turno-' + idx);
+    const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
+    if (tipoElemento || ubicacion) {
+      const base = { tipoElemento, ubicacion, codigoRef, observaciones: '' };
+      elementos.push(...expandirPorTurno(base, turno));
     }
   });
 
@@ -1926,7 +1491,7 @@ function showToast(msg, type) {
   t._timer = setTimeout(() => t.className = '', 3000);
 }
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.getRegistrations().then(function(regs){ if (regs.length) { Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){ window.location.reload(); }); } }); }
+if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
 </script>
 </body>
 </html>
