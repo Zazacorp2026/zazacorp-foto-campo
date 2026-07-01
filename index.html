@@ -1594,7 +1594,7 @@ async function buscarElementosCliente(esReintento, miTurno) {
   list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   title.style.display = 'flex';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente));
+    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now());
     if (turno !== buscarElementosClienteSeq) return; // ya hay una búsqueda más nueva en curso
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const elementos = await res.json();
