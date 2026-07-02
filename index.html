@@ -314,6 +314,32 @@
   </div>
 </div>
 
+<div id="layout-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center">
+  <div style="background:var(--card,#1a1a2e);border-radius:16px;padding:20px;max-width:720px;width:94%;max-height:92vh;overflow:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="font-weight:800;color:#fff;font-size:16px">🎨 Editor de plantilla del reporte</div>
+      <button onclick="cerrarEditorPlantilla()" style="background:none;color:var(--muted,#8A9BB5);font-size:20px;border:none">✕</button>
+    </div>
+    <div style="color:var(--muted,#8A9BB5);font-size:12px;margin-bottom:14px">
+      Arrastra y estira las cajas naranjas. Esta plantilla se aplica a <b>todos</b> los elementos del reporte al exportar (no se edita elemento por elemento).
+    </div>
+    <div id="layout-canvas-wrap" style="position:relative;width:100%;aspect-ratio:13.333/7.5;background:#fff;border-radius:8px;overflow:hidden;user-select:none">
+      <div id="layout-box-left" class="layout-box" style="position:absolute;background:#F47B20;border-radius:8px;cursor:move">
+        <div style="position:absolute;top:6px;left:8px;color:#fff;font-size:11px;font-weight:700">Foto vertical</div>
+        <div class="layout-handle" data-box="left" style="position:absolute;right:0;bottom:0;width:16px;height:16px;background:#1A2B4A;cursor:nwse-resize;border-radius:3px 0 8px 0"></div>
+      </div>
+      <div id="layout-box-right" class="layout-box" style="position:absolute;background:#F47B20;border-radius:8px;cursor:move">
+        <div style="position:absolute;top:6px;left:8px;color:#fff;font-size:11px;font-weight:700">Foto panorámica</div>
+        <div class="layout-handle" data-box="right" style="position:absolute;right:0;bottom:0;width:16px;height:16px;background:#1A2B4A;cursor:nwse-resize;border-radius:3px 0 8px 0"></div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button onclick="restablecerPlantilla()" style="flex:1;padding:10px;background:rgba(138,155,181,0.15);color:var(--muted,#8A9BB5);border-radius:10px;font-weight:700">Restablecer diseño original</button>
+      <button onclick="guardarPlantilla()" style="flex:1;padding:10px;background:var(--orange,#F47B20);color:#fff;border-radius:10px;font-weight:700">Guardar plantilla</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <div id="exito-overlay">
@@ -916,7 +942,8 @@ async function showEjecutivaLista() {
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
       const acciones = isDone ? `
-        <div style="display:flex;gap:8px;margin-top:10px">
+        <div style="display:flex;gap:6px;margin-top:10px">
+          <button onclick="event.stopPropagation();abrirEditorPlantilla()" title="Ajustar diseño antes de exportar" style="padding:8px 10px;background:rgba(138,155,181,0.15);color:var(--muted);border-radius:8px;font-size:14px">🎨</button>
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pptx')" style="flex:1;padding:8px;background:rgba(255,107,0,0.12);color:var(--orange);border-radius:8px;font-size:12px;font-weight:700">📊 Exportar PPT</button>
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pdf')" style="flex:1;padding:8px;background:rgba(34,197,94,0.12);color:var(--green);border-radius:8px;font-size:12px;font-weight:700">📄 Exportar PDF</button>
         </div>` : `
@@ -968,6 +995,113 @@ const ZR_NAVY   = '1A2B4A';
 const ZR_ORANGE = 'F47B20';
 const ZR_WHITE  = 'FFFFFF';
 const ZR_LABEL  = '8A9BB5';
+
+// ── Editor de plantilla del reporte (PPT/PDF) ──────────────────
+// La plantilla se guarda en localStorage y se aplica a TODOS los
+// elementos del reporte al exportar (no es edición por elemento,
+// sería inmanejable con muchos elementos).
+const ZR_LAYOUT_DEFAULT = {
+  cardX: 0.3, cardY: 0.3, cardW: 12.73, colLeftW: 5.6, leftH: 5.1, gap: 0.18
+};
+function getLayout() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('zr_layout_override') || 'null');
+    if (saved) return Object.assign({}, ZR_LAYOUT_DEFAULT, saved);
+  } catch(e) {}
+  return Object.assign({}, ZR_LAYOUT_DEFAULT);
+}
+
+let _layoutEditState = null;
+function abrirEditorPlantilla() {
+  document.getElementById('layout-modal').style.display = 'flex';
+  pintarCajasLayout();
+}
+function cerrarEditorPlantilla() {
+  document.getElementById('layout-modal').style.display = 'none';
+}
+function pintarCajasLayout() {
+  const L = getLayout();
+  const wrap = document.getElementById('layout-canvas-wrap');
+  const scale = wrap.clientWidth / 13.333; // px por pulgada
+  const setBox = (id, x, y, w, h) => {
+    const el = document.getElementById(id);
+    el.style.left = (x*scale) + 'px';
+    el.style.top = (y*scale) + 'px';
+    el.style.width = (w*scale) + 'px';
+    el.style.height = (h*scale) + 'px';
+  };
+  const colRightW = L.cardW - L.colLeftW - L.gap;
+  setBox('layout-box-left', L.cardX, L.cardY, L.colLeftW, L.leftH);
+  setBox('layout-box-right', L.cardX + L.colLeftW + L.gap, L.cardY, colRightW, L.leftH);
+}
+function restablecerPlantilla() {
+  localStorage.removeItem('zr_layout_override');
+  pintarCajasLayout();
+  showToast('Plantilla restablecida al diseño original', 'ok');
+}
+function guardarPlantilla() {
+  cerrarEditorPlantilla();
+  showToast('✓ Plantilla guardada, se usará en tus próximos reportes', 'ok');
+}
+
+// Drag para mover, drag del handle esquina para redimensionar.
+// Todo en píxeles de pantalla, convertido a pulgadas al soltar.
+(function initLayoutDrag() {
+  document.addEventListener('mousedown', function(ev) {
+    const handle = ev.target.closest('.layout-handle');
+    const box = ev.target.closest('.layout-box');
+    if (!box && !handle) return;
+    ev.preventDefault();
+    const wrap = document.getElementById('layout-canvas-wrap');
+    const rect = wrap.getBoundingClientRect();
+    const scale = rect.width / 13.333;
+    const which = handle ? handle.dataset.box : (box.id === 'layout-box-left' ? 'left' : 'right');
+    const el = document.getElementById('layout-box-' + which);
+    _layoutEditState = {
+      mode: handle ? 'resize' : 'move', which,
+      startX: ev.clientX, startY: ev.clientY,
+      startLeft: parseFloat(el.style.left)||0, startTop: parseFloat(el.style.top)||0,
+      startW: parseFloat(el.style.width)||0, startH: parseFloat(el.style.height)||0,
+      scale, rectW: rect.width, rectH: rect.height
+    };
+  });
+  document.addEventListener('mousemove', function(ev) {
+    if (!_layoutEditState) return;
+    const s = _layoutEditState;
+    const el = document.getElementById('layout-box-' + s.which);
+    const dx = ev.clientX - s.startX, dy = ev.clientY - s.startY;
+    if (s.mode === 'move') {
+      let left = Math.max(0, Math.min(s.rectW - s.startW, s.startLeft + dx));
+      let top = Math.max(0, Math.min(s.rectH - s.startH, s.startTop + dy));
+      el.style.left = left + 'px'; el.style.top = top + 'px';
+    } else {
+      let w = Math.max(40, s.startW + dx);
+      let h = Math.max(40, s.startH + dy);
+      el.style.width = w + 'px'; el.style.height = h + 'px';
+    }
+  });
+  document.addEventListener('mouseup', function() {
+    if (!_layoutEditState) return;
+    const s = _layoutEditState;
+    // Al soltar, convertimos las 2 cajas de vuelta a pulgadas y
+    // recalculamos cardX/cardY/colLeftW/leftH/gap/cardW consistentes.
+    const left = document.getElementById('layout-box-left');
+    const right = document.getElementById('layout-box-right');
+    const px2in = (px) => px / s.scale;
+    const cardX = px2in(parseFloat(left.style.left));
+    const cardY = px2in(parseFloat(left.style.top));
+    const colLeftW = px2in(parseFloat(left.style.width));
+    const leftH = px2in(parseFloat(left.style.height));
+    const rightX = px2in(parseFloat(right.style.left));
+    const rightW = px2in(parseFloat(right.style.width));
+    const gap = Math.max(0.05, rightX - (cardX + colLeftW));
+    const cardW = (rightX + rightW) - cardX;
+    const layout = { cardX, cardY, colLeftW, leftH, gap, cardW };
+    localStorage.setItem('zr_layout_override', JSON.stringify(layout));
+    _layoutEditState = null;
+    pintarCajasLayout();
+  });
+})();
 
 async function cargarPptxGenJS() {
   if (typeof PptxGenJS !== 'undefined') return;
@@ -1105,14 +1239,16 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     const turno = t.turno || 'AMBAS';
     const tieneVideo = !!t.videoUrl;
 
-    // Geometría base (pulgadas, slide 13.333 x 7.5)
-    const cardX = 0.3, cardY = 0.3, cardW = 12.73;
+    // Geometría base (pulgadas, slide 13.333 x 7.5) — desde la
+    // plantilla del editor, o el diseño original si no se ha ajustado.
+    const _L = getLayout();
+    const cardX = _L.cardX, cardY = _L.cardY, cardW = _L.cardW;
     // La columna derecha (panorámica) es más alta que la izquierda
     // porque incluye la caja "LINK VIDEO" dentro del naranja.
-    const leftH = 5.1;
+    const leftH = _L.leftH;
     const rightH = tieneVideo ? leftH + 0.85 : leftH;
-    const gap = 0.18;
-    const colLeftW = 5.6;
+    const gap = _L.gap;
+    const colLeftW = _L.colLeftW;
     const colRightW = cardW - colLeftW - gap;
 
     // Tarjeta naranja columna izquierda (foto vertical)
@@ -1262,11 +1398,12 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     const turno = t.turno || 'AMBAS';
     const tieneVideo = !!t.videoUrl;
 
-    const cardX = 0.3, cardY = 0.3, cardW = 12.73;
-    const leftH = 5.1;
+    const _L = getLayout();
+    const cardX = _L.cardX, cardY = _L.cardY, cardW = _L.cardW;
+    const leftH = _L.leftH;
     const rightH = tieneVideo ? leftH + 0.85 : leftH;
-    const gap = 0.18;
-    const colLeftW = 5.6;
+    const gap = _L.gap;
+    const colLeftW = _L.colLeftW;
     const colRightW = cardW - colLeftW - gap;
 
     // Tarjetas naranjas (jsPDF sí soporta roundedRect)
