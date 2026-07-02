@@ -232,6 +232,8 @@
 
     <div id="page-asignaciones" class="page">
       <div class="section-title">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
+      <button class="ruta-btn global" onclick="verRutaDelDia()">🚗 Ruta única de todo el día (todos los clientes)</button>
+      <div id="ruta-dia-resultado"></div>
       <button class="ruta-btn global" onclick="verRutaGlobal()">🧭 Agrupar puntos cercanos (todos los clientes)</button>
       <div id="ruta-global-resultado"></div>
       <div id="asig-list"></div>
@@ -591,6 +593,59 @@ async function verRutaSugerida() {
       </div>`;
   } catch(e) {
     cont.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al calcular la ruta: ' + e.message + '</div>';
+  }
+}
+
+async function verRutaDelDia() {
+  const cont = document.getElementById('ruta-dia-resultado');
+  cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div><div class="empty-sub">Obteniendo tu ubicación…</div></div>';
+
+  // Pide el GPS real del navegador para que la ruta arranque desde
+  // donde está el fotógrafo ahora mismo, no desde un punto arbitrario.
+  function obtenerUbicacion() {
+    return new Promise(function(resolve) {
+      if (!navigator.geolocation) { resolve(null); return; }
+      navigator.geolocation.getCurrentPosition(
+        function(pos) { resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }); },
+        function() { resolve(null); }, // sin permiso o error: seguimos sin GPS
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    });
+  }
+
+  try {
+    const ubicacion = await obtenerUbicacion();
+    const fotografoNombre = currentUser ? currentUser.nombre : '';
+    let url = SCRIPT_URL + '?action=rfGetRutaDelDia&fotografo=' + encodeURIComponent(fotografoNombre);
+    if (ubicacion) url += '&lat=' + ubicacion.lat + '&lon=' + ubicacion.lon;
+
+    cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta del día');
+    const ruta = data.ruta || [];
+    if (!ruta.length) {
+      cont.innerHTML = '<div class="empty-sub" style="padding:10px 0">No tienes elementos pendientes por ahora.</div>';
+      return;
+    }
+    const pasos = ruta.map(function(el, i) {
+      return '<div class="ruta-step">' +
+        '<div class="ruta-num">' + (i+1) + '</div>' +
+        '<div>' +
+          '<div style="font-weight:700;color:#fff;font-size:13px">' + (el.tipoElemento || 'Elemento') +
+            (!el.lat ? ' <span style="color:var(--muted);font-weight:400">(sin ubicación GPS)</span>' : '') + '</div>' +
+          '<div style="font-size:12px;color:var(--muted)">' + (el.clienteAsignacion || '—') + ' · ' + (el.ubicacion || '—') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    cont.innerHTML =
+      '<div class="ruta-card">' +
+        (ubicacion ? '' : '<div class="empty-sub" style="padding:0 0 8px;color:var(--muted)">No se pudo obtener tu ubicación GPS — la ruta arranca desde el primer punto de la lista.</div>') +
+        pasos +
+        (data.mapsUrl ? '<a class="ruta-maps-link" href="' + data.mapsUrl + '" target="_blank">📍 Abrir ruta completa en Google Maps</a>' : '') +
+      '</div>';
+  } catch(e) {
+    cont.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al calcular la ruta del día: ' + e.message + '</div>';
   }
 }
 
@@ -1475,7 +1530,9 @@ async function crearAsignacion() {
       observaciones: '',
       ciudad,
       fotografoAsignado,
-      foto: el.foto || ''
+      foto: el.foto || '',
+      lat: el.lat || '',
+      lon: el.lon || ''
     };
     elementos.push(...expandirPorTurno(base, turno));
   });
