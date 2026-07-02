@@ -1110,7 +1110,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     // La columna derecha (panorámica) es más alta que la izquierda
     // porque incluye la caja "LINK VIDEO" dentro del naranja.
     const leftH = 5.1;
-    const rightH = tieneVideo ? 5.75 : 5.1;
+    const rightH = tieneVideo ? leftH + 0.85 : leftH;
     const gap = 0.18;
     const colLeftW = 5.6;
     const colRightW = cardW - colLeftW - gap;
@@ -1127,16 +1127,17 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     });
 
     // ── Texto grande rotado "Valla Fija" / tipo de elemento en el
-    // borde izquierdo de la tarjeta naranja ──
+    // borde izquierdo de la tarjeta naranja. Franja de 1.1" reservada
+    // para que no choque con la etiqueta "FOTO VERTICAL". ──
     slide.addText((t.tipoElemento || 'Elemento'), {
-      x: cardX - 0.85, y: cardY + leftH/2 - 1.3, w: leftH - 0.6, h: 1.0,
-      fontSize: 32, bold: true, color: WHITE, fontFace: 'Arial Black',
+      x: cardX - 1.55, y: cardY + leftH/2 - 0.55, w: leftH - 0.7, h: 1.1,
+      fontSize: 24, bold: true, color: WHITE, fontFace: 'Arial Black',
       align: 'center', valign: 'middle', rotate: 270
     });
 
     // ── Foto VERTICAL (frontal) con etiqueta rotada ──
-    const frameLx = cardX + 1.0, frameLy = cardY + 0.35;
-    const frameLw = colLeftW - 1.3, frameLh = leftH - 0.7;
+    const frameLx = cardX + 1.35, frameLy = cardY + 0.35;
+    const frameLw = colLeftW - 1.65, frameLh = leftH - 0.7;
     if (frontalB64) {
       const dim = await dimensionesImagen(frontalB64);
       const r = encajarProporcional(dim.w, dim.h, frameLw, frameLh);
@@ -1146,13 +1147,13 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addText('Foto no disponible', { x:frameLx,y:frameLy+frameLh/2-0.25,w:frameLw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
     // Etiqueta blanca rotada "FOTO VERTICAL" pegada al borde izq. de la foto
-    slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 0.32, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-    slide.addText('FOTO VERTICAL', { x: frameLx - 0.32, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+    slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+    slide.addText('FOTO VERTICAL', { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
     // ── Foto PANORÁMICA con etiqueta rotada ──
     const rx = cardX + colLeftW + gap;
-    const frameRx = rx + 1.0, frameRy = cardY + 0.35;
-    const frameRw = colRightW - 1.3, frameRh = leftH - 0.7;
+    const frameRx = rx + 1.35, frameRy = cardY + 0.35;
+    const frameRw = colRightW - 1.65, frameRh = leftH - 0.7;
     if (panoB64) {
       const dimP = await dimensionesImagen(panoB64);
       const rP = encajarProporcional(dimP.w, dimP.h, frameRw, frameRh);
@@ -1161,15 +1162,20 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addShape(pres.shapes.RECTANGLE, { x:frameRx,y:frameRy,w:frameRw,h:frameRh, fill:{color:'D96A10'},line:{color:'D96A10'} });
       slide.addText('Foto no disponible', { x:frameRx,y:frameRy+frameRh/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
-    slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 0.32, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-    slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.32, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+    slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+    slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
-    // ── Caja "LINK VIDEO" dentro del naranja, al pie de la columna
-    // derecha (solo si hay video) ──
+    // ── Caja "LINK VIDEO" + link real, AMBOS dentro de la tarjeta
+    // naranja (que ya se hizo más alta arriba para que quepan) ──
     if (tieneVideo) {
       const vy = frameRy + frameRh + 0.12;
-      slide.addShape(pres.shapes.RECTANGLE, { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.42, fill:{color:WHITE}, line:{color:WHITE} });
-      slide.addText('LINK VIDEO', { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.42, fontSize:13, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial' });
+      slide.addShape(pres.shapes.RECTANGLE, { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
+      slide.addText('LINK VIDEO', { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.4, fontSize:12, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial' });
+      slide.addText('▶ Ver / descargar el video aquí', {
+        x: rx + 0.3, y: vy + 0.42, w: colRightW - 0.6, h: 0.3,
+        fontSize: 10, bold: true, color: WHITE, fontFace: 'Arial',
+        align: 'center', hyperlink: { url: t.videoUrl }
+      });
     }
 
     // ── Zona blanca debajo de la tarjeta naranja ──
@@ -1183,15 +1189,6 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       const badgeBg = esNoche ? 'E8E6FB' : 'FEF3C7';
       slide.addShape(pres.shapes.RECTANGLE, { x:cardX,y:belowY,w:2.6,h:0.36, fill:{color:badgeBg},line:{color:badgeColor,width:1} });
       slide.addText(badgeTxt, { x:cardX,y:belowY,w:2.6,h:0.36, fontSize:9,bold:true,color:badgeColor,align:'center',valign:'middle',fontFace:'Arial' });
-    }
-
-    // Link del video en texto, debajo de la caja "LINK VIDEO" (blanco)
-    if (tieneVideo) {
-      slide.addText('Ver / descargar video: ' + t.videoUrl, {
-        x: rx + 0.3, y: belowY, w: colRightW - 0.6, h: 0.36,
-        fontSize: 10, bold: true, color: '1155CC', fontFace: 'Arial',
-        hyperlink: { url: t.videoUrl }, valign: 'middle'
-      });
     }
 
     // Código de elemento, grande
@@ -1267,7 +1264,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
 
     const cardX = 0.3, cardY = 0.3, cardW = 12.73;
     const leftH = 5.1;
-    const rightH = tieneVideo ? 5.75 : 5.1;
+    const rightH = tieneVideo ? leftH + 0.85 : leftH;
     const gap = 0.18;
     const colLeftW = 5.6;
     const colRightW = cardW - colLeftW - gap;
@@ -1277,14 +1274,16 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     doc.roundedRect(cardX, cardY, colLeftW, leftH, 0.12, 0.12, 'F');
     doc.roundedRect(cardX + colLeftW + gap, cardY, colRightW, rightH, 0.12, 0.12, 'F');
 
-    // Texto grande rotado del tipo de elemento (jsPDF usa 'angle' en grados)
+    // Texto grande rotado del tipo de elemento (jsPDF usa 'angle' en grados).
+    // Se reserva una franja izquierda de 0.9" para que quepa completo
+    // sin chocar con la etiqueta "FOTO VERTICAL".
     doc.setTextColor(255,255,255);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(26);
-    doc.text((t.tipoElemento || 'Elemento'), cardX + 0.35, cardY + leftH/2 + 1.0, { angle: 90 });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+    doc.text((t.tipoElemento || 'Elemento'), cardX + 0.32, cardY + leftH - 0.4, { angle: 90 });
 
     // Foto vertical (frontal)
-    const frameLx = cardX + 1.0, frameLy = cardY + 0.35;
-    const frameLw = colLeftW - 1.3, frameLh = leftH - 0.7;
+    const frameLx = cardX + 1.35, frameLy = cardY + 0.35;
+    const frameLw = colLeftW - 1.65, frameLh = leftH - 0.7;
     try {
       if (frontalB64) {
         const dim = await dimensionesImagen(frontalB64);
@@ -1299,12 +1298,12 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     } catch(e) {}
     doc.setTextColor(26,43,74);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-    doc.text('FOTO VERTICAL', frameLx - 0.12, frameLy + frameLh/2 + 0.7, { angle: 90 });
+    doc.text('FOTO VERTICAL', frameLx - 0.14, frameLy + frameLh/2 + 0.7, { angle: 90 });
 
     // Foto panorámica
     const rx = cardX + colLeftW + gap;
-    const frameRx = rx + 1.0, frameRy = cardY + 0.35;
-    const frameRw = colRightW - 1.3, frameRh = leftH - 0.7;
+    const frameRx = rx + 1.35, frameRy = cardY + 0.35;
+    const frameRw = colRightW - 1.65, frameRh = leftH - 0.7;
     try {
       if (panoB64) {
         const dimP = await dimensionesImagen(panoB64);
@@ -1319,16 +1318,21 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     } catch(e) {}
     doc.setTextColor(26,43,74);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-    doc.text('FOTO PANORÁMICA', frameRx - 0.12, frameRy + frameRh/2 + 0.9, { angle: 90 });
+    doc.text('FOTO PANORÁMICA', frameRx - 0.14, frameRy + frameRh/2 + 0.9, { angle: 90 });
 
-    // Caja "LINK VIDEO" dentro del naranja (solo si hay video)
+    // Caja "LINK VIDEO" dentro del naranja + el link real justo debajo,
+    // ambos dentro de la misma tarjeta (no se salen del bloque naranja).
     if (tieneVideo) {
       const vy = frameRy + frameRh + 0.12;
       doc.setFillColor(255,255,255);
-      doc.rect(rx + 0.3, vy, colRightW - 0.6, 0.42, 'F');
+      doc.rect(rx + 0.3, vy, colRightW - 0.6, 0.4, 'F');
       doc.setTextColor(26,43,74);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-      doc.text('LINK VIDEO', rx + colRightW/2, vy + 0.28, { align: 'center' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+      doc.text('LINK VIDEO', rx + colRightW/2, vy + 0.27, { align: 'center' });
+
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.textWithLink('▶ Ver / descargar el video aquí', rx + colRightW/2, vy + 0.68, { url: t.videoUrl, align: 'center' });
     }
 
     const belowY = cardY + Math.max(leftH, rightH) + 0.35;
@@ -1345,13 +1349,6 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.setTextColor(...badgeRGB);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       doc.text((esNoche ? '🌙 FOTO DE NOCHE' : '☀️ FOTO DE DÍA'), cardX + 1.3, belowY - 0.06, { align: 'center' });
-    }
-
-    // Link de video en texto
-    if (tieneVideo) {
-      doc.setTextColor(17, 85, 204);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
-      doc.textWithLink('Ver / descargar video: ' + t.videoUrl, rx + 0.3, belowY - 0.06, { url: t.videoUrl, maxWidth: colRightW - 0.6 });
     }
 
     // Código de elemento, grande
