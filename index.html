@@ -400,12 +400,12 @@ function goToPin(role) {
 
   if (role === 'fotografo') {
     title.textContent = 'Identificación de Fotógrafo';
-    sub.textContent = 'Selecciona tu nombre e ingresa tu PIN';
+    sub.textContent = 'Selecciona tu nombre e ingresa tu clave';
     Object.entries(FOTOGRAFOS).forEach(([id, u]) => sel.add(new Option(u.nombre, id)));
     btn.className = 'pin-btn fotografo';
-    input.placeholder = '••••';
-    input.maxLength = 4;
-    input.setAttribute('inputmode', 'numeric');
+    input.placeholder = '••••••••';
+    input.removeAttribute('maxlength');
+    input.removeAttribute('inputmode');
   } else {
     title.textContent = 'Identificación de Ejecutiva';
     sub.textContent = 'Selecciona tu nombre e ingresa tu contraseña';
