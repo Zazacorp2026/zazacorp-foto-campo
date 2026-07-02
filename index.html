@@ -799,12 +799,12 @@ function updateCaptureStep() {
 }
 function updateSubmitBtn() {
   const btn = document.getElementById('submit-toma');
-  const ready = captureData.frontal && captureData.panoramica;
+  const ready = !!(captureData.frontal || captureData.panoramica || captureData.video);
   btn.disabled = !ready;
-  btn.textContent = ready ? 'Subir toma ↑' : 'Toma la foto frontal y panorámica';
+  btn.textContent = ready ? 'Subir toma ↑' : 'Toma al menos 1 foto o video';
 }
 async function submitToma() {
-  if (!captureData.frontal || !captureData.panoramica) return;
+  if (!captureData.frontal && !captureData.panoramica && !captureData.video) return;
   const btn = document.getElementById('submit-toma');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo...';
   if (currentAsig) {
