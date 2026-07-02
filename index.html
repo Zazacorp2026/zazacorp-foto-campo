@@ -368,7 +368,7 @@ function esCiudadCostaSelector(ciudad) {
 function fotografoAutomaticoPorCiudad(ciudad, manual) {
   const c = normalizarZR(ciudad);
   if (c === 'QUITO') return 'Saskhya';
-  if (esCiudadCostaSelector(ciudad)) return manual || '';
+  if (esCiudadCostaSelector(ciudad)) return 'GYE';
   return 'Yessenia';
 }
 
@@ -1354,13 +1354,6 @@ async function buscarElementosCliente() {
           <div class="turno-btn" data-turno="NOCHE" onclick="event.preventDefault();setTurnoContratado(${i},'NOCHE')">🌙 Noche</div>
           <div class="turno-btn active" data-turno="AMBAS" onclick="event.preventDefault();setTurnoContratado(${i},'AMBAS')">☀️🌙 Ambas</div>
         </div>
-        ${esCiudadCostaSelector(el.ciudad || el.lugar) ? `
-          <label class="form-label" style="margin-top:8px">Fotógrafo asignado</label>
-          <select class="form-select contratado-fotografo" id="contratado-fotografo-${i}" onclick="event.stopPropagation()" onchange="event.stopPropagation()">
-            <option value="">— Seleccionar —</option>
-            <option value="Cristopher">Cristopher</option>
-            <option value="Carlos">Carlos</option>
-          </select>` : ``}
       </label>`).join('');
   } catch(e) {
     list.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al buscar elementos. Intenta de nuevo.</div>';
@@ -1380,22 +1373,16 @@ function setTurnoContratado(idx, turno) {
 function renderFotografoPicker(prefix, ciudadInicial, valorInicial) {
   const ciudad = ciudadInicial || '';
   const auto = fotografoAutomaticoPorCiudad(ciudad, valorInicial);
-
-  if (esCiudadCostaSelector(ciudad)) {
-    return `
-      <label class="form-label">Fotógrafo asignado</label>
-      <select class="form-select fotografo-asignado" id="${prefix}-fotografo" data-ciudad-source="${prefix}-ciudad">
-        <option value="">— Seleccionar —</option>
-        <option value="Cristopher"${valorInicial==='Cristopher'?' selected':''}>Cristopher</option>
-        <option value="Carlos"${valorInicial==='Carlos'?' selected':''}>Carlos</option>
-      </select>
-      <div class="empty-sub" style="font-size:11px;margin-top:-8px;margin-bottom:10px">Guayaquil / La Aurora / Vía a la Costa: la ejecutiva decide quién está libre.</div>`;
-  }
+  const mensaje = esCiudadCostaSelector(ciudad)
+    ? 'Guayaquil / La Aurora / Vía a la Costa se asignan automáticamente al grupo GYE.'
+    : (normalizarZR(ciudad) === 'QUITO'
+        ? 'Quito se asigna automáticamente a Saskhya.'
+        : 'Esta ciudad se asigna automáticamente a Yessenia.');
 
   return `
     <label class="form-label">Fotógrafo asignado</label>
     <input class="form-input fotografo-asignado" id="${prefix}-fotografo" value="${auto}" readonly style="color:var(--blue);font-weight:700"/>
-    <div class="empty-sub" style="font-size:11px;margin-top:-8px;margin-bottom:10px">${normalizarZR(ciudad)==='QUITO' ? 'Quito se asigna automáticamente a Saskhya.' : 'Esta ciudad se asigna automáticamente a Yessenia.'}</div>`;
+    <div class="empty-sub" style="font-size:11px;margin-top:-8px;margin-bottom:10px">${mensaje}</div>`;
 }
 
 function actualizarFotografoManual(idx) {
@@ -1478,11 +1465,6 @@ async function crearAsignacion() {
     const fotografoSel = document.getElementById('contratado-fotografo-' + idx);
     const fotografoAsignado = fotografoAutomaticoPorCiudad(ciudad, fotografoSel ? fotografoSel.value : '');
 
-    if (esCiudadCostaSelector(ciudad) && !fotografoAsignado) {
-      errorAsignacion = 'Selecciona Cristopher o Carlos para ' + (el.codigo || 'un elemento') + ' en ' + ciudad;
-      return;
-    }
-
     const turnoGroup = document.getElementById('contratado-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
     const base = {
@@ -1518,11 +1500,6 @@ async function crearAsignacion() {
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
 
     if (tipoElemento || ubicacion) {
-      if (esCiudadCostaSelector(ciudad) && !fotografoAsignado) {
-        errorAsignacion = 'Selecciona Cristopher o Carlos para un elemento en ' + ciudad;
-        return;
-      }
-
       const base = { tipoElemento, ubicacion, codigoRef, observaciones: '', ciudad, fotografoAsignado };
       elementos.push(...expandirPorTurno(base, turno));
     }
