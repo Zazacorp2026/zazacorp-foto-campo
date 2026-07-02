@@ -1084,95 +1084,136 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
   const NAVY  = ZR_NAVY;
   const ORANGE = ZR_ORANGE;
   const WHITE = ZR_WHITE;
-  const DARK  = ZR_NAVY;
-  const LABEL = ZR_LABEL;
-  const GREEN = '10B981';
 
   // ── PORTADA OFICIAL ZAZACORP (idéntica a Disponibles) ─────
   const cover = pres.addSlide();
   cover.addImage({ data: ZR_COVER_IMG, x:0, y:0, w:13.3, h:7.5 });
   cover.addText('ZAZA REPORT · ' + asignacion.cliente, { x:0.9,y:6.55,w:10,h:0.5, fontSize:14,bold:true,color:WHITE,fontFace:'Arial',charSpacing:1 });
 
-  // ── UNA LÁMINA POR ELEMENTO FOTOGRAFIADO ──────────────────
+  // ── UNA LÁMINA POR ELEMENTO FOTOGRAFIADO (diseño nuevo) ────
+  // Estructura: tarjeta naranja redondeada con las 2 fotos lado a
+  // lado (vertical + panorámica), tipo de elemento en texto blanco
+  // rotado en el borde izquierdo, etiquetas rotadas sobre cada foto,
+  // tag de turno (Día/Noche), caja de link de video, código grande,
+  // y footer con Cliente/Fecha/Ubicación + logo.
   for (const t of tomas) {
     const slide = pres.addSlide();
     slide.background = { color: WHITE };
 
-    // Panel izquierdo naranja con franja blanca (igual a Disponibles)
-    slide.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:7.3,h:7.5, fill:{color:ORANGE},line:{color:ORANGE} });
-    slide.addShape(pres.shapes.RECTANGLE, { x:0,y:0,w:0.35,h:7.5, fill:{color:WHITE},line:{color:WHITE} });
-
-    // Foto frontal grande dentro del panel naranja
     const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
     const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
-    if (frontalB64) {
-      const dim = await dimensionesImagen(frontalB64);
-      const r = encajarProporcional(dim.w, dim.h, 6.6, 4.7);
-      slide.addImage({ data: frontalB64, x: 0.35 + r.offsetX, y: 1.4 + r.offsetY, w: r.w, h: r.h });
-    } else {
-      slide.addShape(pres.shapes.RECTANGLE, { x:0.5,y:1.4,w:6.6,h:4.7, fill:{color:'D96A10'},line:{color:'D96A10'} });
-      slide.addText('Foto no disponible', { x:0.5,y:3.6,w:6.6,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
-    }
-    slide.addText((t.tipoElemento || 'Elemento'), { x:0.5,y:0.5,w:6.4,h:0.7, fontSize:22,bold:true,color:WHITE,fontFace:'Arial' });
-
-    // ── PANEL DERECHO ────────────────────────────────────────
-    const rx = 7.55;
-
-    // Badge de turno DIA / NOCHE / AMBAS
     const turno = t.turno || 'AMBAS';
-    const badgeTxt = turno === 'DIA' ? '☀️ FOTO DE DÍA' : turno === 'NOCHE' ? '🌙 FOTO DE NOCHE' : 'FOTO REGISTRADA';
-    const badgeColor = turno === 'NOCHE' ? '6366F1' : GREEN;
-    const badgeBg = turno === 'NOCHE' ? 'E8E6FB' : 'E8F5EE';
-    slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:0.35,w:2.6,h:0.35, fill:{color:badgeBg},line:{color:badgeColor,width:1} });
-    slide.addText(badgeTxt, { x:rx,y:0.35,w:2.6,h:0.35, fontSize:8,bold:true,color:badgeColor,align:'center',fontFace:'Arial',charSpacing:1 });
+    const tieneVideo = !!t.videoUrl;
 
-    // Código / tipo de elemento, grande, igual a Disponibles
-    slide.addText((t.codigoRef || t.tipoElemento || '—'), { x:rx,y:0.82,w:5.5,h:0.85, fontSize:30,bold:true,color:DARK,fontFace:'Arial Black' });
+    // Geometría base (pulgadas, slide 13.333 x 7.5)
+    const cardX = 0.3, cardY = 0.3, cardW = 12.73;
+    // La columna derecha (panorámica) es más alta que la izquierda
+    // porque incluye la caja "LINK VIDEO" dentro del naranja.
+    const leftH = 5.1;
+    const rightH = tieneVideo ? 5.75 : 5.1;
+    const gap = 0.18;
+    const colLeftW = 5.6;
+    const colRightW = cardW - colLeftW - gap;
 
-    // Línea separadora
-    slide.addShape(pres.shapes.LINE, { x:rx,y:1.78,w:5.5,h:0, line:{color:'E5E7EB',width:1} });
-
-    // Grid de datos: cliente, fecha, fotógrafo
-    const details = [
-      {label:'CLIENTE',    value: asignacion.cliente || '—'},
-      {label:'FECHA',      value: t.fecha || '—'},
-      {label:'FOTÓGRAFO',  value: t.fotografo || '—'},
-    ];
-    details.forEach((d, i) => {
-      const col = i%2, row = Math.floor(i/2);
-      const dx = rx + col*2.8, dy = 2.0 + row*0.75;
-      slide.addText(d.label, { x:dx,y:dy,w:2.6,h:0.22, fontSize:7,color:LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
-      slide.addText(d.value, { x:dx,y:dy+0.23,w:2.6,h:0.4, fontSize:12,bold:true,color:DARK,fontFace:'Arial' });
+    // Tarjeta naranja columna izquierda (foto vertical)
+    slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+      x: cardX, y: cardY, w: colLeftW, h: leftH,
+      fill: { color: ORANGE }, line: { color: ORANGE }, rectRadius: 0.12
+    });
+    // Tarjeta naranja columna derecha (foto panorámica + link video)
+    slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
+      x: cardX + colLeftW + gap, y: cardY, w: colRightW, h: rightH,
+      fill: { color: ORANGE }, line: { color: ORANGE }, rectRadius: 0.12
     });
 
-    // Línea separadora
-    slide.addShape(pres.shapes.LINE, { x:rx,y:3.55,w:5.5,h:0, line:{color:'E5E7EB',width:1} });
+    // ── Texto grande rotado "Valla Fija" / tipo de elemento en el
+    // borde izquierdo de la tarjeta naranja ──
+    slide.addText((t.tipoElemento || 'Elemento'), {
+      x: cardX - 0.85, y: cardY + leftH/2 - 1.3, w: leftH - 0.6, h: 1.0,
+      fontSize: 32, bold: true, color: WHITE, fontFace: 'Arial Black',
+      align: 'center', valign: 'middle', rotate: 270
+    });
 
-    // Ubicación
-    slide.addText('UBICACIÓN', { x:rx,y:3.67,w:5.5,h:0.22, fontSize:7,color:LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
-    const dir = t.ubicacion || '—';
-    slide.addText(dir.length>100?dir.substring(0,97)+'…':dir, { x:rx,y:3.92,w:5.5,h:0.65, fontSize:11,color:DARK,fontFace:'Arial',wrap:true,valign:'top' });
-
-    if (t.observaciones) {
-      slide.addText('OBSERVACIONES', { x:rx,y:4.65,w:5.5,h:0.22, fontSize:7,color:LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
-      slide.addText(t.observaciones, { x:rx,y:4.9,w:5.5,h:0.6, fontSize:10,color:DARK,fontFace:'Arial',wrap:true,valign:'top' });
+    // ── Foto VERTICAL (frontal) con etiqueta rotada ──
+    const frameLx = cardX + 1.0, frameLy = cardY + 0.35;
+    const frameLw = colLeftW - 1.3, frameLh = leftH - 0.7;
+    if (frontalB64) {
+      const dim = await dimensionesImagen(frontalB64);
+      const r = encajarProporcional(dim.w, dim.h, frameLw, frameLh);
+      slide.addImage({ data: frontalB64, x: frameLx + r.offsetX, y: frameLy + r.offsetY, w: r.w, h: r.h });
+    } else {
+      slide.addShape(pres.shapes.RECTANGLE, { x:frameLx,y:frameLy,w:frameLw,h:frameLh, fill:{color:'D96A10'},line:{color:'D96A10'} });
+      slide.addText('Foto no disponible', { x:frameLx,y:frameLy+frameLh/2-0.25,w:frameLw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
+    // Etiqueta blanca rotada "FOTO VERTICAL" pegada al borde izq. de la foto
+    slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 0.32, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+    slide.addText('FOTO VERTICAL', { x: frameLx - 0.32, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
-    // Foto panorámica como miniatura en el panel derecho, abajo
+    // ── Foto PANORÁMICA con etiqueta rotada ──
+    const rx = cardX + colLeftW + gap;
+    const frameRx = rx + 1.0, frameRy = cardY + 0.35;
+    const frameRw = colRightW - 1.3, frameRh = leftH - 0.7;
     if (panoB64) {
       const dimP = await dimensionesImagen(panoB64);
-      const rP = encajarProporcional(dimP.w, dimP.h, 5.5, 1.55);
-      slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:5.55,w:5.5,h:1.55, fill:{color:'F4F6F8'},line:{color:'E5E7EB',width:1} });
-      slide.addImage({ data: panoB64, x: rx + rP.offsetX, y: 5.55 + rP.offsetY, w: rP.w, h: rP.h });
-      slide.addText('VISTA PANORÁMICA', { x:rx,y:5.55,w:1.6,h:0.22, fontSize:7,color:LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
-    } else if (t.videoUrl) {
-      slide.addShape(pres.shapes.RECTANGLE, { x:rx,y:5.55,w:5.5,h:1.55, fill:{color:'F4F6F8'},line:{color:'E5E7EB',width:1} });
-      slide.addShape(pres.shapes.OVAL, { x:rx+2.45,y:5.95,w:0.6,h:0.6, fill:{color:ORANGE},line:{color:WHITE,width:2} });
-      slide.addText('▶', { x:rx+2.45,y:5.95,w:0.6,h:0.6, fontSize:18,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
-      slide.addText('Ver / descargar video', { x:rx,y:6.75,w:5.5,h:0.3, fontSize:10,bold:true,color:'1155CC',fontFace:'Arial',hyperlink:{url:t.videoUrl} });
+      const rP = encajarProporcional(dimP.w, dimP.h, frameRw, frameRh);
+      slide.addImage({ data: panoB64, x: frameRx + rP.offsetX, y: frameRy + rP.offsetY, w: rP.w, h: rP.h });
+    } else {
+      slide.addShape(pres.shapes.RECTANGLE, { x:frameRx,y:frameRy,w:frameRw,h:frameRh, fill:{color:'D96A10'},line:{color:'D96A10'} });
+      slide.addText('Foto no disponible', { x:frameRx,y:frameRy+frameRh/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
+    }
+    slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 0.32, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+    slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.32, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+
+    // ── Caja "LINK VIDEO" dentro del naranja, al pie de la columna
+    // derecha (solo si hay video) ──
+    if (tieneVideo) {
+      const vy = frameRy + frameRh + 0.12;
+      slide.addShape(pres.shapes.RECTANGLE, { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.42, fill:{color:WHITE}, line:{color:WHITE} });
+      slide.addText('LINK VIDEO', { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.42, fontSize:13, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial' });
     }
 
-    // Logo naranja esquina inferior derecha (igual a Disponibles)
+    // ── Zona blanca debajo de la tarjeta naranja ──
+    const belowY = cardY + Math.max(leftH, rightH) + 0.12;
+
+    // Tag turno DÍA/NOCHE (izquierda, sobre blanco)
+    if (turno === 'DIA' || turno === 'NOCHE') {
+      const esNoche = turno === 'NOCHE';
+      const badgeTxt = esNoche ? '🌙 FOTO DE NOCHE' : '☀️ FOTO DE DÍA';
+      const badgeColor = esNoche ? '6366F1' : 'D97706';
+      const badgeBg = esNoche ? 'E8E6FB' : 'FEF3C7';
+      slide.addShape(pres.shapes.RECTANGLE, { x:cardX,y:belowY,w:2.6,h:0.36, fill:{color:badgeBg},line:{color:badgeColor,width:1} });
+      slide.addText(badgeTxt, { x:cardX,y:belowY,w:2.6,h:0.36, fontSize:9,bold:true,color:badgeColor,align:'center',valign:'middle',fontFace:'Arial' });
+    }
+
+    // Link del video en texto, debajo de la caja "LINK VIDEO" (blanco)
+    if (tieneVideo) {
+      slide.addText('Ver / descargar video: ' + t.videoUrl, {
+        x: rx + 0.3, y: belowY, w: colRightW - 0.6, h: 0.36,
+        fontSize: 10, bold: true, color: '1155CC', fontFace: 'Arial',
+        hyperlink: { url: t.videoUrl }, valign: 'middle'
+      });
+    }
+
+    // Código de elemento, grande
+    const codeY = belowY + 0.5;
+    slide.addText((t.codigoRef || '—'), { x:cardX,y:codeY,w:6,h:0.6, fontSize:28,bold:true,color:NAVY,fontFace:'Arial Black' });
+
+    // Línea separadora
+    slide.addShape(pres.shapes.LINE, { x:cardX,y:codeY+0.62,w:cardW,h:0, line:{color:'E5E7EB',width:1} });
+
+    // Footer: Cliente / Fecha / Ubicación + logo
+    const footY = codeY + 0.78;
+    slide.addText('CLIENTE', { x:cardX,y:footY,w:1.8,h:0.2, fontSize:7,color:ZR_LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
+    slide.addText(asignacion.cliente || '—', { x:cardX,y:footY+0.2,w:2.6,h:0.3, fontSize:11,bold:true,color:NAVY,fontFace:'Arial' });
+
+    slide.addText('FECHA', { x:cardX+2.7,y:footY,w:1.8,h:0.2, fontSize:7,color:ZR_LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
+    slide.addText(t.fecha || '—', { x:cardX+2.7,y:footY+0.2,w:1.8,h:0.3, fontSize:11,bold:true,color:NAVY,fontFace:'Arial' });
+
+    slide.addText('UBICACIÓN', { x:cardX+4.8,y:footY,w:6.5,h:0.2, fontSize:7,color:ZR_LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
+    const dir = t.ubicacion || '—';
+    slide.addText(dir.length>110?dir.substring(0,107)+'…':dir, { x:cardX+4.8,y:footY+0.2,w:6.5,h:0.5, fontSize:11,bold:true,color:NAVY,fontFace:'Arial',wrap:true,valign:'top' });
+
+    // Logo naranja esquina inferior derecha
     slide.addImage({ data: ZR_LOGO_NARANJA, x:11.6,y:6.9,w:1.5,h:0.48 });
   }
 
@@ -1213,85 +1254,133 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
   doc.text('Fecha límite: ' + (asignacion.fechaLimite || 'N/D'), 0.9, 4.85);
   doc.text('zazacorp.com.ec', 0.9, 6.9);
 
-  // ── UNA PÁGINA POR UBICACIÓN ─────────────────────────────
+  // ── UNA PÁGINA POR ELEMENTO (mismo diseño que el PPT) ────
   for (const t of tomas) {
     doc.addPage([13.333, 7.5], 'landscape');
     doc.setFillColor(255,255,255);
     doc.rect(0, 0, 13.333, 7.5, 'F');
-    doc.setFillColor(...navyRGB);
-    doc.rect(0, 0, 3.6, 7.5, 'F');
+
+    const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
+    const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+    const turno = t.turno || 'AMBAS';
+    const tieneVideo = !!t.videoUrl;
+
+    const cardX = 0.3, cardY = 0.3, cardW = 12.73;
+    const leftH = 5.1;
+    const rightH = tieneVideo ? 5.75 : 5.1;
+    const gap = 0.18;
+    const colLeftW = 5.6;
+    const colRightW = cardW - colLeftW - gap;
+
+    // Tarjetas naranjas (jsPDF sí soporta roundedRect)
     doc.setFillColor(...orangeRGB);
-    doc.rect(0, 0, 0.12, 7.5, 'F');
+    doc.roundedRect(cardX, cardY, colLeftW, leftH, 0.12, 0.12, 'F');
+    doc.roundedRect(cardX + colLeftW + gap, cardY, colRightW, rightH, 0.12, 0.12, 'F');
 
+    // Texto grande rotado del tipo de elemento (jsPDF usa 'angle' en grados)
     doc.setTextColor(255,255,255);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-    doc.text(t.tipoElemento || 'Elemento', 0.45, 0.85, { maxWidth: 2.9 });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(26);
+    doc.text((t.tipoElemento || 'Elemento'), cardX + 0.35, cardY + leftH/2 + 1.0, { angle: 90 });
 
-    doc.setTextColor(...labelRGB);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text((t.ubicacion || '—'), 0.45, 1.3, { maxWidth: 2.9 });
-
-    let y = 2.3;
-    const campo = (label, valor) => {
-      doc.setTextColor(...orangeRGB);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
-      doc.text(label, 0.45, y);
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-      doc.text(String(valor || '—'), 0.45, y + 0.28, { maxWidth: 2.9 });
-      y += 0.8;
-    };
-    campo('CLIENTE', asignacion.cliente);
-    campo('FECHA', t.fecha);
-    campo('FOTÓGRAFO', t.fotografo);
-    if (t.observaciones) campo('OBSERVACIONES', t.observaciones);
-
-    // Fotos lado a lado, cada una dentro de un marco fijo pero
-    // manteniendo su proporción real (sin estirar ni recortar) y
-    // centrada dentro de ese marco.
+    // Foto vertical (frontal)
+    const frameLx = cardX + 1.0, frameLy = cardY + 0.35;
+    const frameLw = colLeftW - 1.3, frameLh = leftH - 0.7;
     try {
-      const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
-      const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
-
-      const marcoX1 = 3.95, marcoX2 = 8.45, marcoW = 4.3, marcoH = 3.4, marcoY = 0.55;
-
       if (frontalB64) {
         const dim = await dimensionesImagen(frontalB64);
-        const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
-        doc.addImage(frontalB64, 'JPEG', marcoX1 + r.offsetX, marcoY + r.offsetY, r.w, r.h);
-        doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('FOTO FRONTAL', marcoX1 + marcoW/2, marcoY + marcoH + 0.3, { align: 'center' });
+        const r = encajarProporcional(dim.w, dim.h, frameLw, frameLh);
+        doc.addImage(frontalB64, 'JPEG', frameLx + r.offsetX, frameLy + r.offsetY, r.w, r.h);
+      } else {
+        doc.setFillColor(217,106,16);
+        doc.rect(frameLx, frameLy, frameLw, frameLh, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(11);
+        doc.text('Foto no disponible', frameLx + frameLw/2, frameLy + frameLh/2, { align: 'center' });
       }
-      if (panoB64) {
-        const dim = await dimensionesImagen(panoB64);
-        const r = encajarProporcional(dim.w, dim.h, marcoW, marcoH);
-        doc.addImage(panoB64, 'JPEG', marcoX2 + r.offsetX, marcoY + r.offsetY, r.w, r.h);
-        doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('FOTO PANORÁMICA', marcoX2 + marcoW/2, marcoY + marcoH + 0.3, { align: 'center' });
-      }
-      if (t.videoUrl) {
-        const marcoVidY = marcoY + marcoH + 0.55, marcoVidH = 2.3;
-        const thumbVideo = frontalB64 || panoB64;
-        if (thumbVideo) {
-          const dim = await dimensionesImagen(thumbVideo);
-          const r = encajarProporcional(dim.w, dim.h, marcoW, marcoVidH);
-          doc.addImage(thumbVideo, 'JPEG', marcoX1 + r.offsetX, marcoVidY + r.offsetY, r.w, r.h);
-        }
-        doc.setFillColor(...orangeRGB);
-        doc.circle(marcoX1 + marcoW/2, marcoVidY + marcoVidH/2, 0.3, 'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(14);
-        doc.text('▶', marcoX1 + marcoW/2, marcoVidY + marcoVidH/2 + 0.08, { align: 'center' });
-        doc.setTextColor(...labelRGB); doc.setFontSize(8);
-        doc.text('VIDEO', marcoX1 + marcoW/2, marcoVidY + marcoVidH + 0.3, { align: 'center' });
+    } catch(e) {}
+    doc.setTextColor(26,43,74);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('FOTO VERTICAL', frameLx - 0.12, frameLy + frameLh/2 + 0.7, { angle: 90 });
 
-        doc.setTextColor(17, 85, 204);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.textWithLink('Ver / descargar video', marcoX2, marcoVidY + 0.25, { url: t.videoUrl });
-        doc.setTextColor(...labelRGB);
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
-        doc.text(t.videoUrl, marcoX2, marcoVidY + 0.7, { maxWidth: marcoW });
+    // Foto panorámica
+    const rx = cardX + colLeftW + gap;
+    const frameRx = rx + 1.0, frameRy = cardY + 0.35;
+    const frameRw = colRightW - 1.3, frameRh = leftH - 0.7;
+    try {
+      if (panoB64) {
+        const dimP = await dimensionesImagen(panoB64);
+        const rP = encajarProporcional(dimP.w, dimP.h, frameRw, frameRh);
+        doc.addImage(panoB64, 'JPEG', frameRx + rP.offsetX, frameRy + rP.offsetY, rP.w, rP.h);
+      } else {
+        doc.setFillColor(217,106,16);
+        doc.rect(frameRx, frameRy, frameRw, frameRh, 'F');
+        doc.setTextColor(255,255,255); doc.setFontSize(11);
+        doc.text('Foto no disponible', frameRx + frameRw/2, frameRy + frameRh/2, { align: 'center' });
       }
-    } catch(e) { /* si falla una imagen, seguimos con el resto del reporte */ }
+    } catch(e) {}
+    doc.setTextColor(26,43,74);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    doc.text('FOTO PANORÁMICA', frameRx - 0.12, frameRy + frameRh/2 + 0.9, { angle: 90 });
+
+    // Caja "LINK VIDEO" dentro del naranja (solo si hay video)
+    if (tieneVideo) {
+      const vy = frameRy + frameRh + 0.12;
+      doc.setFillColor(255,255,255);
+      doc.rect(rx + 0.3, vy, colRightW - 0.6, 0.42, 'F');
+      doc.setTextColor(26,43,74);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+      doc.text('LINK VIDEO', rx + colRightW/2, vy + 0.28, { align: 'center' });
+    }
+
+    const belowY = cardY + Math.max(leftH, rightH) + 0.35;
+
+    // Tag turno DÍA/NOCHE
+    if (turno === 'DIA' || turno === 'NOCHE') {
+      const esNoche = turno === 'NOCHE';
+      const badgeRGB = esNoche ? [99,102,241] : [217,119,6];
+      const badgeBgRGB = esNoche ? [232,230,251] : [254,243,199];
+      doc.setFillColor(...badgeBgRGB);
+      doc.rect(cardX, belowY - 0.28, 2.6, 0.36, 'F');
+      doc.setDrawColor(...badgeRGB);
+      doc.rect(cardX, belowY - 0.28, 2.6, 0.36);
+      doc.setTextColor(...badgeRGB);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      doc.text((esNoche ? '🌙 FOTO DE NOCHE' : '☀️ FOTO DE DÍA'), cardX + 1.3, belowY - 0.06, { align: 'center' });
+    }
+
+    // Link de video en texto
+    if (tieneVideo) {
+      doc.setTextColor(17, 85, 204);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.textWithLink('Ver / descargar video: ' + t.videoUrl, rx + 0.3, belowY - 0.06, { url: t.videoUrl, maxWidth: colRightW - 0.6 });
+    }
+
+    // Código de elemento, grande
+    const codeY = belowY + 0.55;
+    doc.setTextColor(...navyRGB);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(24);
+    doc.text((t.codigoRef || '—'), cardX, codeY);
+
+    // Línea separadora
+    doc.setDrawColor(229,231,235);
+    doc.line(cardX, codeY + 0.15, cardX + cardW, codeY + 0.15);
+
+    // Footer: Cliente / Fecha / Ubicación
+    const footY = codeY + 0.4;
+    const footLabel = (x, label) => {
+      doc.setTextColor(...labelRGB);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(7);
+      doc.text(label, x, footY);
+    };
+    const footValue = (x, valor, maxW) => {
+      doc.setTextColor(...navyRGB);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text(String(valor || '—'), x, footY + 0.22, maxW ? { maxWidth: maxW } : undefined);
+    };
+    footLabel(cardX, 'CLIENTE'); footValue(cardX, asignacion.cliente);
+    footLabel(cardX + 2.7, 'FECHA'); footValue(cardX + 2.7, t.fecha);
+    footLabel(cardX + 4.8, 'UBICACIÓN');
+    const dir = t.ubicacion || '—';
+    footValue(cardX + 4.8, dir.length>110?dir.substring(0,107)+'…':dir, 6.5);
   }
 
   doc.save(`Zaza_Report_${asignacion.cliente.replace(/[^a-zA-Z0-9]+/g,'_')}.pdf`);
