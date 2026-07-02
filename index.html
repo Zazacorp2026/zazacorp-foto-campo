@@ -1474,7 +1474,8 @@ async function crearAsignacion() {
       codigoRef: el.codigo,
       observaciones: '',
       ciudad,
-      fotografoAsignado
+      fotografoAsignado,
+      foto: el.foto || ''
     };
     elementos.push(...expandirPorTurno(base, turno));
   });
