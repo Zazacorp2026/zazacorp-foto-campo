@@ -1312,7 +1312,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     if (t.ubicacion) {
       const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion);
       slide.addText('📍 Ver ubicación en Google Maps', {
-        x: cardX + 2.4, y: codeY + 0.18, w: 3.5, h: 0.3,
+        x: cardX + 3.3, y: codeY + 0.18, w: 3.5, h: 0.3,
         fontSize: 11, bold: true, color: '2563EB', fontFace: 'Arial',
         hyperlink: { url: mapsUrl }
       });
@@ -1481,7 +1481,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion);
       doc.setTextColor(37,99,235);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-      doc.textWithLink('📍 Ver ubicación en Google Maps', cardX + 2.4, codeY - 0.1, { url: mapsUrl });
+      doc.textWithLink('📍 Ver ubicación en Google Maps', cardX + 3.3, codeY - 0.1, { url: mapsUrl });
     }
 
     // Línea separadora
