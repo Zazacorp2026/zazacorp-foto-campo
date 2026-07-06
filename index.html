@@ -1309,12 +1309,14 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
 
     const codeY = belowY + 0.5;
     slide.addText((t.codigoRef || '—'), { x:cardX,y:codeY,w:6,h:0.6, fontSize:28,bold:true,color:NAVY,fontFace:'Arial Black' });
-    if (t.ubicacion) {
-      const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion);
+    const mapsUrlPpt = (t.lat && t.lon)
+      ? 'https://www.google.com/maps?q=' + t.lat + ',' + t.lon
+      : (t.ubicacion ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion) : '');
+    if (mapsUrlPpt) {
       slide.addText('📍 Ver ubicación en Google Maps', {
         x: cardX + 3.3, y: codeY + 0.18, w: 3.5, h: 0.3,
         fontSize: 11, bold: true, color: '2563EB', fontFace: 'Arial',
-        hyperlink: { url: mapsUrl }
+        hyperlink: { url: mapsUrlPpt }
       });
     }
 
@@ -1477,11 +1479,13 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     doc.setTextColor(...navyRGB);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(24);
     doc.text((t.codigoRef || '—'), cardX, codeY);
-    if (t.ubicacion) {
-      const mapsUrl = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion);
+    const mapsUrlPdf = (t.lat && t.lon)
+      ? 'https://www.google.com/maps?q=' + t.lat + ',' + t.lon
+      : (t.ubicacion ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(t.ubicacion) : '');
+    if (mapsUrlPdf) {
       doc.setTextColor(37,99,235);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-      doc.textWithLink('📍 Ver ubicación en Google Maps', cardX + 3.3, codeY - 0.1, { url: mapsUrl });
+      doc.textWithLink('📍 Ver ubicación en Google Maps', cardX + 3.3, codeY - 0.1, { url: mapsUrlPdf });
     }
 
     // Línea separadora
