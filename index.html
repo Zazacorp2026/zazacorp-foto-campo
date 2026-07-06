@@ -943,7 +943,6 @@ async function showEjecutivaLista() {
       const { total, completados, pct } = pctDe(a);
       const acciones = isDone ? `
         <div style="display:flex;gap:6px;margin-top:10px">
-          <button onclick="event.stopPropagation();abrirEditorPlantilla()" title="Ajustar diseño antes de exportar" style="padding:8px 10px;background:rgba(138,155,181,0.15);color:var(--muted);border-radius:8px;font-size:14px">🎨</button>
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pptx')" style="flex:1;padding:8px;background:rgba(255,107,0,0.12);color:var(--orange);border-radius:8px;font-size:12px;font-weight:700">📊 Exportar PPT</button>
           <button onclick="event.stopPropagation();exportarReporte('${a.id}','pdf')" style="flex:1;padding:8px;background:rgba(34,197,94,0.12);color:var(--green);border-radius:8px;font-size:12px;font-weight:700">📄 Exportar PDF</button>
         </div>` : `
@@ -1004,10 +1003,7 @@ const ZR_LAYOUT_DEFAULT = {
   cardX: 0.3, cardY: 0.3, cardW: 12.73, colLeftW: 5.6, leftH: 5.1, gap: 0.18
 };
 function getLayout() {
-  try {
-    const saved = JSON.parse(localStorage.getItem('zr_layout_override') || 'null');
-    if (saved) return Object.assign({}, ZR_LAYOUT_DEFAULT, saved);
-  } catch(e) {}
+  // Editor de plantilla eliminado: diseño fijo siempre.
   return Object.assign({}, ZR_LAYOUT_DEFAULT);
 }
 
@@ -1219,17 +1215,17 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
   const ORANGE = ZR_ORANGE;
   const WHITE = ZR_WHITE;
 
-  // ── PORTADA OFICIAL ZAZACORP (idéntica a Disponibles) ─────
+  // ── PORTADA OFICIAL ZAZACORP ──
   const cover = pres.addSlide();
   cover.addImage({ data: ZR_COVER_IMG, x:0, y:0, w:13.3, h:7.5 });
   cover.addText('ZAZA REPORT · ' + asignacion.cliente, { x:0.9,y:6.55,w:10,h:0.5, fontSize:14,bold:true,color:WHITE,fontFace:'Arial',charSpacing:1 });
 
-  // ── UNA LÁMINA POR ELEMENTO FOTOGRAFIADO (diseño nuevo) ────
-  // Estructura: tarjeta naranja redondeada con las 2 fotos lado a
-  // lado (vertical + panorámica), tipo de elemento en texto blanco
-  // rotado en el borde izquierdo, etiquetas rotadas sobre cada foto,
-  // tag de turno (Día/Noche), caja de link de video, código grande,
-  // y footer con Cliente/Fecha/Ubicación + logo.
+  // ── Geometría FIJA (pulgadas, slide 13.333 x 7.5). Ya no depende
+  // de ningún editor ni de localStorage: siempre el mismo diseño. ──
+  const cardX = 0.3, cardY = 0.3, cardW = 12.73, gap = 0.18;
+  const colLeftW = 5.6;
+  const colRightW = cardW - colLeftW - gap;
+
   for (const t of tomas) {
     const slide = pres.addSlide();
     slide.background = { color: WHITE };
@@ -1239,61 +1235,47 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     const turno = t.turno || 'AMBAS';
     const tieneVideo = !!t.videoUrl;
 
-    // Geometría base (pulgadas, slide 13.333 x 7.5) — desde la
-    // plantilla del editor, o el diseño original si no se ha ajustado.
-    const _L = getLayout();
-    const cardX = _L.cardX, cardY = _L.cardY, cardW = _L.cardW;
-    // La columna derecha (panorámica) es más alta que la izquierda
-    // porque incluye la caja "LINK VIDEO" dentro del naranja.
-    const leftH = _L.leftH;
+    const leftH = 5.1;
     const rightH = tieneVideo ? leftH + 0.85 : leftH;
-    const gap = _L.gap;
-    const colLeftW = _L.colLeftW;
-    const colRightW = cardW - colLeftW - gap;
 
-    // Tarjeta naranja columna izquierda (foto vertical)
+    // Tarjetas naranjas
     slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
       x: cardX, y: cardY, w: colLeftW, h: leftH,
       fill: { color: ORANGE }, line: { color: ORANGE }, rectRadius: 0.12
     });
-    // Tarjeta naranja columna derecha (foto panorámica + link video)
     slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
       x: cardX + colLeftW + gap, y: cardY, w: colRightW, h: rightH,
       fill: { color: ORANGE }, line: { color: ORANGE }, rectRadius: 0.12
     });
 
-    // ── Texto grande rotado "Valla Fija" / tipo de elemento en el
-    // borde izquierdo de la tarjeta naranja. Franja de 1.1" reservada
-    // para que no choque con la etiqueta "FOTO VERTICAL". ──
+    // Texto rotado tipo de elemento
     slide.addText((t.tipoElemento || 'Elemento'), {
       x: cardX - 1.55, y: cardY + leftH/2 - 0.55, w: leftH - 0.7, h: 1.1,
       fontSize: 24, bold: true, color: WHITE, fontFace: 'Arial Black',
       align: 'center', valign: 'middle', rotate: 270
     });
 
-    // ── Foto VERTICAL (frontal) con etiqueta rotada ──
+    // ── Foto VERTICAL: sizing "cover" llena el marco siempre,
+    // recortando lo necesario, sin deformar ni dejar espacios blancos ──
     const frameLx = cardX + 1.35, frameLy = cardY + 0.35;
     const frameLw = colLeftW - 1.65, frameLh = leftH - 0.7;
     if (frontalB64) {
-      const dim = await dimensionesImagen(frontalB64);
-      const r = encajarProporcional(dim.w, dim.h, frameLw, frameLh);
-      slide.addImage({ data: frontalB64, x: frameLx + r.offsetX, y: frameLy + r.offsetY, w: r.w, h: r.h });
+      slide.addImage({ data: frontalB64, x: frameLx, y: frameLy, w: frameLw, h: frameLh,
+        sizing: { type: 'cover', w: frameLw, h: frameLh } });
     } else {
       slide.addShape(pres.shapes.RECTANGLE, { x:frameLx,y:frameLy,w:frameLw,h:frameLh, fill:{color:'D96A10'},line:{color:'D96A10'} });
       slide.addText('Foto no disponible', { x:frameLx,y:frameLy+frameLh/2-0.25,w:frameLw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
-    // Etiqueta blanca rotada "FOTO VERTICAL" pegada al borde izq. de la foto
     slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
     slide.addText('FOTO VERTICAL', { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
-    // ── Foto PANORÁMICA con etiqueta rotada ──
+    // ── Foto PANORÁMICA: también "cover" ──
     const rx = cardX + colLeftW + gap;
     const frameRx = rx + 1.35, frameRy = cardY + 0.35;
     const frameRw = colRightW - 1.65, frameRh = leftH - 0.7;
     if (panoB64) {
-      const dimP = await dimensionesImagen(panoB64);
-      const rP = encajarProporcional(dimP.w, dimP.h, frameRw, frameRh);
-      slide.addImage({ data: panoB64, x: frameRx + rP.offsetX, y: frameRy + rP.offsetY, w: rP.w, h: rP.h });
+      slide.addImage({ data: panoB64, x: frameRx, y: frameRy, w: frameRw, h: frameRh,
+        sizing: { type: 'cover', w: frameRw, h: frameRh } });
     } else {
       slide.addShape(pres.shapes.RECTANGLE, { x:frameRx,y:frameRy,w:frameRw,h:frameRh, fill:{color:'D96A10'},line:{color:'D96A10'} });
       slide.addText('Foto no disponible', { x:frameRx,y:frameRy+frameRh/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
@@ -1301,8 +1283,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
     slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
-    // ── Caja "LINK VIDEO" + link real, AMBOS dentro de la tarjeta
-    // naranja (que ya se hizo más alta arriba para que quepan) ──
+    // ── Caja "LINK VIDEO" dentro de la tarjeta derecha ──
     if (tieneVideo) {
       const vy = frameRy + frameRh + 0.12;
       slide.addShape(pres.shapes.RECTANGLE, { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
@@ -1314,10 +1295,9 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       });
     }
 
-    // ── Zona blanca debajo de la tarjeta naranja ──
+    // ── Zona blanca debajo de la tarjeta ──
     const belowY = cardY + Math.max(leftH, rightH) + 0.12;
 
-    // Tag turno DÍA/NOCHE (izquierda, sobre blanco)
     if (turno === 'DIA' || turno === 'NOCHE') {
       const esNoche = turno === 'NOCHE';
       const badgeTxt = esNoche ? '🌙 FOTO DE NOCHE' : '☀️ FOTO DE DÍA';
@@ -1327,14 +1307,11 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addText(badgeTxt, { x:cardX,y:belowY,w:2.6,h:0.36, fontSize:9,bold:true,color:badgeColor,align:'center',valign:'middle',fontFace:'Arial' });
     }
 
-    // Código de elemento, grande
     const codeY = belowY + 0.5;
     slide.addText((t.codigoRef || '—'), { x:cardX,y:codeY,w:6,h:0.6, fontSize:28,bold:true,color:NAVY,fontFace:'Arial Black' });
 
-    // Línea separadora
     slide.addShape(pres.shapes.LINE, { x:cardX,y:codeY+0.62,w:cardW,h:0, line:{color:'E5E7EB',width:1} });
 
-    // Footer: Cliente / Fecha / Ubicación + logo
     const footY = codeY + 0.78;
     slide.addText('CLIENTE', { x:cardX,y:footY,w:1.8,h:0.2, fontSize:7,color:ZR_LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
     slide.addText(asignacion.cliente || '—', { x:cardX,y:footY+0.2,w:2.6,h:0.3, fontSize:11,bold:true,color:NAVY,fontFace:'Arial' });
@@ -1346,7 +1323,6 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     const dir = t.ubicacion || '—';
     slide.addText(dir.length>110?dir.substring(0,107)+'…':dir, { x:cardX+4.8,y:footY+0.2,w:6.5,h:0.5, fontSize:11,bold:true,color:NAVY,fontFace:'Arial',wrap:true,valign:'top' });
 
-    // Logo naranja esquina inferior derecha
     slide.addImage({ data: ZR_LOGO_NARANJA, x:11.6,y:6.9,w:1.5,h:0.48 });
   }
 
