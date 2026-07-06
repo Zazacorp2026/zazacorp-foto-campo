@@ -1267,7 +1267,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addText('Foto no disponible', { x:frameLx,y:frameLy+frameLh/2-0.25,w:frameLw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
     slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-    slide.addText('FOTO VERTICAL', { x: frameLx - 0.34, y: frameLy + frameLh/2 - 1.0, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+    slide.addText('FOTO VERTICAL', { x: frameLx - 0.34, y: frameLy + frameLh/2 - 0.15, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
     // ── Foto PANORÁMICA: también "cover" ──
     const rx = cardX + colLeftW + gap;
@@ -1281,7 +1281,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addText('Foto no disponible', { x:frameRx,y:frameRy+frameRh/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
     }
     slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-    slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.34, y: frameRy + frameRh/2 - 1.05, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+    slide.addText('FOTO PANORÁMICA', { x: frameRx - 0.34, y: frameRy + frameRh/2 - 0.15, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
     // ── Caja "LINK VIDEO" dentro de la tarjeta derecha ──
     if (tieneVideo) {
