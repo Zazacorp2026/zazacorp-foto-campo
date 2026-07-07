@@ -1498,7 +1498,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       });
     }
 
-    slide.addShape(pres.shapes.LINE, { x:cardX,y:codeY+0.62,w:cardW,h:0, line:{color:'E5E7EB',width:1} });
+    slide.addShape(pres.shapes.LINE, { x:cardX,y:codeY+0.62,w:cardW,h:0.01, line:{color:'E5E7EB',width:1} });
 
     const footY = codeY + 0.78;
     slide.addText('CLIENTE', { x:cardX,y:footY,w:1.8,h:0.2, fontSize:7,color:ZR_LABEL,bold:true,fontFace:'Arial',charSpacing:1 });
