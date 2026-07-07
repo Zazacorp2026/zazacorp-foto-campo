@@ -456,7 +456,7 @@ let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
 let captureTarget = null;
-let captureData = { frontal: null, panoramica: null, video: null };
+let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
 let elementosFormCount = 0;
 
@@ -907,7 +907,7 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null };
+  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
   resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video');
   document.getElementById('obs-input').value = '';
   document.getElementById('capture-title').innerHTML =
@@ -948,8 +948,38 @@ async function handleFile(event, tipo) {
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
+    if (tipo === 'video') {
+      captureData.videoPreview = await capturarFrameDeVideo(file).catch(() => null);
+    }
   }
   updateCaptureStep(); updateSubmitBtn();
+}
+
+// Captura un frame del video (para usarlo como miniatura en el reporte de
+// LEDs) sacándolo directamente del archivo local en el navegador del
+// fotógrafo — esto solo funciona en el momento de subir el video, no se
+// puede sacar después desde el link de Drive por restricciones de CORS.
+function capturarFrameDeVideo(file) {
+  return new Promise((resolve, reject) => {
+    const videoEl = document.createElement('video');
+    videoEl.muted = true; videoEl.playsInline = true;
+    videoEl.src = URL.createObjectURL(file);
+    videoEl.addEventListener('loadeddata', () => {
+      videoEl.currentTime = Math.min(0.5, (videoEl.duration || 1) / 2);
+    });
+    videoEl.addEventListener('seeked', () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = videoEl.videoWidth || 480;
+        canvas.height = videoEl.videoHeight || 854;
+        canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(videoEl.src);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      } catch (e) { reject(e); }
+    });
+    videoEl.addEventListener('error', reject);
+    setTimeout(() => reject(new Error('timeout')), 8000);
+  });
 }
 function updateCaptureStep() {
   const total = (captureData.frontal?1:0)+(captureData.panoramica?1:0)+(captureData.video?1:0);
@@ -975,7 +1005,8 @@ async function submitToma() {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
     cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
     ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
-    videoBase64: captureData.video || '', fotografo: currentUser ? currentUser.nombre : '',
+    videoBase64: captureData.video || '', videoPreviewBase64: captureData.videoPreview || '',
+    fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
   };
@@ -1340,7 +1371,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     // Descargar TODAS las fotos necesarias en un solo lote desde el
     // backend (evita problemas de CORS y es más rápido que una por una)
     const todasUrls = [];
-    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl); });
+    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl); });
     const fotosMap = await descargarFotosEnLote(todasUrls);
 
     if (formato === 'pptx') {
@@ -1417,9 +1448,16 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       });
       const vFrameX = cardX + 1.35, vFrameY = cardY + 0.35;
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
-      slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
-      slide.addText('▶', { x: vFrameX, y: vFrameY + vFrameH/2 - 0.5, w: vFrameW, h: 0.7, fontSize: 44, bold: true, color: WHITE, align: 'center', valign: 'middle', fontFace: 'Arial' });
-      slide.addText('Video adjunto', { x:vFrameX,y:vFrameY+vFrameH/2+0.15,w:vFrameW,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
+      const previewB64 = fotosMap[t.videoPreviewUrl] || null;
+      if (previewB64) {
+        slide.addImage({ data: previewB64, x: vFrameX, y: vFrameY, w: vFrameW, h: vFrameH,
+          sizing: { type: 'cover', w: vFrameW, h: vFrameH } });
+      } else {
+        slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
+        slide.addText('Video adjunto', { x:vFrameX,y:vFrameY+vFrameH/2+0.15,w:vFrameW,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
+      }
+      slide.addShape(pres.shapes.OVAL, { x: vFrameX + vFrameW/2 - 0.42, y: vFrameY + vFrameH/2 - 0.42, w: 0.84, h: 0.84, fill:{color:'1A2B4A',transparency:25}, line:{color:WHITE,width:2} });
+      slide.addText('▶', { x: vFrameX + vFrameW/2 - 0.42, y: vFrameY + vFrameH/2 - 0.44, w: 0.84, h: 0.84, fontSize: 32, bold: true, color: WHITE, align: 'center', valign: 'middle', fontFace: 'Arial' });
 
       const vy = vFrameY + vFrameH + 0.12;
       slide.addShape(pres.shapes.RECTANGLE, { x: cardX + 0.3, y: vy, w: panelW - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
@@ -1596,13 +1634,25 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
 
       const vFrameX = cardX + 1.35, vFrameY = cardY + 0.35;
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
-      doc.setFillColor(217,106,16);
-      doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
+      const previewB64Pdf = fotosMap[t.videoPreviewUrl] || null;
+      if (previewB64Pdf) {
+        try {
+          const dimPrev = await dimensionesImagen(previewB64Pdf);
+          const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, vFrameW, vFrameH);
+          doc.addImage(previewB64Pdf, 'JPEG', vFrameX + rPrev.offsetX, vFrameY + rPrev.offsetY, rPrev.w, rPrev.h);
+        } catch(e) {
+          doc.setFillColor(217,106,16);
+          doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
+        }
+      } else {
+        doc.setFillColor(217,106,16);
+        doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
+      }
       const cx = vFrameX + vFrameW/2, cy = vFrameY + vFrameH/2 - 0.15;
+      doc.setFillColor(26,43,74);
+      doc.circle(cx, cy, 0.4, 'F');
       doc.setFillColor(255,255,255);
-      doc.circle(cx, cy, 0.42, 'F');
-      doc.setFillColor(217,106,16);
-      doc.triangle(cx-0.12, cy-0.2, cx-0.12, cy+0.2, cx+0.22, cy, 'F');
+      doc.triangle(cx-0.1, cy-0.18, cx-0.1, cy+0.18, cx+0.2, cy, 'F');
       doc.setTextColor(255,255,255);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
       doc.text('Video adjunto', cx, cy + 0.55, { align: 'center' });
