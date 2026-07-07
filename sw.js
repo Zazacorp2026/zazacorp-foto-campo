@@ -1,6 +1,5 @@
-const CACHE = 'zazafoto-v2';
-const PRECACHE = ['./index.html', './manifest.json', './icons/icon-192.png'];
-
+const CACHE = 'zazafoto-v3';
+const PRECACHE = ['./index.html', './manifest.json', './icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -8,7 +7,6 @@ self.addEventListener('install', e => {
       .then(() => self.skipWaiting())
   );
 });
-
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -16,20 +14,16 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim())
   );
 });
-
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-
   // Nunca cachear Apps Script ni APIs: evita datos viejos y errores de JSON.
   if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
     e.respondWith(fetch(e.request));
     return;
   }
-
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
-
       return fetch(e.request).then(res => {
         if (!res || res.status !== 200 || res.type === 'opaque') return res;
         const clone = res.clone();
