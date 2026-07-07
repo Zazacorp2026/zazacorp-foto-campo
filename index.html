@@ -1291,18 +1291,26 @@ function encajarProporcional(imgW, imgH, frameW, frameH) {
 async function descargarFotosEnLote(urls) {
   const urlsUnicas = Array.from(new Set(urls.filter(Boolean)));
   if (!urlsUnicas.length) return {};
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'rfDescargarArchivosDrive', urls: urlsUnicas })
-    });
-    const data = await res.json();
-    const mapa = {};
-    urlsUnicas.forEach((url, i) => { mapa[url] = (data.dataUrls && data.dataUrls[i]) || null; });
-    return mapa;
-  } catch(e) {
-    return {};
+  let ultimoError;
+  for (let intento = 0; intento < 3; intento++) {
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'rfDescargarArchivosDrive', urls: urlsUnicas })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const mapa = {};
+      urlsUnicas.forEach((url, i) => { mapa[url] = (data.dataUrls && data.dataUrls[i]) || null; });
+      return mapa;
+    } catch(e) {
+      ultimoError = e;
+      if (intento < 2) await new Promise(r => setTimeout(r, 600 * (intento + 1)));
+    }
   }
+  console.error('No se pudieron descargar las fotos tras 3 intentos:', ultimoError);
+  showToast('⚠️ No se pudieron descargar las fotos (revisa tu conexión e intenta de nuevo)', 'warn');
+  return {};
 }
 
 async function exportarReporte(asignacionId, formato, btnEl) {
