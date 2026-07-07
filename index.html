@@ -1814,8 +1814,7 @@ function addElementoForm(precarga) {
 
     <div id="elem-led-fields-${idx}" style="display:${esLED?'block':'none'}">
       <label class="form-label">LED del inventario</label>
-      <select class="form-select" id="elem-led-select-${idx}" onchange="onLEDSeleccionado(${idx})"><option value="">Cargando inventario...</option></select>
-      <div id="elem-led-preview-${idx}"></div>
+      <div id="elem-led-list-${idx}"><div class="empty-sub" style="padding:10px 0">Cargando inventario...</div></div>
       <label class="form-label">Cliente / anunciante de este video</label>
       <input class="form-input" id="elem-cliente-${idx}" placeholder="Nombre del cliente para este LED" value="${(precarga.cliente||'').replace(/"/g,'&quot;')}"/>
       <div class="empty-sub" style="font-size:11px;margin-top:4px">Este LED puede tener varios clientes a la vez: escribe el que corresponde a esta toma. Se pedirá solo 1 video vertical (9:16), sin fotos.</div>
@@ -1864,32 +1863,33 @@ async function cargarInventarioLEDs() {
 }
 
 function poblarSelectLED(idx, codigoPrecarga) {
-  const sel = document.getElementById('elem-led-select-' + idx);
-  if (!sel) return;
-  const leds = _ledsInventarioCache || [];
-  sel.innerHTML = '<option value="">— Selecciona el LED —</option>' +
-    leds.map(l => `<option value="${l.codigo}"${l.codigo===codigoPrecarga?' selected':''}>${l.codigo} · ${l.direccion} (${l.ciudad})</option>`).join('');
+  const cont = document.getElementById('elem-led-list-' + idx);
+  if (!cont) return;
+  const tipoSel = document.getElementById('elem-tipo-' + idx)?.value || '';
+  const norm = s => String(s || '').trim().toUpperCase();
+  const leds = (_ledsInventarioCache || []).filter(l => norm(l.tipo) === norm(tipoSel));
+  if (!leds.length) {
+    cont.innerHTML = `<div class="empty-sub" style="padding:10px 0">No se encontraron LEDs de tipo "${tipoSel}" en el inventario.</div>`;
+    return;
+  }
+  cont.innerHTML = leds.map((l, i) => `
+    <label class="elem-row" style="display:block;cursor:pointer">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <input type="radio" name="elem-led-radio-${idx}" class="led-radio-${idx}" data-codigo="${l.codigo}" ${l.codigo===codigoPrecarga?'checked':''} style="width:20px;height:20px;margin-top:2px;flex-shrink:0;accent-color:var(--blue)" onchange="onLEDSeleccionado(${idx})"/>
+        ${l.foto ? `<img src="${l.foto}" style="width:96px;height:96px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>` : `<div style="width:96px;height:96px;border-radius:10px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)">📷</div>`}
+        <div>
+          <div style="font-weight:700;color:#fff;font-size:14px">${l.tipo} · <span style="color:var(--orange)">${l.codigo}</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${l.direccion || '—'}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${l.ciudad}</div>
+        </div>
+      </div>
+    </label>`).join('');
   if (codigoPrecarga) onLEDSeleccionado(idx);
 }
 
 function onLEDSeleccionado(idx) {
-  const sel = document.getElementById('elem-led-select-' + idx);
-  const preview = document.getElementById('elem-led-preview-' + idx);
-  if (!sel || !preview) return;
-  const led = (_ledsInventarioCache || []).find(l => l.codigo === sel.value);
-  if (!led) { preview.innerHTML = ''; return; }
-  const mensaje = normalizarZR(led.ciudad) === 'QUITO'
-    ? 'Este LED (Quito) se asigna automáticamente a Saskhya.'
-    : 'Este LED se asigna al grupo compartido: lo toma el primero entre Cristopher o Carlos.';
-  preview.innerHTML = `
-    <div style="display:flex;gap:10px;align-items:center;margin:8px 0;padding:8px;background:var(--dark3);border-radius:10px">
-      ${led.foto ? `<img src="${led.foto}" style="width:56px;height:56px;object-fit:cover;border-radius:8px"/>` : ''}
-      <div style="font-size:12px">
-        <div style="font-weight:700;color:#fff">${led.direccion}</div>
-        <div style="color:var(--muted)">${led.ciudad}</div>
-      </div>
-    </div>
-    <div class="empty-sub" style="font-size:11px;margin-top:-4px;margin-bottom:8px">${mensaje}</div>`;
+  // La miniatura y el mensaje de fotógrafo ya se ven en la propia tarjeta
+  // seleccionada; no hace falta un preview aparte.
 }
 
 function onTipoElementoManualChange(idx) {
@@ -2002,8 +2002,8 @@ async function crearAsignacion() {
     const tipoElemento = tipoSel.value;
 
     if (esTipoLED(tipoElemento)) {
-      const ledSel = document.getElementById('elem-led-select-' + idx);
-      const led = ledSel ? (_ledsInventarioCache || []).find(l => l.codigo === ledSel.value) : null;
+      const radio = document.querySelector('input[name="elem-led-radio-' + idx + '"]:checked');
+      const led = radio ? (_ledsInventarioCache || []).find(l => l.codigo === radio.dataset.codigo) : null;
       const clienteLED = (document.getElementById('elem-cliente-' + idx)?.value || '').trim();
       if (!led) { errorAsignacion = 'Selecciona el LED del inventario para el elemento ' + (Number(idx)+1); return; }
       if (!clienteLED) { errorAsignacion = 'Indica el cliente del LED para el elemento ' + (Number(idx)+1); return; }
