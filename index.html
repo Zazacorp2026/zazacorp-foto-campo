@@ -1862,6 +1862,10 @@ async function cargarInventarioLEDs() {
   return _ledsInventarioCache;
 }
 
+function fotografoAutomaticoLED(ciudad) {
+  return normalizarZR(ciudad) === 'QUITO' ? 'Saskhya' : 'GYE';
+}
+
 function poblarSelectLED(idx, codigoPrecarga) {
   const cont = document.getElementById('elem-led-list-' + idx);
   if (!cont) return;
@@ -1881,6 +1885,7 @@ function poblarSelectLED(idx, codigoPrecarga) {
           <div style="font-weight:700;color:#fff;font-size:14px">${l.tipo} · <span style="color:var(--orange)">${l.codigo}</span></div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">${l.direccion || '—'}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${l.ciudad}</div>
+          ${badgeFotografoZR(fotografoAutomaticoLED(l.ciudad))}
         </div>
       </div>
     </label>`).join('');
@@ -1946,7 +1951,6 @@ async function crearAsignacion() {
     }
   }
   const observaciones = document.getElementById('form-observaciones').value.trim();
-  if (!cliente) { showToast('Ingresa el nombre del cliente', 'warn'); return; }
 
   function expandirPorTurno(base, turno) {
     const t = turno || 'AMBAS';
@@ -2034,6 +2038,16 @@ async function crearAsignacion() {
   if (errorAsignacion) { showToast(errorAsignacion, 'warn'); return; }
   if (!elementos.length) { showToast('Selecciona o agrega al menos un elemento', 'warn'); return; }
 
+  // Si no se llenó el cliente principal (por ejemplo, una asignación solo
+  // de LEDs donde cada uno trae su propio cliente/anunciante), se deriva
+  // del/los cliente(s) de los elementos LED en vez de bloquear la creación.
+  let clienteFinal = cliente;
+  if (!clienteFinal) {
+    const clientesLED = [...new Set(elementos.filter(e => e.cliente).map(e => e.cliente))];
+    clienteFinal = clientesLED.length === 1 ? clientesLED[0] : clientesLED.length > 1 ? 'Varios clientes (LED)' : '';
+  }
+  if (!clienteFinal) { showToast('Ingresa el nombre del cliente (o el cliente de al menos un elemento LED)', 'warn'); return; }
+
   const btn = document.getElementById('btn-crear-asignacion');
   const esEdicion = !!asignacionEnEdicion;
   btn.disabled = true;
@@ -2041,8 +2055,8 @@ async function crearAsignacion() {
 
   try {
     const payload = esEdicion
-      ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente, fechaLimite, observaciones, elementos }
-      : { action: 'rfCrearAsignacion', cliente, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos };
+      ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente: clienteFinal, fechaLimite, observaciones, elementos }
+      : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos };
 
     const res = await fetch(SCRIPT_URL, {
       method: 'POST',
