@@ -1287,6 +1287,16 @@ async function exportarReporte(asignacionId, formato, btnEl) {
   }
 }
 
+// Convierte un link de Drive de contenido crudo (uc?export=view&id=X, usado para
+// fotos) al visor de Drive (/file/d/X/view), que sí reproduce video en línea y
+// ofrece descarga correcta. Sin esto, un link de video antiguo bajaba puro binario.
+function videoViewUrl(url) {
+  if (!url) return url;
+  const m = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (m) return 'https://drive.google.com/file/d/' + m[1] + '/view?usp=sharing';
+  return url;
+}
+
 async function generarReportePPT(asignacion, tomas, fotosMap) {
   await cargarPptxGenJS();
   const pres = new PptxGenJS();
@@ -1371,7 +1381,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       slide.addShape(pres.shapes.RECTANGLE, { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
       slide.addText([
         { text: 'LINK VIDEO', options: { fontSize:8, bold:true, color:NAVY, breakLine:true } },
-        { text: tieneVideo ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: tieneVideo ? '2563EB' : '9CA3AF', hyperlink: tieneVideo ? { url: t.videoUrl } : undefined } }
+        { text: tieneVideo ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: tieneVideo ? '2563EB' : '9CA3AF', hyperlink: tieneVideo ? { url: videoViewUrl(t.videoUrl) } : undefined } }
       ], { x: rx + 0.3, y: vy, w: colRightW - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
     }
 
@@ -1535,7 +1545,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       if (tieneVideo) {
         doc.setTextColor(37,99,235);
-        doc.textWithLink('▶ Ver / descargar el video aquí', rx + colRightW/2, vy + 0.32, { url: t.videoUrl, align: 'center' });
+        doc.textWithLink('▶ Ver / descargar el video aquí', rx + colRightW/2, vy + 0.32, { url: videoViewUrl(t.videoUrl), align: 'center' });
       } else {
         doc.setTextColor(156,163,175);
         doc.text('N/A', rx + colRightW/2, vy + 0.32, { align: 'center' });
