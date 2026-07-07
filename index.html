@@ -559,11 +559,31 @@ function detenerPollingFotografo() {
   if (pollingFotografoInterval) { clearInterval(pollingFotografoInterval); pollingFotografoInterval = null; }
 }
 
+// Las llamadas a Apps Script a veces fallan de forma intermitente (el
+// "echo" interno de Google no responde a tiempo). En vez de mostrarle al
+// usuario un error y obligarlo a tocar "Reintentar"/"Sincronizar" a mano,
+// reintentamos automáticamente un par de veces antes de rendirnos.
+async function fetchConReintento(url, intentos) {
+  intentos = intentos || 3;
+  let ultimoError;
+  for (let i = 0; i < intentos; i++) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res;
+    } catch (e) {
+      ultimoError = e;
+      if (i < intentos - 1) await new Promise(r => setTimeout(r, 600 * (i + 1)));
+    }
+  }
+  throw ultimoError;
+}
+
 async function loadAsignacionesFotografo() {
   document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
   try {
     const fotografoNombre = currentUser ? currentUser.nombre : '';
-    const res = await fetch(SCRIPT_URL + '?action=rfGetAsignacionesPorFotografo&fotografo=' + encodeURIComponent(fotografoNombre));
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetAsignacionesPorFotografo&fotografo=' + encodeURIComponent(fotografoNombre));
     if (!res.ok) throw new Error('HTTP ' + res.status);
     asignaciones = await res.json();
     renderAsignacionesFotografo();
@@ -860,7 +880,7 @@ async function sincronizarManual() {
 
 async function refrescarAsignacionesSilencioso() {
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTodasAsignaciones', 2);
     if (!res.ok) return;
     const nuevasAsignaciones = await res.json();
     const cambioCantidad = nuevasAsignaciones.length !== asignaciones.length;
