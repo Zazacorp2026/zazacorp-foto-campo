@@ -567,13 +567,17 @@ async function fetchConReintento(url, intentos) {
   intentos = intentos || 3;
   let ultimoError;
   for (let i = 0; i < intentos; i++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      clearTimeout(timeoutId);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res;
     } catch (e) {
+      clearTimeout(timeoutId);
       ultimoError = e;
-      if (i < intentos - 1) await new Promise(r => setTimeout(r, 600 * (i + 1)));
+      if (i < intentos - 1) await new Promise(r => setTimeout(r, 400 * (i + 1)));
     }
   }
   throw ultimoError;
