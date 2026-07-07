@@ -662,7 +662,7 @@ async function verRutaSugerida() {
   const cont = document.getElementById('ruta-resultado');
   cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetRutaAsignacion&asignacionId=' + encodeURIComponent(currentAsig.id));
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetRutaAsignacion&asignacionId=' + encodeURIComponent(currentAsig.id));
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta');
     const ruta = data.ruta || [];
@@ -746,7 +746,7 @@ async function verRutaGlobal() {
   cont.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   try {
     const fotografoNombre = currentUser ? currentUser.nombre : '';
-    const res = await fetch(SCRIPT_URL + '?action=rfGetRutaGlobal&fotografo=' + encodeURIComponent(fotografoNombre));
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetRutaGlobal&fotografo=' + encodeURIComponent(fotografoNombre));
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'No se pudo calcular la ruta global');
     const grupos = data.gruposCercanos || [];
@@ -1317,7 +1317,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
 
   try {
     // Traer las tomas reales (con URLs de Drive) para este cliente
-    const res = await fetch(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente));
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente));
     if (!res.ok) throw new Error('No se pudieron obtener las tomas');
     const todasTomas = await res.json();
     // Filtrar solo las tomas que pertenecen a ESTA asignación
@@ -1803,7 +1803,7 @@ let elementosContratadosCache = [];
 
 async function loadClientesAutocomplete() {
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetClientesContratados');
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetClientesContratados');
     clientesCache = await res.json();
     const dl = document.getElementById('clientes-datalist');
     dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
@@ -1825,7 +1825,7 @@ async function buscarElementosCliente() {
   list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   title.style.display = 'flex';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now(), { cache: 'no-store' });
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now());
     const elementos = await res.json();
     elementosContratadosCache = elementos;
     document.getElementById('contratados-badge').textContent = elementos.length;
@@ -1946,7 +1946,7 @@ let _ledsInventarioCache = null;
 async function cargarInventarioLEDs() {
   if (_ledsInventarioCache) return _ledsInventarioCache;
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetInventarioLEDs');
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetInventarioLEDs');
     const data = await res.json();
     _ledsInventarioCache = (data && data.rows) || [];
   } catch (e) {
