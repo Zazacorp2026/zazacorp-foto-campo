@@ -1406,8 +1406,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       const vFrameX = cardX + 1.35, vFrameY = cardY + 0.35;
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
       slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
-      slide.addShape(pres.shapes.OVAL, { x: vFrameX + vFrameW/2 - 0.45, y: vFrameY + vFrameH/2 - 0.65, w: 0.9, h: 0.9, fill:{color:WHITE}, line:{color:WHITE} });
-      slide.addShape(pres.shapes.TRIANGLE, { x: vFrameX + vFrameW/2 - 0.16, y: vFrameY + vFrameH/2 - 0.5, w: 0.35, h: 0.6, fill:{color:ORANGE}, line:{color:ORANGE}, rotate: 90 });
+      slide.addText('▶', { x: vFrameX, y: vFrameY + vFrameH/2 - 0.5, w: vFrameW, h: 0.7, fontSize: 44, bold: true, color: WHITE, align: 'center', valign: 'middle', fontFace: 'Arial' });
       slide.addText('Video adjunto', { x:vFrameX,y:vFrameY+vFrameH/2+0.15,w:vFrameW,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
 
       const vy = vFrameY + vFrameH + 0.12;
