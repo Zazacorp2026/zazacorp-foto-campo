@@ -1,4 +1,4 @@
-const CACHE = 'zazafoto-v3';
+const CACHE = 'zazafoto-v4';
 const PRECACHE = ['./index.html', './manifest.json', './icon-192.png'];
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -19,6 +19,21 @@ self.addEventListener('fetch', e => {
   // Nunca cachear Apps Script ni APIs: evita datos viejos y errores de JSON.
   if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
     e.respondWith(fetch(e.request));
+    return;
+  }
+  // La navegación principal (abrir/recargar la app) siempre intenta
+  // internet primero. Si se sirviera desde caché primero, una versión
+  // vieja o corrupta guardada podría mostrarse aunque sí haya conexión.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request).then(c => c || caches.match('./index.html')))
+    );
     return;
   }
   e.respondWith(
