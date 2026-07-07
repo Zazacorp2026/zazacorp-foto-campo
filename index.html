@@ -1050,7 +1050,7 @@ async function showEjecutivaLista() {
   list.innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando...</div></div>';
   listDone.innerHTML = '';
   try {
-    const res = await fetch(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
     const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
