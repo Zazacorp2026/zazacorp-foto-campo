@@ -2056,7 +2056,12 @@ function actualizarFotografoManual(idx) {
 function addElementoForm(precarga) {
   precarga = precarga || {};
   const idx = elementosFormCount++;
-  const opts = TIPOS_ELEMENTO.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
+  const ledsEstaticos = TIPOS_ELEMENTO.filter(esTipoLED);
+  const normales = TIPOS_ELEMENTO.filter(t => !esTipoLED(t));
+  const optLedTodos = `<option value="${LED_TODOS_VALUE}"${precarga.tipoElemento===LED_TODOS_VALUE?' selected':''}>📺 LED (mezclar varios tipos)</option>`;
+  const optsLed = ledsEstaticos.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
+  const optsNormales = normales.map(t => `<option value="${t}"${precarga.tipoElemento===t?' selected':''}>${t}</option>`).join('');
+  const opts = optLedTodos + optsLed + `<option disabled>──────────</option>` + optsNormales;
   const turnoActual = precarga.turno || 'AMBAS';
   const esLED = esTipoLED(precarga.tipoElemento || '');
   const div = document.createElement('div');
@@ -2113,16 +2118,18 @@ async function agregarTiposLEDFaltantes(idx, tipoPrecargado) {
   const leds = await cargarInventarioLEDs();
   const existentes = new Set(TIPOS_ELEMENTO.map(t => t.toUpperCase()));
   const nuevos = [...new Set(leds.map(l => l.tipo).filter(t => t && !existentes.has(String(t).toUpperCase())))];
+  const separador = Array.from(sel.options).find(o => o.disabled);
   nuevos.forEach(t => {
     const opt = document.createElement('option');
     opt.value = t; opt.textContent = t;
     if (t === tipoPrecargado) opt.selected = true;
-    sel.appendChild(opt);
+    if (separador) sel.insertBefore(opt, separador); else sel.appendChild(opt);
   });
 }
 
+const LED_TODOS_VALUE = '__LED_TODOS__';
 function esTipoLED(tipo) {
-  return String(tipo || '').toUpperCase().indexOf('LED') >= 0;
+  return tipo === LED_TODOS_VALUE || String(tipo || '').toUpperCase().indexOf('LED') >= 0;
 }
 
 let _ledsInventarioCache = null;
@@ -2147,7 +2154,9 @@ function poblarSelectLED(idx, codigoPrecarga) {
   if (!cont) return;
   const tipoSel = document.getElementById('elem-tipo-' + idx)?.value || '';
   const norm = s => String(s || '').trim().toUpperCase();
-  const leds = (_ledsInventarioCache || []).filter(l => norm(l.tipo) === norm(tipoSel));
+  const leds = (tipoSel === LED_TODOS_VALUE)
+    ? (_ledsInventarioCache || [])
+    : (_ledsInventarioCache || []).filter(l => norm(l.tipo) === norm(tipoSel));
   if (!leds.length) {
     cont.innerHTML = `<div class="empty-sub" style="padding:10px 0">No se encontraron LEDs de tipo "${tipoSel}" en el inventario.</div>`;
     return;
@@ -2284,7 +2293,7 @@ async function crearAsignacion() {
         const led = (_ledsInventarioCache || []).find(l => l.codigo === chk.dataset.codigo);
         if (!led) return;
         elementos.push({
-          tipoElemento, cliente: clienteLED, ubicacion: led.direccion, codigoRef: led.codigo,
+          tipoElemento: led.tipo || tipoElemento, cliente: clienteLED, ubicacion: led.direccion, codigoRef: led.codigo,
           observaciones: '', ciudad: led.ciudad, lat: led.lat, lon: led.lon, foto: led.foto,
           turno: 'AMBAS', requiereVideo: true
         });
