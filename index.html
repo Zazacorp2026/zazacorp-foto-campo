@@ -520,7 +520,7 @@ function doLogin() {
 
   if (currentRole === 'fotografo') {
     document.getElementById('fab-new-asig').style.display = 'none';
-    document.getElementById('queue-wrap').style.display = offlineQueue.length ? 'block' : 'none';
+    showQueueBanner();
     showPage('page-asignaciones');
     loadAsignacionesFotografo();
   } else {
