@@ -1034,7 +1034,7 @@ async function submitToma() {
     try {
       const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(captureTarget.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
       const chkData = await chk.json();
-      yaExistia = !!(chkData && chkData.existe && chkData.reciente);
+      yaExistia = !!(chkData && chkData.existe);
     } catch(e2) { /* si tampoco se puede verificar, seguimos al camino de cola */ }
 
     if (yaExistia) {
@@ -1083,7 +1083,7 @@ async function flushQueue() {
       try {
         const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(payload.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
         const chkData = await chk.json();
-        yaExistia = !!(chkData && chkData.existe && chkData.reciente);
+        yaExistia = !!(chkData && chkData.existe);
       } catch(e2) {}
       if (!yaExistia) failed.push(payload);
     }
@@ -1108,6 +1108,7 @@ function compressImage(file, maxW, quality) {
   });
 }
 window.addEventListener('online', () => { if (offlineQueue.length > 0) flushQueue(); });
+setInterval(() => { if (offlineQueue.length > 0 && navigator.onLine) flushQueue(); }, 45000);
 
 async function showEjecutivaLista() {
   showPage('page-ejecutiva-lista');
