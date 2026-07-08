@@ -399,7 +399,8 @@ const FOTOGRAFOS = {
   'cristopher': { nombre: 'Cristopher', pin: 'Cris2026' },
   'carlos':     { nombre: 'Carlos',     pin: 'Car2026' },
   'yessenia':   { nombre: 'Yessenia',   pin: 'Zaza2026Y' },
-  'saskhya':    { nombre: 'Saskhya',    pin: 'Zaza2026Sas' }
+  'saskhya':    { nombre: 'Saskhya',    pin: 'Zaza2026Sas' },
+  'jorge-admin':{ nombre: 'Jorge (Admin)', pin: 'Elise0101', esAdmin: true }
 };
 
 const EJECUTIVAS = {
@@ -507,7 +508,7 @@ function doLogin() {
   if (currentRole === 'fotografo') {
     const u = FOTOGRAFOS[userId];
     if (!u || pass !== u.pin) { err.textContent = 'PIN incorrecto.'; return; }
-    currentUser = { id: userId, nombre: u.nombre, rol: 'fotografo' };
+    currentUser = { id: userId, nombre: u.nombre, rol: 'fotografo', esAdmin: !!u.esAdmin };
   } else {
     const real = EJECUTIVAS[userId];
     if (!real || pass !== real) { err.textContent = 'Contraseña incorrecta.'; return; }
@@ -586,6 +587,13 @@ async function fetchConReintento(url, intentos) {
 async function loadAsignacionesFotografo() {
   document.getElementById('asig-list').innerHTML = '<div class="empty"><div class="spinner" style="margin:0 auto 12px"></div><div class="empty-sub">Cargando asignaciones...</div></div>';
   try {
+    if (currentUser && currentUser.esAdmin) {
+      const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      asignaciones = await res.json();
+      renderVistaAdminFotografo();
+      return;
+    }
     const fotografoNombre = currentUser ? currentUser.nombre : '';
     const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetAsignacionesPorFotografo&fotografo=' + encodeURIComponent(fotografoNombre));
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -601,6 +609,47 @@ async function loadAsignacionesFotografo() {
         </div>
       </div>`;
   }
+}
+
+// Vista de Jorge (Admin): todos los elementos de todas las asignaciones,
+// agrupados por fotógrafo asignado, con el % de avance de cada uno.
+function renderVistaAdminFotografo() {
+  const list = document.getElementById('asig-list');
+  const badge = document.getElementById('asig-badge');
+  const grupos = {};
+  asignaciones.forEach(a => {
+    (a.elementos || []).forEach(el => {
+      const f = el.fotografoAsignado || 'Sin asignar';
+      if (!grupos[f]) grupos[f] = [];
+      grupos[f].push({ ...el, cliente: a.cliente, creadoPor: a.creadoPor });
+    });
+  });
+  const nombres = Object.keys(grupos).sort();
+  badge.textContent = nombres.length;
+  if (!nombres.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin elementos activos</div></div>`;
+    return;
+  }
+  list.innerHTML = nombres.map(f => {
+    const items = grupos[f];
+    const done = items.filter(e => e.estado === 'COMPLETADO').length;
+    const pct = items.length ? Math.round(done / items.length * 100) : 0;
+    return `
+      <div class="elem-card" style="border-color:${pct===100?'var(--green)':'var(--blue)'}">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-weight:800;font-size:16px;color:#fff">👤 ${f}</div>
+          <div style="text-align:right"><span style="font-size:20px;font-weight:800;color:${pct===100?'var(--green)':'var(--orange)'}">${pct}%</span><div class="empty-sub">${done}/${items.length}</div></div>
+        </div>
+        ${items.map(el => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+            <div style="font-size:12px">
+              <div style="color:#fff;font-weight:600">${el.tipoElemento || 'Elemento'} · ${el.cliente || '—'}</div>
+              <div class="empty-sub">${el.ubicacion || '—'}${el.creadoPor ? ' · Pidió: ' + el.creadoPor : ''}</div>
+            </div>
+            <span style="font-size:11px;font-weight:700;color:${el.estado==='COMPLETADO'?'var(--green)':'var(--muted)'}">${el.estado==='COMPLETADO'?'✓ Listo':'Pendiente'}</span>
+          </div>`).join('')}
+      </div>`;
+  }).join('');
 }
 
 function renderAsignacionesFotografo() {
@@ -629,7 +678,7 @@ function renderAsignacionesFotografo() {
         <div class="asig-header">
           <div>
             <div class="asig-cliente">${a.cliente}</div>
-            <div class="asig-meta">${total} elemento${total!==1?'s':''} · ${a.fechaLimite || 'Sin límite'}</div>
+            <div class="asig-meta">${total} elemento${total!==1?'s':''} · ${a.fechaLimite || 'Sin límite'}${a.creadoPor ? ' · 👤 ' + a.creadoPor : ''}</div>
             ${a.observaciones ? `<div class="asig-meta" style="margin-top:4px;color:#aaa">${a.observaciones}</div>` : ''}
           </div>
           <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total}</div></div>
@@ -1121,7 +1170,8 @@ async function showEjecutivaLista() {
     const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTodasAsignaciones');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const todas = await res.json();
-    const mias = todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    const esJorgeAdmin = (currentUser.nombre || '').toUpperCase() === 'JORGE';
+    const mias = esJorgeAdmin ? todas : todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
     misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
 
     function pctDe(a) {
@@ -1161,12 +1211,22 @@ async function showEjecutivaLista() {
         </div>`;
     }
 
+    function renderLista(items) {
+      if (!esJorgeAdmin) return items.map(a => renderCard(a, items === completadas)).join('');
+      const grupos = {};
+      items.forEach(a => { const k = a.creadoPor || 'Sin ejecutiva'; (grupos[k] = grupos[k] || []).push(a); });
+      return Object.keys(grupos).sort().map(k => `
+        <div style="font-size:12px;font-weight:800;color:var(--orange);margin:14px 0 6px;text-transform:uppercase">👤 ${k} <span style="color:var(--muted);font-weight:400">(${grupos[k].length})</span></div>
+        ${grupos[k].map(a => renderCard(a, items === completadas)).join('')}
+      `).join('');
+    }
+
     list.innerHTML = activas.length
-      ? activas.map(a => renderCard(a, false)).join('')
+      ? renderLista(activas)
       : `<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin asignaciones activas</div><div class="empty-sub">Crea una nueva con el botón + de abajo.</div></div>`;
 
     listDone.innerHTML = completadas.length
-      ? completadas.map(a => renderCard(a, true)).join('')
+      ? renderLista(completadas)
       : `<div class="empty-sub" style="padding:14px 0">Aún no tienes asignaciones completadas.</div>`;
 
   } catch(e) {
@@ -2036,12 +2096,31 @@ function addElementoForm(precarga) {
     </div>
   `;
   document.getElementById('elementos-form-list').appendChild(div);
+  agregarTiposLEDFaltantes(idx, precarga.tipoElemento || '');
   if (esLED) cargarInventarioLEDs().then(() => poblarSelectLED(idx, precarga.codigoRef));
 }
 
 // ── Elementos LED: buscador de inventario (código/ubicación/ciudad/foto),
 // independiente del cliente actual — un mismo LED puede tener varios
 // anunciantes. Solo lectura vía rfGetInventarioLEDs. ──
+// Completa el selector de "Tipo de elemento" con cualquier tipo que
+// contenga "LED" en el inventario de Nexus y todavía no esté en la lista
+// fija TIPOS_ELEMENTO — así los tipos LED nuevos que agreguen en la
+// bitácora aparecen solos, sin tener que tocar código cada vez.
+async function agregarTiposLEDFaltantes(idx, tipoPrecargado) {
+  const sel = document.getElementById('elem-tipo-' + idx);
+  if (!sel) return;
+  const leds = await cargarInventarioLEDs();
+  const existentes = new Set(TIPOS_ELEMENTO.map(t => t.toUpperCase()));
+  const nuevos = [...new Set(leds.map(l => l.tipo).filter(t => t && !existentes.has(String(t).toUpperCase())))];
+  nuevos.forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    if (t === tipoPrecargado) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
 function esTipoLED(tipo) {
   return String(tipo || '').toUpperCase().indexOf('LED') >= 0;
 }
