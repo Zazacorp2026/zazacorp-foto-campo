@@ -1545,14 +1545,16 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
       const previewB64 = fotosMap[t.videoPreviewUrl] || null;
       if (previewB64) {
-        slide.addImage({ data: previewB64, x: vFrameX, y: vFrameY, w: vFrameW, h: vFrameH,
-          sizing: { type: 'contain', w: vFrameW, h: vFrameH } });
+        const dimPrev = await dimensionesImagen(previewB64);
+        const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, vFrameW, vFrameH);
+        slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
+        slide.addImage({ data: previewB64, x: vFrameX + rPrev.offsetX, y: vFrameY + rPrev.offsetY, w: rPrev.w, h: rPrev.h });
+        slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY+vFrameH-0.32,w:vFrameW,h:0.32, fill:{color:'000000',transparency:35}, line:{color:'000000',transparency:100} });
+        slide.addText('Print de referencia · Video completo en el link', { x:vFrameX,y:vFrameY+vFrameH-0.32,w:vFrameW,h:0.32, fontSize:9,bold:true,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
       } else {
         slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
         slide.addText('Video adjunto', { x:vFrameX,y:vFrameY+vFrameH/2+0.15,w:vFrameW,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
       }
-      slide.addShape(pres.shapes.OVAL, { x: vFrameX + vFrameW/2 - 0.42, y: vFrameY + vFrameH/2 - 0.42, w: 0.84, h: 0.84, fill:{color:'1A2B4A',transparency:25}, line:{color:WHITE,width:2} });
-      slide.addText('▶', { x: vFrameX + vFrameW/2 - 0.42, y: vFrameY + vFrameH/2 - 0.44, w: 0.84, h: 0.84, fontSize: 32, bold: true, color: WHITE, align: 'center', valign: 'middle', fontFace: 'Arial' });
 
       const vy = vFrameY + vFrameH + 0.12;
       slide.addShape(pres.shapes.RECTANGLE, { x: cardX + 0.3, y: vy, w: panelW - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
@@ -1704,16 +1706,22 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.roundedRect(cardX, cardY, panelW, rightH, 0.12, 0.12, 'F');
       doc.setTextColor(255,255,255);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-      doc.text((t.tipoElemento || 'Elemento'), cardX + 0.32, cardY + leftH - 0.4, { angle: 90 });
+      const _tipoTxt = t.tipoElemento || 'Elemento';
+      const _tipoW = doc.getTextWidth(_tipoTxt);
+      doc.text(_tipoTxt, cardX + 0.32, cardY + leftH/2 + _tipoW/2, { angle: 90 });
 
       const vFrameX = cardX + 1.35, vFrameY = cardY + 0.35;
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
       const previewB64Pdf = fotosMap[t.videoPreviewUrl] || null;
+      let hayPreview = false;
       if (previewB64Pdf) {
         try {
           const dimPrev = await dimensionesImagen(previewB64Pdf);
           const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, vFrameW, vFrameH);
+          doc.setFillColor(217,106,16);
+          doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
           doc.addImage(previewB64Pdf, 'JPEG', vFrameX + rPrev.offsetX, vFrameY + rPrev.offsetY, rPrev.w, rPrev.h);
+          hayPreview = true;
         } catch(e) {
           doc.setFillColor(217,106,16);
           doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
@@ -1722,14 +1730,17 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
         doc.setFillColor(217,106,16);
         doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
       }
-      const cx = vFrameX + vFrameW/2, cy = vFrameY + vFrameH/2 - 0.15;
-      doc.setFillColor(26,43,74);
-      doc.circle(cx, cy, 0.4, 'F');
-      doc.setFillColor(255,255,255);
-      doc.triangle(cx-0.1, cy-0.18, cx-0.1, cy+0.18, cx+0.2, cy, 'F');
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
-      doc.text('Video adjunto', cx, cy + 0.55, { align: 'center' });
+      if (hayPreview) {
+        doc.setFillColor(0,0,0);
+        doc.rect(vFrameX, vFrameY+vFrameH-0.32, vFrameW, 0.32, 'F');
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text('Print de referencia · Video completo en el link', vFrameX+vFrameW/2, vFrameY+vFrameH-0.14, { align: 'center' });
+      } else {
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+        doc.text('Video adjunto', vFrameX+vFrameW/2, vFrameY+vFrameH/2, { align: 'center' });
+      }
 
       const vy = vFrameY + vFrameH + 0.12;
       doc.setFillColor(255,255,255);
@@ -1740,7 +1751,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
       if (t.videoUrl) {
         doc.setTextColor(37,99,235);
-        doc.textWithLink('▶ Ver / descargar el video aquí', cardX + panelW/2, vy + 0.32, { url: videoViewUrl(t.videoUrl), align: 'center' });
+        doc.textWithLink('Ver / descargar el video aquí', cardX + panelW/2, vy + 0.32, { url: videoViewUrl(t.videoUrl), align: 'center' });
       } else {
         doc.setTextColor(156,163,175);
         doc.text('N/A', cardX + panelW/2, vy + 0.32, { align: 'center' });
@@ -1757,7 +1768,9 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     // sin chocar con la etiqueta "FOTO VERTICAL".
     doc.setTextColor(255,255,255);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-    doc.text((t.tipoElemento || 'Elemento'), cardX + 0.32, cardY + leftH - 0.4, { angle: 90 });
+    const _tipoTxt = t.tipoElemento || 'Elemento';
+      const _tipoW = doc.getTextWidth(_tipoTxt);
+      doc.text(_tipoTxt, cardX + 0.32, cardY + leftH/2 + _tipoW/2, { angle: 90 });
 
     // Foto vertical (frontal)
     const frameLx = cardX + 1.35, frameLy = cardY + 0.35;
@@ -1809,7 +1822,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
       if (tieneVideo) {
         doc.setTextColor(37,99,235);
-        doc.textWithLink('▶ Ver / descargar el video aquí', rx + colRightW/2, vy + 0.32, { url: videoViewUrl(t.videoUrl), align: 'center' });
+        doc.textWithLink('Ver / descargar el video aquí', rx + colRightW/2, vy + 0.32, { url: videoViewUrl(t.videoUrl), align: 'center' });
       } else {
         doc.setTextColor(156,163,175);
         doc.text('N/A', rx + colRightW/2, vy + 0.32, { align: 'center' });
@@ -1844,7 +1857,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     if (mapsUrlPdf) {
       doc.setTextColor(37,99,235);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-      doc.textWithLink('📍 Ver ubicación en Google Maps', cardX + 3.3, codeY - 0.1, { url: mapsUrlPdf });
+      doc.textWithLink('Ver ubicación en Google Maps', cardX + 3.3, codeY - 0.1, { url: mapsUrlPdf });
     }
 
     // Línea separadora
