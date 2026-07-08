@@ -1026,6 +1026,30 @@ async function submitToma() {
     // vez que el fotógrafo vuelva a la lista.
     refrescarAsignacionesSilencioso();
   } catch(e) {
+    // Antes de asumir que falló y volver a mandar las fotos/video (lo que
+    // duplicaría trabajo si el servidor SÍ la había guardado y solo se
+    // perdió la respuesta), preguntamos con una consulta liviana si ya
+    // quedó registrada hace poco.
+    let yaExistia = false;
+    try {
+      const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(captureTarget.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
+      const chkData = await chk.json();
+      yaExistia = !!(chkData && chkData.existe && chkData.reciente);
+    } catch(e2) { /* si tampoco se puede verificar, seguimos al camino de cola */ }
+
+    if (yaExistia) {
+      if (currentAsig) {
+        const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
+        if (elem) elem.estado = 'COMPLETADO';
+        renderElementosFotografo();
+      }
+      closeCaptureModal();
+      showToast('✓ Toma subida a Drive', 'ok');
+      refrescarAsignacionesSilencioso();
+      btn.disabled = false; btn.textContent = 'Subir toma ↑';
+      return;
+    }
+
     payload._offline = true;
     offlineQueue.push(payload); saveQueue(); showQueueBanner();
     if (currentAsig) {
@@ -1054,7 +1078,15 @@ async function flushQueue() {
       const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, _offline: undefined }) });
       const data = await res.json();
       if (!data.ok) failed.push(payload);
-    } catch(e) { failed.push(payload); }
+    } catch(e) {
+      let yaExistia = false;
+      try {
+        const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(payload.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
+        const chkData = await chk.json();
+        yaExistia = !!(chkData && chkData.existe && chkData.reciente);
+      } catch(e2) {}
+      if (!yaExistia) failed.push(payload);
+    }
   }
   offlineQueue = failed; saveQueue(); showQueueBanner();
   showToast(failed.length === 0 ? '✓ Todas las tomas subidas' : failed.length + ' tomas no pudieron subirse', failed.length === 0 ? 'ok' : 'err');
@@ -1877,16 +1909,25 @@ function onClienteInput() {
   onClienteInputTimer = setTimeout(buscarElementosCliente, 700);
 }
 
+let clienteSearchController = null;
+
 async function buscarElementosCliente() {
   const cliente = document.getElementById('form-cliente').value.trim();
   const list = document.getElementById('contratados-list');
   const title = document.getElementById('contratados-title');
   if (!cliente) { title.style.display = 'none'; list.innerHTML = ''; return; }
 
+  // Si había una búsqueda anterior todavía en curso (el usuario siguió
+  // escribiendo), la cancelamos: evita que se acumulen varias peticiones
+  // en paralelo saturando el backend.
+  if (clienteSearchController) clienteSearchController.abort();
+  clienteSearchController = new AbortController();
+  const miController = clienteSearchController;
+
   list.innerHTML = '<div class="empty" style="padding:20px"><div class="spinner" style="margin:0 auto 8px"></div></div>';
   title.style.display = 'flex';
   try {
-    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now());
+    const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now(), { cache: 'no-store', signal: miController.signal });
     const elementos = await res.json();
     elementosContratadosCache = elementos;
     document.getElementById('contratados-badge').textContent = elementos.length;
@@ -1914,6 +1955,7 @@ async function buscarElementosCliente() {
         </div>
       </label>`).join('');
   } catch(e) {
+    if (e.name === 'AbortError') return; // cancelada por una búsqueda más nueva, no es un error real
     list.innerHTML = '<div class="empty-sub" style="padding:10px 0;color:var(--red)">Error al buscar elementos. Intenta de nuevo.</div>';
   }
 }
