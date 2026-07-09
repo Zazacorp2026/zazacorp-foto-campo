@@ -1051,7 +1051,7 @@ function updateSubmitBtn() {
 // se corta la señal a mitad de camino, no hay que volver a mandar todo
 // el video, solo lo que faltaba.
 async function subirVideoPorPartes(file, onProgreso) {
-  const CHUNK_SIZE = 4 * 1024 * 1024;
+  const CHUNK_SIZE = 4194303; // múltiplo de 3: los pedazos de base64 se pueden unir como texto sin relleno intermedio
   const uploadId = 'VUP-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
   for (let i = 0; i < totalChunks; i++) {
