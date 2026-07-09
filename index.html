@@ -457,7 +457,7 @@ let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
 let captureTarget = null;
-let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
+let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
 let elementosFormCount = 0;
 
@@ -959,7 +959,7 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null };
+  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null };
   resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video');
   document.getElementById('obs-input').value = '';
   document.getElementById('capture-title').innerHTML =
@@ -994,14 +994,16 @@ async function handleFile(event, tipo) {
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   } else {
-    const b64 = await fileToBase64(file);
-    captureData[tipo] = b64;
+    captureData.videoFile = file;
+    captureData[tipo] = 'PENDIENTE'; // marcador: se sube por partes recién al confirmar
     const url = URL.createObjectURL(file);
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
     if (tipo === 'video') {
       captureData.videoPreview = await capturarFrameDeVideo(file).catch(() => null);
+      const mb = file.size / 1024 / 1024;
+      if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: se subirá por partes, puede tardar un poco', 'info');
     }
   }
   updateCaptureStep(); updateSubmitBtn();
@@ -1044,6 +1046,44 @@ function updateSubmitBtn() {
   btn.disabled = !ready;
   btn.textContent = ready ? 'Subir toma ↑' : (esLED ? 'Graba el video vertical' : 'Toma al menos 1 foto o video');
 }
+// Sube un video grande en pedazos de ~4MB (evita el límite de tamaño de
+// request de Apps Script). Cada pedazo reintenta hasta 3 veces solo; si
+// se corta la señal a mitad de camino, no hay que volver a mandar todo
+// el video, solo lo que faltaba.
+async function subirVideoPorPartes(file, onProgreso) {
+  const CHUNK_SIZE = 4 * 1024 * 1024;
+  const uploadId = 'VUP-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+  const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+  for (let i = 0; i < totalChunks; i++) {
+    const trozo = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+    const b64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(trozo);
+    });
+    let ultimoError;
+    let ok = false;
+    for (let intento = 0; intento < 3 && !ok; intento++) {
+      try {
+        const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'rfSubirVideoChunk', uploadId, chunkIndex: i, chunkBase64: b64 }) });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || 'Error subiendo parte del video');
+        ok = true;
+      } catch (e) { ultimoError = e; await new Promise(r => setTimeout(r, 800 * (intento + 1))); }
+    }
+    if (!ok) throw ultimoError || new Error('No se pudo subir el video');
+    if (onProgreso) onProgreso(i + 1, totalChunks);
+  }
+  const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'rfFinalizarVideoChunks', uploadId, mime: file.type || 'video/mp4', nombre: file.name,
+      cliente: captureTarget ? captureTarget.cliente : '', fecha: captureTarget ? captureTarget.fecha : '' }) });
+  const finData = await finRes.json();
+  if (!finData.ok) throw new Error(finData.error || 'Error uniendo las partes del video');
+  return finData.videoUrl;
+}
+
 async function submitToma() {
   if (!captureData.frontal && !captureData.panoramica && !captureData.video) return;
   const btn = document.getElementById('submit-toma');
@@ -1053,17 +1093,44 @@ async function submitToma() {
     if (elem) elem.estado = 'SUBIENDO';
     renderElementosFotografo();
   }
+
+  let videoUrlPrecargado = '';
+  if (captureData.videoFile) {
+    try {
+      videoUrlPrecargado = await subirVideoPorPartes(captureData.videoFile, (hecho, total) => {
+        const pct = Math.round(hecho / total * 100);
+        btn.innerHTML = '<span class="spinner"></span> Subiendo video ' + pct + '% (' + hecho + '/' + total + ')...';
+      });
+    } catch (e) {
+      btn.disabled = false; btn.textContent = 'Subir toma ↑';
+      if (currentAsig) {
+        const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
+        if (elem) elem.estado = 'PENDIENTE';
+        renderElementosFotografo();
+      }
+      showToast('❌ No se pudo subir el video: ' + e.message, 'error');
+      return;
+    }
+  }
+
   const payload = {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
     cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
     ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
-    videoBase64: captureData.video || '', videoPreviewBase64: captureData.videoPreview || '',
+    videoUrlPrecargado: videoUrlPrecargado, videoPreviewBase64: captureData.videoPreview || '',
     fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
   };
+  // Un video pesado desde el celular puede tardar mucho o quedarse
+  // "colgado" para siempre con mala señal. Ponemos un límite de tiempo
+  // (2 minutos) para que, si no responde, avise el error en vez de
+  // dejar la pantalla de "Subiendo..." infinita.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000);
   try {
-    const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+    const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload), signal: controller.signal });
+    clearTimeout(timeoutId);
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
     if (currentAsig) {
@@ -1078,6 +1145,7 @@ async function submitToma() {
     // vez que el fotógrafo vuelva a la lista.
     refrescarAsignacionesSilencioso();
   } catch(e) {
+    clearTimeout(timeoutId);
     // Antes de asumir que falló y volver a mandar las fotos/video (lo que
     // duplicaría trabajo si el servidor SÍ la había guardado y solo se
     // perdió la respuesta), preguntamos con una consulta liviana si ya
