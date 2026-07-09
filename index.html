@@ -1086,6 +1086,7 @@ async function subirVideoPorPartes(file, onProgreso) {
     hechos += lote.length;
     if (onProgreso) onProgreso(hechos, totalChunks);
   }
+  if (onProgreso) onProgreso('finalizando', totalChunks);
 
   const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action: 'rfFinalizarVideoChunks', uploadId, mime: file.type || 'video/mp4', nombre: file.name,
@@ -1109,8 +1110,12 @@ async function submitToma() {
   if (captureData.videoFile) {
     try {
       videoUrlPrecargado = await subirVideoPorPartes(captureData.videoFile, (hecho, total) => {
-        const pct = Math.round(hecho / total * 100);
-        btn.innerHTML = '<span class="spinner"></span> Subiendo video ' + pct + '% (' + hecho + '/' + total + ')...';
+        if (hecho === 'finalizando') {
+          btn.innerHTML = '<span class="spinner"></span> Uniendo el video, un momento...';
+        } else {
+          const pct = Math.round(hecho / total * 100);
+          btn.innerHTML = '<span class="spinner"></span> Subiendo video ' + pct + '% (' + hecho + '/' + total + ')...';
+        }
       });
     } catch (e) {
       btn.disabled = false; btn.textContent = 'Subir toma ↑';
