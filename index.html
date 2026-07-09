@@ -1046,15 +1046,18 @@ function updateSubmitBtn() {
   btn.disabled = !ready;
   btn.textContent = ready ? 'Subir toma ↑' : (esLED ? 'Graba el video vertical' : 'Toma al menos 1 foto o video');
 }
-// Sube un video grande en pedazos de ~4MB (evita el límite de tamaño de
-// request de Apps Script). Cada pedazo reintenta hasta 3 veces solo; si
-// se corta la señal a mitad de camino, no hay que volver a mandar todo
-// el video, solo lo que faltaba.
+// Sube un video grande en pedazos de ~8MB, subiendo varios EN PARALELO
+// (3 a la vez) en vez de uno por uno — cada viaje a Apps Script tiene
+// varios segundos de "peso propio" fijo, así que menos pedazos + en
+// paralelo reduce bastante el tiempo total. Cada pedazo reintenta hasta
+// 3 veces solo; si se corta la señal, no hay que resubir todo el video.
 async function subirVideoPorPartes(file, onProgreso) {
-  const CHUNK_SIZE = 4194303; // múltiplo de 3: los pedazos de base64 se pueden unir como texto sin relleno intermedio
+  const CHUNK_SIZE = 8388606; // múltiplo de 3: los pedazos de base64 se unen como texto sin relleno intermedio
+  const CONCURRENCIA = 3;
   const uploadId = 'VUP-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-  for (let i = 0; i < totalChunks; i++) {
+
+  async function subirUnPedazo(i) {
     const trozo = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
     const b64 = await new Promise((resolve, reject) => {
       const r = new FileReader();
@@ -1063,19 +1066,27 @@ async function subirVideoPorPartes(file, onProgreso) {
       r.readAsDataURL(trozo);
     });
     let ultimoError;
-    let ok = false;
-    for (let intento = 0; intento < 3 && !ok; intento++) {
+    for (let intento = 0; intento < 3; intento++) {
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'rfSubirVideoChunk', uploadId, chunkIndex: i, chunkBase64: b64 }) });
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Error subiendo parte del video');
-        ok = true;
+        return;
       } catch (e) { ultimoError = e; await new Promise(r => setTimeout(r, 800 * (intento + 1))); }
     }
-    if (!ok) throw ultimoError || new Error('No se pudo subir el video');
-    if (onProgreso) onProgreso(i + 1, totalChunks);
+    throw ultimoError || new Error('No se pudo subir el video');
   }
+
+  let hechos = 0;
+  const indices = Array.from({ length: totalChunks }, (_, i) => i);
+  while (indices.length) {
+    const lote = indices.splice(0, CONCURRENCIA);
+    await Promise.all(lote.map(i => subirUnPedazo(i)));
+    hechos += lote.length;
+    if (onProgreso) onProgreso(hechos, totalChunks);
+  }
+
   const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ action: 'rfFinalizarVideoChunks', uploadId, mime: file.type || 'video/mp4', nombre: file.name,
       cliente: captureTarget ? captureTarget.cliente : '', fecha: captureTarget ? captureTarget.fecha : '' }) });
