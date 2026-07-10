@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="apple-mobile-web-app-title" content="Zaza Report"/>
+  <meta name="apple-mobile-web-app-title" content="ZazaReport"/>
   <link rel="manifest" href="./manifest.json"/>
   <link rel="apple-touch-icon" href="./icon-192.png"/>
   <title>REPORT</title>
@@ -894,7 +894,7 @@ function renderElementosFotografo() {
   list.innerHTML = html;
 }
 
-function goBackToList() { showPage('page-asignaciones'); renderAsignacionesFotografo(); }
+function goBackToList() { showPage('page-asignaciones'); if (currentUser && currentUser.esAdmin) renderVistaAdminFotografo(); else renderAsignacionesFotografo(); }
 
 // Refresca el arreglo `asignaciones` desde el backend sin tocar la
 // pantalla actual. Se usa después de completar una toma o crear una
@@ -922,7 +922,8 @@ async function sincronizarManual() {
     } else {
       await refrescarAsignacionesSilencioso();
       if (document.getElementById('page-asignaciones').classList.contains('active')) {
-        renderAsignacionesFotografo();
+        if (currentUser && currentUser.esAdmin) renderVistaAdminFotografo();
+        else renderAsignacionesFotografo();
       }
     }
     showToast('🔄 Sincronizado', 'ok');
@@ -946,7 +947,8 @@ async function refrescarAsignacionesSilencioso() {
     const listaVisible = document.getElementById('page-asignaciones').classList.contains('active');
     const captureAbierto = document.getElementById('capture-modal').classList.contains('open');
     if (listaVisible && !captureAbierto) {
-      renderAsignacionesFotografo();
+      if (currentUser && currentUser.esAdmin) renderVistaAdminFotografo();
+      else renderAsignacionesFotografo();
       if (cambioCantidad) showToast('📋 Nueva asignación recibida', 'ok');
     }
   } catch(e) { /* silencioso */ }
