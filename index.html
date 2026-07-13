@@ -495,25 +495,19 @@
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
 
+// Nombres para el selector — las contraseñas viven solo en el backend (Code.gs), nunca aquí.
 const FOTOGRAFOS = {
-  'cristopher': { nombre: 'Cristopher', pin: 'Cris2026' },
-  'carlos':     { nombre: 'Carlos',     pin: 'Car2026' },
-  'yessenia':   { nombre: 'Yessenia',   pin: 'Zaza2026Y' },
-  'saskhya':    { nombre: 'Saskhya',    pin: 'Zaza2026Sas' },
-  'jorge-admin':{ nombre: 'Jorge (Admin)', pin: 'Elise0101', esAdmin: true }
+  'cristopher': { nombre: 'Cristopher' },
+  'carlos':     { nombre: 'Carlos' },
+  'yessenia':   { nombre: 'Yessenia' },
+  'saskhya':    { nombre: 'Saskhya' },
+  'jorge-admin':{ nombre: 'Jorge (Admin)' }
 };
 
-const EJECUTIVAS = {
-  'JORGE':            'Elise0101',
-  'LORENA':           'Zaza2026L',
-  'RICARDO':          'Zaza2026R',
-  'SASKYA':           'Zaza2026S',
-  'SHAYRA':           'Zaza2026Sh',
-  'VERONICA TERAN':   'Zaza2026VT',
-  'VERONICA TRIVINO': 'Zaza2026VTr',
-  'YESENIA':          'Zaza2026Y',
-  'ZULIA':            'Zaza2026Z'
-};
+const EJECUTIVAS = [
+  'JORGE','LORENA','RICARDO','SASKYA','SHAYRA',
+  'VERONICA TERAN','VERONICA TRIVINO','YESENIA','ZULIA'
+];
 
 const TIPOS_ELEMENTO = [
   'Valla Fija','Valla LED','Pantalla','Túnel','Mural','Icónico',
@@ -584,7 +578,7 @@ function goToPin(role) {
   } else {
     title.textContent = 'Identificación de Ejecutiva';
     sub.textContent = 'Selecciona tu nombre e ingresa tu contraseña';
-    Object.keys(EJECUTIVAS).forEach(nombre => sel.add(new Option(nombre.split(' ')[0], nombre)));
+    EJECUTIVAS.forEach(nombre => sel.add(new Option(nombre.split(' ')[0], nombre)));
     btn.className = 'pin-btn ejecutiva';
     input.placeholder = '••••••••';
     input.removeAttribute('maxlength');
@@ -599,20 +593,34 @@ function backToRole() {
   document.getElementById('role-screen').style.display = 'flex';
 }
 
-function doLogin() {
+async function doLogin() {
   const userId = document.getElementById('pin-user').value;
   const pass = document.getElementById('pin-input').value;
   const err = document.getElementById('pin-error');
+  const btn = document.getElementById('pin-btn');
   if (!userId) { err.textContent = 'Selecciona tu nombre.'; return; }
+  if (!pass) { err.textContent = currentRole === 'fotografo' ? 'Ingresa tu PIN.' : 'Ingresa tu contraseña.'; return; }
 
-  if (currentRole === 'fotografo') {
-    const u = FOTOGRAFOS[userId];
-    if (!u || pass !== u.pin) { err.textContent = 'PIN incorrecto.'; return; }
-    currentUser = { id: userId, nombre: u.nombre, rol: 'fotografo', esAdmin: !!u.esAdmin };
-  } else {
-    const real = EJECUTIVAS[userId];
-    if (!real || pass !== real) { err.textContent = 'Contraseña incorrecta.'; return; }
-    currentUser = { id: userId, nombre: userId, rol: 'ejecutiva' };
+  err.textContent = '';
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Verificando...';
+  btn.disabled = true;
+  try {
+    const url = SCRIPT_URL + '?action=rfLogin&role=' + encodeURIComponent(currentRole)
+      + '&userId=' + encodeURIComponent(userId) + '&pass=' + encodeURIComponent(pass) + '&_t=' + Date.now();
+    const res = await fetch(url, { cache: 'no-store' });
+    const data = await res.json();
+    if (!data.ok) {
+      err.textContent = data.error || 'Credenciales incorrectas.';
+      return;
+    }
+    currentUser = data.user;
+  } catch (e) {
+    err.textContent = 'No se pudo verificar. Revisa tu conexión e intenta de nuevo.';
+    return;
+  } finally {
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
   }
 
   document.getElementById('pin-screen').classList.remove('active');
