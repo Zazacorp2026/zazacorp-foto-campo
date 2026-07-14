@@ -1811,30 +1811,30 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
 
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
+    let mostrarTipoArribaCodigo = false;
 
     if (esLED && t.videoUrl2) {
-      // ── LED con 2 versiones de video: mismo layout de 2 columnas que
-      // las fotos normales, pero cada panel es un preview + link de video. ──
-      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: cardX, y: cardY, w: colLeftW, h: leftH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
-      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: rx, y: cardY, w: colRightW, h: rightH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
-      slide.addText((t.tipoElemento || 'Elemento'), { x: cardX - 1.65, y: cardY + leftH/2 - 0.55, w: leftH - 0.7, h: 1.1, fontSize: 24, bold: true, color: WHITE, fontFace: 'Arial Black', align: 'center', valign: 'middle', rotate: 270 });
+      // ── LED con 2 versiones de video: 2 columnas IGUALES (mismo ancho
+      // y alto para ambas, cada una con su preview + link de video) ──
+      const halfW = (cardW - gap) / 2;
+      const rx2 = cardX + halfW + gap;
+      const panelH = rightH; // ambas necesitan espacio para el banner de link
+      const frameH = leftH - 0.7;
+      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: cardX, y: cardY, w: halfW, h: panelH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: rx2, y: cardY, w: halfW, h: panelH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      mostrarTipoArribaCodigo = true;
 
       async function panelVideo(px, pw, videoUrl, previewUrl, label) {
-        const fx = px + 1.35, fy = cardY + 0.35, fw = pw - 1.65, fh = leftH - 0.7;
+        const topLabelH = 0.32;
+        const fx = px + 0.3, fy = cardY + 0.35 + topLabelH, fw = pw - 0.6, fh = frameH - topLabelH;
         const previewB64 = fotosMap[previewUrl] || null;
+        slide.addText(label, { x: fx, y: cardY + 0.05, w: fw, h: topLabelH - 0.03, fontSize: 12, bold: true, color: WHITE, align: 'center', valign: 'middle', fontFace: 'Arial', charSpacing: 1 });
+        slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fw,h:fh, fill:{color:'D96A10'},line:{color:'D96A10'} });
         if (previewB64) {
-          const dimPrev = await dimensionesImagen(previewB64);
-          const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, fw, fh);
-          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fw,h:fh, fill:{color:'D96A10'},line:{color:'D96A10'} });
-          slide.addImage({ data: previewB64, x: fx + rPrev.offsetX, y: fy + rPrev.offsetY, w: rPrev.w, h: rPrev.h });
-          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy+fh-0.32,w:fw,h:0.32, fill:{color:'000000',transparency:35}, line:{color:'000000',transparency:100} });
-          slide.addText('Print de referencia', { x:fx,y:fy+fh-0.32,w:fw,h:0.32, fontSize:9,bold:true,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
+          slide.addImage({ data: previewB64, x: fx, y: fy, w: fw, h: fh, sizing: { type: 'cover', w: fw, h: fh } });
         } else {
-          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fw,h:fh, fill:{color:'D96A10'},line:{color:'D96A10'} });
           slide.addText('Video adjunto', { x:fx,y:fy+fh/2+0.15,w:fw,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
         }
-        slide.addShape(pres.shapes.RECTANGLE, { x: fx - 1.7, y: fy + fh/2 - 0.15, w: 2.05, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-        slide.addText(label, { x: fx - 1.7, y: fy + fh/2 - 0.15, w: 2.05, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
         const vy = fy + fh + 0.12;
         slide.addShape(pres.shapes.RECTANGLE, { x: px + 0.3, y: vy, w: pw - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
         slide.addText([
@@ -1842,8 +1842,8 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
           { text: videoUrl ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: videoUrl ? '2563EB' : '9CA3AF', hyperlink: videoUrl ? { url: videoViewUrl(videoUrl) } : undefined } }
         ], { x: px + 0.3, y: vy, w: pw - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
       }
-      await panelVideo(cardX, colLeftW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
-      await panelVideo(rx, colRightW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+      await panelVideo(cardX, halfW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
+      await panelVideo(rx2, halfW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
 
     } else if (esLED) {
       // ── LED: no hay foto frontal/panorámica, solo 1 video. Un solo
@@ -1861,15 +1861,12 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
       const vFrameX = cardX + 1.35, vFrameY = cardY + 0.35;
       const vFrameW = panelW - 1.65, vFrameH = leftH - 0.7;
       const previewB64 = fotosMap[t.videoPreviewUrl] || null;
+      slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
       if (previewB64) {
-        const dimPrev = await dimensionesImagen(previewB64);
-        const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, vFrameW, vFrameH);
-        slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
-        slide.addImage({ data: previewB64, x: vFrameX + rPrev.offsetX, y: vFrameY + rPrev.offsetY, w: rPrev.w, h: rPrev.h });
+        slide.addImage({ data: previewB64, x: vFrameX, y: vFrameY, w: vFrameW, h: vFrameH, sizing: { type: 'cover', w: vFrameW, h: vFrameH } });
         slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY+vFrameH-0.32,w:vFrameW,h:0.32, fill:{color:'000000',transparency:35}, line:{color:'000000',transparency:100} });
         slide.addText('Print de referencia · Video completo en el link', { x:vFrameX,y:vFrameY+vFrameH-0.32,w:vFrameW,h:0.32, fontSize:9,bold:true,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
       } else {
-        slide.addShape(pres.shapes.RECTANGLE, { x:vFrameX,y:vFrameY,w:vFrameW,h:vFrameH, fill:{color:'D96A10'},line:{color:'D96A10'} });
         slide.addText('Video adjunto', { x:vFrameX,y:vFrameY+vFrameH/2+0.15,w:vFrameW,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
       }
 
@@ -1949,6 +1946,9 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     }
 
     const codeY = belowY + 0.5;
+    if (mostrarTipoArribaCodigo) {
+      slide.addText((t.tipoElemento || 'Elemento').toUpperCase(), { x:cardX,y:codeY-0.28,w:8,h:0.26, fontSize:12,bold:true,color:NAVY,fontFace:'Arial',charSpacing:1 });
+    }
     slide.addText((t.codigoRef || '—'), { x:cardX,y:codeY,w:6,h:0.6, fontSize:28,bold:true,color:NAVY,fontFace:'Arial Black' });
     const mapsUrlPpt = (t.lat && t.lon)
       ? 'https://www.google.com/maps?q=' + t.lat + ',' + t.lon
@@ -1979,6 +1979,27 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
 
   await pres.writeFile({ fileName: `Zaza_Report_${asignacion.cliente.replace(/[^a-zA-Z0-9]+/g,'_')}.pptx` });
   showToast('✓ Reporte PPT descargado', 'ok');
+}
+
+// Recorta (cover) una imagen para llenar exactamente un marco WxH sin
+// dejar franjas — jsPDF no trae "cover" nativo como PptxGenJS, así que
+// se recorta con canvas antes de insertarla.
+function recortarCover(dataUrl, frameW, frameH) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const escala = Math.max(frameW / img.width, frameH / img.height);
+      const cw = frameW / escala, ch = frameH / escala;
+      const sx = (img.width - cw) / 2, sy = (img.height - ch) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(frameW * 96); canvas.height = Math.round(frameH * 96);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, sx, sy, cw, ch, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
 }
 
 async function generarReportePDF(asignacion, tomas, fotosMap) {
@@ -2014,30 +2035,34 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
 
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
+    let mostrarTipoArribaCodigo = false;
 
     if (esLED && t.videoUrl2) {
-      // ── LED con 2 versiones de video: 2 columnas, cada una con su
-      // preview + link, igual que el layout de fotos normales. ──
+      // ── LED con 2 versiones de video: 2 columnas IGUALES (mismo ancho
+      // y alto para ambas). ──
+      const halfW = (cardW - gap) / 2;
+      const rx2 = cardX + halfW + gap;
+      const panelH = rightH;
+      const frameH = leftH - 0.7;
       doc.setFillColor(...orangeRGB);
-      doc.roundedRect(cardX, cardY, colLeftW, leftH, 0.12, 0.12, 'F');
-      doc.roundedRect(rx, cardY, colRightW, rightH, 0.12, 0.12, 'F');
-      doc.setTextColor(255,255,255);
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-      const _tipoTxt2 = t.tipoElemento || 'Elemento';
-      const _tipoW2 = doc.getTextWidth(_tipoTxt2);
-      doc.text(_tipoTxt2, cardX + 0.32, cardY + leftH/2 + _tipoW2/2, { angle: 90 });
+      doc.roundedRect(cardX, cardY, halfW, panelH, 0.12, 0.12, 'F');
+      doc.roundedRect(rx2, cardY, halfW, panelH, 0.12, 0.12, 'F');
+      mostrarTipoArribaCodigo = true;
 
       async function panelVideoPdf(px, pw, videoUrl, previewUrl, label) {
-        const fx = px + 1.35, fy = cardY + 0.35, fw = pw - 1.65, fh = leftH - 0.7;
+        const topLabelH = 0.32;
+        const fx = px + 0.3, fy = cardY + 0.35 + topLabelH, fw = pw - 0.6, fh = frameH - topLabelH;
         const previewB64 = fotosMap[previewUrl] || null;
         let hayPreview = false;
+        doc.setTextColor(255,255,255);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+        doc.text(label, px + pw/2, cardY + 0.2, { align: 'center', charSpace: 0.5 });
         doc.setFillColor(217,106,16);
         doc.rect(fx, fy, fw, fh, 'F');
         if (previewB64) {
           try {
-            const dimPrev = await dimensionesImagen(previewB64);
-            const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, fw, fh);
-            doc.addImage(previewB64, 'JPEG', fx + rPrev.offsetX, fy + rPrev.offsetY, rPrev.w, rPrev.h);
+            const cropped = await recortarCover(previewB64, fw, fh);
+            doc.addImage(cropped, 'JPEG', fx, fy, fw, fh);
             hayPreview = true;
           } catch(e) {}
         }
@@ -2052,10 +2077,6 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
           doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
           doc.text('Video adjunto', fx+fw/2, fy+fh/2, { align: 'center' });
         }
-        doc.setFillColor(255,255,255);
-        doc.setTextColor(26,43,74);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        doc.text(label, fx - 0.14, fy + fh/2 + doc.getTextWidth(label)/2, { angle: 90 });
 
         const vy = fy + fh + 0.12;
         doc.setFillColor(255,255,255);
@@ -2072,8 +2093,8 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
           doc.text('N/A', px + pw/2, vy + 0.32, { align: 'center' });
         }
       }
-      await panelVideoPdf(cardX, colLeftW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
-      await panelVideoPdf(rx, colRightW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+      await panelVideoPdf(cardX, halfW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
+      await panelVideoPdf(rx2, halfW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
 
     } else if (esLED) {
       // ── LED: sin foto frontal/panorámica, solo 1 video. Panel ancho
@@ -2093,11 +2114,8 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
       let hayPreview = false;
       if (previewB64Pdf) {
         try {
-          const dimPrev = await dimensionesImagen(previewB64Pdf);
-          const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, vFrameW, vFrameH);
-          doc.setFillColor(217,106,16);
-          doc.rect(vFrameX, vFrameY, vFrameW, vFrameH, 'F');
-          doc.addImage(previewB64Pdf, 'JPEG', vFrameX + rPrev.offsetX, vFrameY + rPrev.offsetY, rPrev.w, rPrev.h);
+          const cropped = await recortarCover(previewB64Pdf, vFrameW, vFrameH);
+          doc.addImage(cropped, 'JPEG', vFrameX, vFrameY, vFrameW, vFrameH);
           hayPreview = true;
         } catch(e) {
           doc.setFillColor(217,106,16);
@@ -2225,6 +2243,11 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
 
     // Código de elemento, grande
     const codeY = belowY + 0.55;
+    if (mostrarTipoArribaCodigo) {
+      doc.setTextColor(...navyRGB);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
+      doc.text((t.tipoElemento || 'Elemento').toUpperCase(), cardX, codeY - 0.28, { charSpace: 0.3 });
+    }
     doc.setTextColor(...navyRGB);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(24);
     doc.text((t.codigoRef || '—'), cardX, codeY);
