@@ -452,6 +452,12 @@
         <div class="slot-zone video-slot" id="slot-video" onclick="triggerCapture('video')"><div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div></div>
         <input type="file" id="inp-video" accept="video/*" style="display:none" onchange="handleFile(event,'video')"/>
       </div>
+      <button id="btn-add-video2" onclick="toggleVideo2(true)" style="display:none;width:100%;padding:12px;background:transparent;border:1.5px dashed rgba(56,182,255,0.5);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:700;margin-bottom:18px">+ Agregar 2da versión de video</button>
+      <div class="capture-slot" id="capture-slot-video2" style="display:none">
+        <div class="slot-label">🎬 Video · 2da versión <button onclick="toggleVideo2(false)" style="background:none;color:var(--red);font-size:11px;font-weight:700;margin-left:8px;text-transform:none;letter-spacing:0">✕ quitar</button></div>
+        <div class="slot-zone video-slot" id="slot-video2" onclick="triggerCapture('video2')"><div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar la 2da versión</div></div>
+        <input type="file" id="inp-video2" accept="video/*" style="display:none" onchange="handleFile(event,'video2')"/>
+      </div>
     </div>
   </div>
   <div id="capture-footer">
@@ -1085,13 +1091,19 @@ async function sincronizarManual() {
 
 async function refrescarAsignacionesSilencioso() {
   try {
-    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTodasAsignaciones', 2);
+    const esAdmin = !!(currentUser && currentUser.esAdmin);
+    const url = esAdmin
+      ? (SCRIPT_URL + '?action=rfGetTodasAsignaciones')
+      : (SCRIPT_URL + '?action=rfGetAsignacionesPorFotografo&fotografo=' + encodeURIComponent(currentUser ? currentUser.nombre : ''));
+    const res = await fetchConReintento(url, 2);
     if (!res.ok) return;
     const nuevasAsignaciones = await res.json();
-    // Evitar repintado (parpadeo) si nada cambió
+    // Evitar repintado (parpadeo) si nada cambió (comparar por sesión/rol actual)
+    const cacheJsonKey = 'zr_' + (esAdmin ? 'ADMIN' : (currentUser ? currentUser.nombre : ''));
     const nuevoJson = JSON.stringify(nuevasAsignaciones);
-    if (nuevoJson === window._zrUltimoJsonAsig) return;
+    if (nuevoJson === window._zrUltimoJsonAsig && window._zrUltimoJsonAsigKey === cacheJsonKey) return;
     window._zrUltimoJsonAsig = nuevoJson;
+    window._zrUltimoJsonAsigKey = cacheJsonKey;
     const cambioCantidad = nuevasAsignaciones.length !== asignaciones.length;
     asignaciones = nuevasAsignaciones;
     // Si la pantalla de lista está activa y no hay un modal de captura
@@ -1115,8 +1127,9 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null };
-  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video');
+  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null };
+  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video'); resetSlot('video2');
+  toggleVideo2(false);
   document.getElementById('obs-input').value = '';
   document.getElementById('capture-title').innerHTML =
     (el.tipoElemento || '') + (el.ubicacion ? ' · ' + el.ubicacion.slice(0,30) : '') +
@@ -1124,21 +1137,29 @@ function openCapture(el) {
      : el.turno === 'NOCHE' ? ' <span class="turno-tag NOCHE">🌙 Foto de NOCHE</span>' : '');
 
   // LED: solo se pide 1 video vertical (9:16), sin fotos frontal/panorámica.
+  // Puede necesitar 2 versiones (ej. 2 anunciantes en el mismo LED).
   const esLED = esTipoLED(el.tipoElemento);
   document.getElementById('capture-slot-frontal').style.display = esLED ? 'none' : 'block';
   document.getElementById('capture-slot-panoramica').style.display = esLED ? 'none' : 'block';
+  document.getElementById('btn-add-video2').style.display = esLED ? 'block' : 'none';
   document.getElementById('capture-slot-video-label').innerHTML = esLED
-    ? '🎬 Video vertical (9:16) <span style="color:var(--red)">*</span>'
+    ? '🎬 Video vertical (9:16) · versión 1 <span style="color:var(--red)">*</span>'
     : '🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional)</span>';
 
   updateSubmitBtn();
   document.getElementById('capture-modal').classList.add('open');
 }
 function closeCaptureModal() { document.getElementById('capture-modal').classList.remove('open'); }
+function toggleVideo2(show) {
+  document.getElementById('capture-slot-video2').style.display = show ? 'block' : 'none';
+  document.getElementById('btn-add-video2').style.display = show ? 'none' : (captureTarget && esTipoLED(captureTarget.tipoElemento) ? 'block' : 'none');
+  if (!show) { captureData.video2 = null; captureData.videoFile2 = null; captureData.videoPreview2 = null; resetSlot('video2'); }
+  updateSubmitBtn();
+}
 function triggerCapture(tipo) { document.getElementById('inp-' + tipo).click(); }
 function resetSlot(tipo) {
   const zone = document.getElementById('slot-' + tipo);
-  zone.innerHTML = tipo === 'video' ? '<div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div>' : '<div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div>';
+  zone.innerHTML = tipo.startsWith('video') ? '<div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar video</div>' : '<div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div>';
   zone.classList.remove('filled');
 }
 async function handleFile(event, tipo) {
@@ -1150,17 +1171,17 @@ async function handleFile(event, tipo) {
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   } else {
-    captureData.videoFile = file;
+    const fileKey = tipo === 'video2' ? 'videoFile2' : 'videoFile';
+    const previewKey = tipo === 'video2' ? 'videoPreview2' : 'videoPreview';
+    captureData[fileKey] = file;
     captureData[tipo] = 'PENDIENTE'; // marcador: se sube por partes recién al confirmar
     const url = URL.createObjectURL(file);
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
-    if (tipo === 'video') {
-      captureData.videoPreview = await capturarFrameDeVideo(file).catch(() => null);
-      const mb = file.size / 1024 / 1024;
-      if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: se subirá por partes, puede tardar un poco', 'info');
-    }
+    captureData[previewKey] = await capturarFrameDeVideo(file).catch(() => null);
+    const mb = file.size / 1024 / 1024;
+    if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: se subirá por partes, puede tardar un poco', 'info');
   }
   updateCaptureStep(); updateSubmitBtn();
 }
@@ -1198,9 +1219,12 @@ function updateCaptureStep() {
 function updateSubmitBtn() {
   const btn = document.getElementById('submit-toma');
   const esLED = captureTarget && esTipoLED(captureTarget.tipoElemento);
-  const ready = esLED ? !!captureData.video : !!(captureData.frontal || captureData.panoramica || captureData.video);
+  const video2Requerido = document.getElementById('capture-slot-video2').style.display !== 'none';
+  const ready = esLED
+    ? !!captureData.video && (!video2Requerido || !!captureData.video2)
+    : !!(captureData.frontal || captureData.panoramica || captureData.video);
   btn.disabled = !ready;
-  btn.textContent = ready ? 'Subir toma ↑' : (esLED ? 'Graba el video vertical' : 'Toma al menos 1 foto o video');
+  btn.textContent = ready ? 'Subir toma ↑' : (esLED ? (video2Requerido && !captureData.video2 ? 'Graba la 2da versión de video' : 'Graba el video vertical') : 'Toma al menos 1 foto o video');
 }
 // Sube un video grande en pedazos de ~8MB, subiendo varios EN PARALELO
 // (3 a la vez) en vez de uno por uno — cada viaje a Apps Script tiene
@@ -1263,26 +1287,29 @@ async function submitToma() {
   }
 
   let videoUrlPrecargado = '';
-  if (captureData.videoFile) {
-    try {
+  let videoUrlPrecargado2 = '';
+  try {
+    if (captureData.videoFile) {
       videoUrlPrecargado = await subirVideoPorPartes(captureData.videoFile, (hecho, total) => {
-        if (hecho === 'finalizando') {
-          btn.innerHTML = '<span class="spinner"></span> Uniendo el video, un momento...';
-        } else {
-          const pct = Math.round(hecho / total * 100);
-          btn.innerHTML = '<span class="spinner"></span> Subiendo video ' + pct + '% (' + hecho + '/' + total + ')...';
-        }
+        if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video, un momento...';
+        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 1: ' + pct + '% (' + hecho + '/' + total + ')...'; }
       });
-    } catch (e) {
-      btn.disabled = false; btn.textContent = 'Subir toma ↑';
-      if (currentAsig) {
-        const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
-        if (elem) elem.estado = 'PENDIENTE';
-        renderElementosFotografo();
-      }
-      showToast('❌ No se pudo subir el video: ' + e.message, 'error');
-      return;
     }
+    if (captureData.videoFile2) {
+      videoUrlPrecargado2 = await subirVideoPorPartes(captureData.videoFile2, (hecho, total) => {
+        if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 2, un momento...';
+        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 2: ' + pct + '% (' + hecho + '/' + total + ')...'; }
+      });
+    }
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Subir toma ↑';
+    if (currentAsig) {
+      const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
+      if (elem) elem.estado = 'PENDIENTE';
+      renderElementosFotografo();
+    }
+    showToast('❌ No se pudo subir el video: ' + e.message, 'error');
+    return;
   }
 
   const payload = {
@@ -1290,6 +1317,7 @@ async function submitToma() {
     cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
     ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
     videoUrlPrecargado: videoUrlPrecargado, videoPreviewBase64: captureData.videoPreview || '',
+    videoUrlPrecargado2: videoUrlPrecargado2, videoPreviewBase64_2: captureData.videoPreview2 || '',
     fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
@@ -1784,7 +1812,40 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
 
-    if (esLED) {
+    if (esLED && t.videoUrl2) {
+      // ── LED con 2 versiones de video: mismo layout de 2 columnas que
+      // las fotos normales, pero cada panel es un preview + link de video. ──
+      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: cardX, y: cardY, w: colLeftW, h: leftH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: rx, y: cardY, w: colRightW, h: rightH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      slide.addText((t.tipoElemento || 'Elemento'), { x: cardX - 1.65, y: cardY + leftH/2 - 0.55, w: leftH - 0.7, h: 1.1, fontSize: 24, bold: true, color: WHITE, fontFace: 'Arial Black', align: 'center', valign: 'middle', rotate: 270 });
+
+      async function panelVideo(px, pw, videoUrl, previewUrl, label) {
+        const fx = px + 1.35, fy = cardY + 0.35, fw = pw - 1.65, fh = leftH - 0.7;
+        const previewB64 = fotosMap[previewUrl] || null;
+        if (previewB64) {
+          const dimPrev = await dimensionesImagen(previewB64);
+          const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, fw, fh);
+          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fw,h:fh, fill:{color:'D96A10'},line:{color:'D96A10'} });
+          slide.addImage({ data: previewB64, x: fx + rPrev.offsetX, y: fy + rPrev.offsetY, w: rPrev.w, h: rPrev.h });
+          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy+fh-0.32,w:fw,h:0.32, fill:{color:'000000',transparency:35}, line:{color:'000000',transparency:100} });
+          slide.addText('Print de referencia', { x:fx,y:fy+fh-0.32,w:fw,h:0.32, fontSize:9,bold:true,color:WHITE,align:'center',valign:'middle',fontFace:'Arial' });
+        } else {
+          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fw,h:fh, fill:{color:'D96A10'},line:{color:'D96A10'} });
+          slide.addText('Video adjunto', { x:fx,y:fy+fh/2+0.15,w:fw,h:0.4, fontSize:14,bold:true,color:WHITE,align:'center',fontFace:'Arial' });
+        }
+        slide.addShape(pres.shapes.RECTANGLE, { x: fx - 1.7, y: fy + fh/2 - 0.15, w: 2.05, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+        slide.addText(label, { x: fx - 1.7, y: fy + fh/2 - 0.15, w: 2.05, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
+        const vy = fy + fh + 0.12;
+        slide.addShape(pres.shapes.RECTANGLE, { x: px + 0.3, y: vy, w: pw - 0.6, h: 0.4, fill:{color:WHITE}, line:{color:WHITE} });
+        slide.addText([
+          { text: 'LINK VIDEO', options: { fontSize:8, bold:true, color:NAVY, breakLine:true } },
+          { text: videoUrl ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: videoUrl ? '2563EB' : '9CA3AF', hyperlink: videoUrl ? { url: videoViewUrl(videoUrl) } : undefined } }
+        ], { x: px + 0.3, y: vy, w: pw - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
+      }
+      await panelVideo(cardX, colLeftW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
+      await panelVideo(rx, colRightW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+
+    } else if (esLED) {
       // ── LED: no hay foto frontal/panorámica, solo 1 video. Un solo
       // panel ancho con ícono de play + el link bien visible debajo. ──
       const panelW = colLeftW + gap + colRightW;
@@ -1954,7 +2015,67 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
 
-    if (esLED) {
+    if (esLED && t.videoUrl2) {
+      // ── LED con 2 versiones de video: 2 columnas, cada una con su
+      // preview + link, igual que el layout de fotos normales. ──
+      doc.setFillColor(...orangeRGB);
+      doc.roundedRect(cardX, cardY, colLeftW, leftH, 0.12, 0.12, 'F');
+      doc.roundedRect(rx, cardY, colRightW, rightH, 0.12, 0.12, 'F');
+      doc.setTextColor(255,255,255);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
+      const _tipoTxt2 = t.tipoElemento || 'Elemento';
+      const _tipoW2 = doc.getTextWidth(_tipoTxt2);
+      doc.text(_tipoTxt2, cardX + 0.32, cardY + leftH/2 + _tipoW2/2, { angle: 90 });
+
+      async function panelVideoPdf(px, pw, videoUrl, previewUrl, label) {
+        const fx = px + 1.35, fy = cardY + 0.35, fw = pw - 1.65, fh = leftH - 0.7;
+        const previewB64 = fotosMap[previewUrl] || null;
+        let hayPreview = false;
+        doc.setFillColor(217,106,16);
+        doc.rect(fx, fy, fw, fh, 'F');
+        if (previewB64) {
+          try {
+            const dimPrev = await dimensionesImagen(previewB64);
+            const rPrev = encajarProporcional(dimPrev.w, dimPrev.h, fw, fh);
+            doc.addImage(previewB64, 'JPEG', fx + rPrev.offsetX, fy + rPrev.offsetY, rPrev.w, rPrev.h);
+            hayPreview = true;
+          } catch(e) {}
+        }
+        if (hayPreview) {
+          doc.setFillColor(0,0,0);
+          doc.rect(fx, fy+fh-0.32, fw, 0.32, 'F');
+          doc.setTextColor(255,255,255);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+          doc.text('Print de referencia', fx+fw/2, fy+fh-0.14, { align: 'center' });
+        } else {
+          doc.setTextColor(255,255,255);
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+          doc.text('Video adjunto', fx+fw/2, fy+fh/2, { align: 'center' });
+        }
+        doc.setFillColor(255,255,255);
+        doc.setTextColor(26,43,74);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(label, fx - 0.14, fy + fh/2 + doc.getTextWidth(label)/2, { angle: 90 });
+
+        const vy = fy + fh + 0.12;
+        doc.setFillColor(255,255,255);
+        doc.rect(px + 0.3, vy, pw - 0.6, 0.4, 'F');
+        doc.setTextColor(26,43,74);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+        doc.text('LINK VIDEO', px + pw/2, vy + 0.16, { align: 'center' });
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        if (videoUrl) {
+          doc.setTextColor(37,99,235);
+          doc.textWithLink('Ver / descargar el video aquí', px + pw/2, vy + 0.32, { url: videoViewUrl(videoUrl), align: 'center' });
+        } else {
+          doc.setTextColor(156,163,175);
+          doc.text('N/A', px + pw/2, vy + 0.32, { align: 'center' });
+        }
+      }
+      await panelVideoPdf(cardX, colLeftW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
+      await panelVideoPdf(rx, colRightW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+
+    } else if (esLED) {
       // ── LED: sin foto frontal/panorámica, solo 1 video. Panel ancho
       // con ícono de play + link destacado debajo. ──
       const panelW = colLeftW + gap + colRightW;
