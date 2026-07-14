@@ -1751,7 +1751,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     // Descargar TODAS las fotos necesarias en un solo lote desde el
     // backend (evita problemas de CORS y es más rápido que una por una)
     const todasUrls = [];
-    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl); });
+    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl, t.videoPreviewUrl2); });
     const fotosMap = await descargarFotosEnLote(todasUrls);
 
     if (formato === 'pptx') {
