@@ -907,6 +907,17 @@ async function loadAsignacionesFotografo() {
 function renderVistaAdminFotografo() {
   const list = document.getElementById('asig-list');
   const badge = document.getElementById('asig-badge');
+
+  if (window._zrAdminModoCaptura) {
+    // Jorge puede alternar a la vista normal de fotógrafo para poder
+    // subir fotos/videos él mismo en cualquier elemento, igual que
+    // cualquier fotógrafo (útil para cubrir a alguien).
+    renderAsignacionesFotografo();
+    const toggle = document.getElementById('admin-toggle-btn');
+    if (toggle) toggle.textContent = '📊 Ver resumen por fotógrafo';
+    return;
+  }
+
   const grupos = {};
   asignaciones.forEach(a => {
     (a.elementos || []).forEach(el => {
@@ -917,11 +928,12 @@ function renderVistaAdminFotografo() {
   });
   const nombres = Object.keys(grupos).sort();
   badge.textContent = nombres.length;
+  const togglePrefix = `<button id="admin-toggle-btn" onclick="window._zrAdminModoCaptura=true;renderVistaAdminFotografo()" style="width:100%;padding:12px;margin-bottom:16px;background:rgba(255,107,0,0.12);border:1px solid rgba(255,107,0,0.4);border-radius:var(--radius-sm);color:var(--orange-light);font-size:13px;font-weight:700">📸 Subir fotos/videos yo mismo</button>`;
   if (!nombres.length) {
-    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin elementos activos</div></div>`;
+    list.innerHTML = togglePrefix + `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin elementos activos</div></div>`;
     return;
   }
-  list.innerHTML = nombres.map(f => {
+  list.innerHTML = togglePrefix + nombres.map(f => {
     const items = grupos[f];
     const done = items.filter(e => e.estado === 'COMPLETADO').length;
     const pct = items.length ? Math.round(done / items.length * 100) : 0;
@@ -1041,9 +1053,12 @@ function filtrarAgenda(pageId, filtro, btnEl) {
 function renderAsignacionesFotografo() {
   const list = document.getElementById('asig-list');
   const badge = document.getElementById('asig-badge');
+  const volverAdminBtn = (currentUser && currentUser.esAdmin)
+    ? `<button onclick="window._zrAdminModoCaptura=false;renderVistaAdminFotografo()" style="width:100%;padding:12px;margin-bottom:16px;background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:13px;font-weight:700">📊 Volver al resumen por fotógrafo</button>`
+    : '';
   if (!asignaciones.length) {
     badge.textContent = '0';
-    list.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones por ahora.</div></div>`;
+    list.innerHTML = volverAdminBtn + `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones por ahora.</div></div>`;
     return;
   }
 
@@ -1085,7 +1100,7 @@ function renderAsignacionesFotografo() {
       </div>`;
   }
 
-  let html = '';
+  let html = volverAdminBtn;
   html += '<div id="asig-group-activas">';
   html += activas.length
     ? activas.map(a => cardHtml(a, false)).join('')
