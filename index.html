@@ -628,7 +628,7 @@ async function subirVideoDirectoADrive(file, cliente, fecha, onProgreso) {
   const metadata = { name: 'video_' + Date.now() + '_' + (file.name || 'video.mp4'), parents: [folderId] };
   const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
     method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': file.type || 'video/mp4' },
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': file.type || 'video/mp4', 'X-Upload-Content-Length': String(file.size || 0) },
     body: JSON.stringify(metadata)
   });
   if (!initRes.ok) throw new Error('No se pudo iniciar la subida a Drive (HTTP ' + initRes.status + ')');
@@ -648,6 +648,24 @@ async function subirVideoDirectoADrive(file, cliente, fecha, onProgreso) {
     xhr.onerror = () => reject(new Error('Error de red subiendo a Drive'));
     xhr.send(file);
   });
+
+  // Verificación de integridad: en móviles (sobre todo iOS/PWA) se ha visto
+  // que con videos grandes el PUT anterior puede "responder OK" pero el
+  // cuerpo llega vacío/incompleto por presión de memoria, dejando un
+  // archivo de 0 bytes en Drive sin que salte ningún error. Por eso acá
+  // se confirma el tamaño real subido; si dio 0 (o no vino), se borra el
+  // archivo roto y se lanza un error — eso hace que subirVideoRapido()
+  // caiga automáticamente al método por partes (más lento pero confiable),
+  // en vez de dejar pasar un video inservible como si hubiera funcionado.
+  const metaRes = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=size', {
+    headers: { 'Authorization': 'Bearer ' + token }
+  });
+  const metaData = await metaRes.json().catch(() => ({}));
+  const bytesSubidos = Number(metaData.size || 0);
+  if (!bytesSubidos) {
+    try { await fetch('https://www.googleapis.com/drive/v3/files/' + fileId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); } catch(e) {}
+    throw new Error('El video se subió con 0 bytes (fallo de la subida directa)');
+  }
 
   // Hacer el archivo visible por link (mismo criterio que usa el backend para las fotos)
   await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
@@ -1527,14 +1545,29 @@ async function handleFile(event, tipo) {
   } else {
     const fileKey = tipo === 'video3' ? 'videoFile3' : tipo === 'video2' ? 'videoFile2' : 'videoFile';
     const previewKey = tipo === 'video3' ? 'videoPreview3' : tipo === 'video2' ? 'videoPreview2' : 'videoPreview';
-    captureData[fileKey] = file;
+    // IMPORTANTE: el celular (sobre todo iOS) guarda el video grabado en un
+    // archivo temporal que puede limpiar solo, a veces antes de que la app
+    // llegue a subirlo (el fotógrafo puede tardar en llenar observaciones,
+    // esperar el token de Google, etc.). Si esperamos hasta el envío para
+    // leer ese `file`, a veces ya está vacío y sube un video de 0 bytes sin
+    // ningún error. Por eso los bytes se leen a memoria AHORA, apenas se
+    // selecciona el video, y se guarda una copia propia (ya no depende del
+    // archivo temporal del celular).
+    let fileFinal = file;
+    try {
+      const bytes = await file.arrayBuffer();
+      fileFinal = new File([bytes], file.name || 'video.mp4', { type: file.type || 'video/mp4' });
+    } catch (e) {
+      console.warn('No se pudo copiar el video a memoria, se usará la referencia original:', e.message);
+    }
+    captureData[fileKey] = fileFinal;
     captureData[tipo] = 'PENDIENTE'; // marcador: se sube por partes recién al confirmar
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(fileFinal);
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
-    captureData[previewKey] = await capturarFrameDeVideo(file).catch(() => null);
-    const mb = file.size / 1024 / 1024;
+    captureData[previewKey] = await capturarFrameDeVideo(fileFinal).catch(() => null);
+    const mb = fileFinal.size / 1024 / 1024;
     if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: puede tardar un poco en subir', 'info');
   }
   updateCaptureStep(); updateSubmitBtn();
