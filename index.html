@@ -1448,7 +1448,7 @@ async function handleFile(event, tipo) {
     zone.classList.add('filled');
     captureData[previewKey] = await capturarFrameDeVideo(file).catch(() => null);
     const mb = file.size / 1024 / 1024;
-    if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: se subirá por partes, puede tardar un poco', 'info');
+    if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: puede tardar un poco en subir', 'info');
   }
   updateCaptureStep(); updateSubmitBtn();
 }
@@ -1555,6 +1555,7 @@ async function subirVideoRapido(file, cliente, fecha, onProgreso) {
     });
   } catch (e) {
     console.warn('Subida directa a Drive falló, usando método por pedazos:', e.message);
+    showToast('⚠️ Vía rápida falló (' + e.message + '), subiendo por el método normal', 'warn');
     return await subirVideoPorPartes(file, onProgreso);
   }
 }
