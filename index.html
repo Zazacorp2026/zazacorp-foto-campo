@@ -1575,6 +1575,51 @@ async function subirVideoRapido(file, cliente, fecha, onProgreso) {
   }
 }
 
+// Convierte un dataURL (foto ya comprimida) a Blob para subirlo directo.
+function dataUrlABlob(dataUrl) {
+  const [meta, b64] = dataUrl.split(',');
+  const mime = (meta.match(/:(.*?);/) || [,'image/jpeg'])[1];
+  const bin = atob(b64);
+  const arr = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+// Sube una foto (ya comprimida a dataURL) DIRECTO a Drive, igual que el
+// video — mucho más rápido que mandarla en base64 dentro del POST a
+// Apps Script. Devuelve la URL final, o null si falla (se usa el
+// método anterior como respaldo automático).
+async function subirFotoRapida(dataUrl, cliente, fecha, nombreBase) {
+  if (!dataUrl) return null;
+  try {
+    const token = await obtenerAccessTokenDrive();
+    const resCarpeta = await fetch(SCRIPT_URL + '?action=rfObtenerCarpetaId&cliente=' + encodeURIComponent(cliente || '') + '&fecha=' + encodeURIComponent(fecha || ''));
+    const dataCarpeta = await resCarpeta.json();
+    if (!dataCarpeta.ok || !dataCarpeta.folderId) return null;
+    const blob = dataUrlABlob(dataUrl);
+    const metadata = { name: nombreBase + '_' + Date.now() + '.jpg', parents: [dataCarpeta.folderId] };
+    const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': blob.type },
+      body: JSON.stringify(metadata)
+    });
+    if (!initRes.ok) return null;
+    const uploadUrl = initRes.headers.get('Location');
+    if (!uploadUrl) return null;
+    const putRes = await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': blob.type }, body: blob });
+    if (!putRes.ok) return null;
+    const fileId = (await putRes.json()).id;
+    await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
+      method: 'POST', headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+    return 'https://drive.google.com/uc?export=view&id=' + fileId;
+  } catch (e) {
+    console.warn('Subida directa de foto falló, se usará el método anterior:', e.message);
+    return null;
+  }
+}
+
 async function submitToma() {
   if (!captureData.frontal && !captureData.panoramica && !captureData.video) return;
   const btn = document.getElementById('submit-toma');
@@ -1618,10 +1663,19 @@ async function submitToma() {
     return;
   }
 
+  btn.innerHTML = '<span class="spinner"></span> Subiendo fotos...';
+  let fotoFrontalUrl = null, fotoPanoramicaUrl = null;
+  if (captureData.frontal) fotoFrontalUrl = await subirFotoRapida(captureData.frontal, captureTarget.cliente, captureTarget.fecha, 'frontal');
+  if (captureData.panoramica) fotoPanoramicaUrl = await subirFotoRapida(captureData.panoramica, captureTarget.cliente, captureTarget.fecha, 'panoramica');
+
   const payload = {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
     cliente: captureTarget.cliente, fecha: captureTarget.fecha, tipoElemento: captureTarget.tipoElemento,
-    ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
+    ubicacion: captureTarget.ubicacion,
+    fotoFrontalBase64: fotoFrontalUrl ? null : captureData.frontal,
+    fotoPanoramicaBase64: fotoPanoramicaUrl ? null : captureData.panoramica,
+    fotoFrontalUrlPrecargada: fotoFrontalUrl || '',
+    fotoPanoramicaUrlPrecargada: fotoPanoramicaUrl || '',
     videoUrlPrecargado: videoUrlPrecargado, videoPreviewBase64: captureData.videoPreview || '',
     videoUrlPrecargado2: videoUrlPrecargado2, videoPreviewBase64_2: captureData.videoPreview2 || '',
     videoUrlPrecargado3: videoUrlPrecargado3, videoPreviewBase64_3: captureData.videoPreview3 || '',
@@ -1629,6 +1683,7 @@ async function submitToma() {
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
   };
+  btn.innerHTML = '<span class="spinner"></span> Guardando en la hoja, un momento...';
   // Un video pesado desde el celular puede tardar mucho o quedarse
   // "colgado" para siempre con mala señal. Ponemos un límite de tiempo
   // (2 minutos) para que, si no responde, avise el error en vez de
