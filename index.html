@@ -757,6 +757,28 @@ function backToRole() {
   document.getElementById('role-screen').style.display = 'flex';
 }
 
+// ===== Registro de accesos: fecha/hora, usuario, rol, éxito/fallo, IP
+// pública y user agent — para detectar intentos externos o sospechosos.
+// No bloquea el login: se dispara en segundo plano (fire-and-forget). =====
+async function registrarAccesoSilencioso(userId, role, exito, motivo) {
+  try {
+    let ip = '';
+    try {
+      const ipRes = await fetch('https://api.ipify.org?format=json');
+      ip = (await ipRes.json()).ip || '';
+    } catch (e) {}
+    const url = SCRIPT_URL + '?action=rfRegistrarAcceso'
+      + '&userId=' + encodeURIComponent(userId || '')
+      + '&role=' + encodeURIComponent(role || '')
+      + '&exito=' + (exito ? '1' : '0')
+      + '&motivo=' + encodeURIComponent(motivo || '')
+      + '&ip=' + encodeURIComponent(ip)
+      + '&ua=' + encodeURIComponent(navigator.userAgent)
+      + '&_t=' + Date.now();
+    fetch(url, { cache: 'no-store' }).catch(() => {});
+  } catch (e) {}
+}
+
 async function doLogin() {
   const userId = document.getElementById('pin-user').value;
   const pass = document.getElementById('pin-input').value;
@@ -769,6 +791,7 @@ async function doLogin() {
   const textoOriginal = btn.textContent;
   btn.textContent = 'Verificando...';
   btn.disabled = true;
+  let loginOk = false, motivoFallo = '';
   try {
     const url = SCRIPT_URL + '?action=rfLogin&role=' + encodeURIComponent(currentRole)
       + '&userId=' + encodeURIComponent(userId) + '&pass=' + encodeURIComponent(pass) + '&_t=' + Date.now();
@@ -776,15 +799,19 @@ async function doLogin() {
     const data = await res.json();
     if (!data.ok) {
       err.textContent = data.error || 'Credenciales incorrectas.';
+      motivoFallo = data.error || 'Credenciales incorrectas';
       return;
     }
     currentUser = data.user;
+    loginOk = true;
   } catch (e) {
     err.textContent = 'No se pudo verificar. Revisa tu conexión e intenta de nuevo.';
+    motivoFallo = 'Error de red: ' + e.message;
     return;
   } finally {
     btn.textContent = textoOriginal;
     btn.disabled = false;
+    registrarAccesoSilencioso(userId, currentRole, loginOk, motivoFallo);
   }
 
   document.getElementById('pin-screen').classList.remove('active');
