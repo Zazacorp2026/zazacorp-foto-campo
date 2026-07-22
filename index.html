@@ -587,8 +587,14 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9
 const GOOGLE_CLIENT_ID = '885976652720-c1rmvahd2uh1p79rcgl8qq0b2vanjfo0.apps.googleusercontent.com';
 const DRIVE_UPLOAD_SCOPE = 'https://www.googleapis.com/auth/drive';
 let _gDriveTokenClient = null;
-let _gDriveAccessToken = null;
-let _gDriveTokenExpiry = 0;
+// El token y su expiración se guardan en sessionStorage (no solo en
+// memoria) porque en celular es muy común que el navegador recargue o
+// "mate" la pestaña en segundo plano al cambiar a la app de cámara para
+// grabar el video — eso borraba la variable en memoria y obligaba a
+// volver a autorizar Google en cada subida, aunque el token seguía
+// siendo válido por su hora completa.
+let _gDriveAccessToken = sessionStorage.getItem('zr_drive_token') || null;
+let _gDriveTokenExpiry = Number(sessionStorage.getItem('zr_drive_token_exp') || 0);
 
 function obtenerAccessTokenDrive() {
   return new Promise((resolve, reject) => {
@@ -608,6 +614,8 @@ function obtenerAccessTokenDrive() {
       if (resp.error) { reject(new Error('No se autorizó el acceso a Drive: ' + resp.error)); return; }
       _gDriveAccessToken = resp.access_token;
       _gDriveTokenExpiry = Date.now() + (resp.expires_in || 3500) * 1000;
+      sessionStorage.setItem('zr_drive_token', _gDriveAccessToken);
+      sessionStorage.setItem('zr_drive_token_exp', String(_gDriveTokenExpiry));
       resolve(_gDriveAccessToken);
     };
     _gDriveTokenClient.requestAccessToken({ prompt: _gDriveAccessToken ? '' : 'consent' });
@@ -874,6 +882,8 @@ function zrLimpiarSesionGuardada() {
   sessionStorage.removeItem('zr_role');
   sessionStorage.removeItem('zr_token');
   sessionStorage.removeItem('zr_login_ts');
+  sessionStorage.removeItem('zr_drive_token');
+  sessionStorage.removeItem('zr_drive_token_exp');
 }
 
 // Al cargar la página, si hay una sesión guardada y no expiró, entra
