@@ -774,6 +774,7 @@ async function registrarAccesoSilencioso(userId, role, exito, motivo) {
       + '&motivo=' + encodeURIComponent(motivo || '')
       + '&ip=' + encodeURIComponent(ip)
       + '&ua=' + encodeURIComponent(navigator.userAgent)
+      + '&plataforma=REPORT'
       + '&_t=' + Date.now();
     fetch(url, { cache: 'no-store' }).catch(() => {});
   } catch (e) {}
@@ -803,6 +804,7 @@ async function doLogin() {
       return;
     }
     currentUser = data.user;
+    if (data.token) sessionStorage.setItem('zr_token', data.token);
     loginOk = true;
   } catch (e) {
     err.textContent = 'No se pudo verificar. Revisa tu conexión e intenta de nuevo.';
