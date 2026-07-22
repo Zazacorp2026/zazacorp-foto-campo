@@ -531,6 +531,12 @@
         <div class="slot-zone video-slot" id="slot-video2" onclick="triggerCapture('video2')"><div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar la 2da versión</div></div>
         <input type="file" id="inp-video2" accept="video/*" style="display:none" onchange="handleFile(event,'video2')"/>
       </div>
+      <button id="btn-add-video3" onclick="toggleVideo3(true)" style="display:none;width:100%;padding:12px;background:transparent;border:1.5px dashed rgba(56,182,255,0.5);border-radius:var(--radius-sm);color:var(--blue);font-size:13px;font-weight:700;margin-bottom:18px">+ Agregar 3ra versión de video</button>
+      <div class="capture-slot" id="capture-slot-video3" style="display:none">
+        <div class="slot-label">🎬 Video · 3ra versión <button onclick="toggleVideo3(false)" style="background:none;color:var(--red);font-size:11px;font-weight:700;margin-left:8px;text-transform:none;letter-spacing:0">✕ quitar</button></div>
+        <div class="slot-zone video-slot" id="slot-video3" onclick="triggerCapture('video3')"><div class="slot-icon">🎥</div><div class="slot-text">Toca para grabar la 3ra versión</div></div>
+        <input type="file" id="inp-video3" accept="video/*" style="display:none" onchange="handleFile(event,'video3')"/>
+      </div>
     </div>
   </div>
   <div id="capture-footer">
@@ -983,7 +989,7 @@ function renderAsignacionesFotografo() {
           <div>
             <div class="asig-cliente">${a.cliente}</div>
             <div class="asig-meta">${total} elemento${total!==1?'s':''}${a.creadoPor ? ' · 👤 ' + a.creadoPor : ''}</div>
-            ${fechaLimiteChipHTML(a.fechaLimite)}
+            ${done ? `<div class="fl-chip" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.4);color:var(--green)"><span class="fl-label">✅ COMPLETADA:</span> ${a.fechaCompletada || a.fechaLimite || '—'}</div>` : fechaLimiteChipHTML(a.fechaLimite)}
             ${a.observaciones ? `<div style="margin-top:8px;display:flex;gap:8px;align-items:flex-start;background:rgba(255,107,0,0.1);border:1px solid rgba(255,107,0,0.35);border-left:3px solid var(--orange);border-radius:8px;padding:8px 10px"><span style="font-size:13px;line-height:1.3">💬</span><span style="font-size:12.5px;color:#fff;font-weight:600;line-height:1.4">${a.observaciones}</span></div>` : ''}
           </div>
           <div class="asig-progress">
@@ -1298,9 +1304,9 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null };
-  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video'); resetSlot('video2');
-  toggleVideo2(false);
+  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null, video3: null, videoPreview3: null, videoFile3: null };
+  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video'); resetSlot('video2'); resetSlot('video3');
+  toggleVideo2(false); toggleVideo3(false);
   document.getElementById('obs-input').value = '';
   document.getElementById('capture-title').innerHTML =
     (el.tipoElemento || '') + (el.ubicacion ? ' · ' + el.ubicacion.slice(0,30) : '') +
@@ -1313,6 +1319,7 @@ function openCapture(el) {
   document.getElementById('capture-slot-frontal').style.display = esLED ? 'none' : 'block';
   document.getElementById('capture-slot-panoramica').style.display = esLED ? 'none' : 'block';
   document.getElementById('btn-add-video2').style.display = esLED ? 'block' : 'none';
+  document.getElementById('btn-add-video3').style.display = 'none';
   document.getElementById('capture-slot-video-label').innerHTML = esLED
     ? '🎬 Video vertical (9:16) · versión 1 <span style="color:var(--red)">*</span>'
     : '🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional)</span>';
@@ -1324,7 +1331,17 @@ function closeCaptureModal() { document.getElementById('capture-modal').classLis
 function toggleVideo2(show) {
   document.getElementById('capture-slot-video2').style.display = show ? 'block' : 'none';
   document.getElementById('btn-add-video2').style.display = show ? 'none' : (captureTarget && esTipoLED(captureTarget.tipoElemento) ? 'block' : 'none');
-  if (!show) { captureData.video2 = null; captureData.videoFile2 = null; captureData.videoPreview2 = null; resetSlot('video2'); }
+  document.getElementById('btn-add-video3').style.display = show ? 'block' : 'none';
+  if (!show) {
+    captureData.video2 = null; captureData.videoFile2 = null; captureData.videoPreview2 = null; resetSlot('video2');
+    toggleVideo3(false);
+  }
+  updateSubmitBtn();
+}
+function toggleVideo3(show) {
+  document.getElementById('capture-slot-video3').style.display = show ? 'block' : 'none';
+  document.getElementById('btn-add-video3').style.display = show ? 'none' : (document.getElementById('capture-slot-video2').style.display !== 'none' ? 'block' : 'none');
+  if (!show) { captureData.video3 = null; captureData.videoFile3 = null; captureData.videoPreview3 = null; resetSlot('video3'); }
   updateSubmitBtn();
 }
 function triggerCapture(tipo) { document.getElementById('inp-' + tipo).click(); }
@@ -1342,8 +1359,8 @@ async function handleFile(event, tipo) {
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   } else {
-    const fileKey = tipo === 'video2' ? 'videoFile2' : 'videoFile';
-    const previewKey = tipo === 'video2' ? 'videoPreview2' : 'videoPreview';
+    const fileKey = tipo === 'video3' ? 'videoFile3' : tipo === 'video2' ? 'videoFile2' : 'videoFile';
+    const previewKey = tipo === 'video3' ? 'videoPreview3' : tipo === 'video2' ? 'videoPreview2' : 'videoPreview';
     captureData[fileKey] = file;
     captureData[tipo] = 'PENDIENTE'; // marcador: se sube por partes recién al confirmar
     const url = URL.createObjectURL(file);
@@ -1391,11 +1408,12 @@ function updateSubmitBtn() {
   const btn = document.getElementById('submit-toma');
   const esLED = captureTarget && esTipoLED(captureTarget.tipoElemento);
   const video2Requerido = document.getElementById('capture-slot-video2').style.display !== 'none';
+  const video3Requerido = document.getElementById('capture-slot-video3').style.display !== 'none';
   const ready = esLED
-    ? !!captureData.video && (!video2Requerido || !!captureData.video2)
+    ? !!captureData.video && (!video2Requerido || !!captureData.video2) && (!video3Requerido || !!captureData.video3)
     : !!(captureData.frontal || captureData.panoramica || captureData.video);
   btn.disabled = !ready;
-  btn.textContent = ready ? 'Subir toma ↑' : (esLED ? (video2Requerido && !captureData.video2 ? 'Graba la 2da versión de video' : 'Graba el video vertical') : 'Toma al menos 1 foto o video');
+  btn.textContent = ready ? 'Subir toma ↑' : (esLED ? (video3Requerido && !captureData.video3 ? 'Graba la 3ra versión de video' : (video2Requerido && !captureData.video2 ? 'Graba la 2da versión de video' : 'Graba el video vertical')) : 'Toma al menos 1 foto o video');
 }
 // Sube un video grande en pedazos de ~8MB, subiendo varios EN PARALELO
 // (3 a la vez) en vez de uno por uno — cada viaje a Apps Script tiene
@@ -1459,6 +1477,7 @@ async function submitToma() {
 
   let videoUrlPrecargado = '';
   let videoUrlPrecargado2 = '';
+  let videoUrlPrecargado3 = '';
   try {
     if (captureData.videoFile) {
       videoUrlPrecargado = await subirVideoPorPartes(captureData.videoFile, (hecho, total) => {
@@ -1470,6 +1489,12 @@ async function submitToma() {
       videoUrlPrecargado2 = await subirVideoPorPartes(captureData.videoFile2, (hecho, total) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 2, un momento...';
         else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 2: ' + pct + '% (' + hecho + '/' + total + ')...'; }
+      });
+    }
+    if (captureData.videoFile3) {
+      videoUrlPrecargado3 = await subirVideoPorPartes(captureData.videoFile3, (hecho, total) => {
+        if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 3, un momento...';
+        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 3: ' + pct + '% (' + hecho + '/' + total + ')...'; }
       });
     }
   } catch (e) {
@@ -1489,6 +1514,7 @@ async function submitToma() {
     ubicacion: captureTarget.ubicacion, fotoFrontalBase64: captureData.frontal, fotoPanoramicaBase64: captureData.panoramica,
     videoUrlPrecargado: videoUrlPrecargado, videoPreviewBase64: captureData.videoPreview || '',
     videoUrlPrecargado2: videoUrlPrecargado2, videoPreviewBase64_2: captureData.videoPreview2 || '',
+    videoUrlPrecargado3: videoUrlPrecargado3, videoPreviewBase64_3: captureData.videoPreview3 || '',
     fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
@@ -1945,7 +1971,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     // Descargar TODAS las fotos necesarias en un solo lote desde el
     // backend (evita problemas de CORS y es más rápido que una por una)
     const todasUrls = [];
-    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl, t.videoPreviewUrl2); });
+    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl, t.videoPreviewUrl2, t.videoPreviewUrl3); });
     const fotosMap = await descargarFotosEnLote(todasUrls);
 
     if (formato === 'pptx') {
@@ -2008,14 +2034,16 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     let mostrarTipoArribaCodigo = false;
 
     if (esLED && t.videoUrl2) {
-      // ── LED con 2 versiones de video: 2 columnas IGUALES (mismo ancho
-      // y alto para ambas, cada una con su preview + link de video) ──
-      const halfW = (cardW - gap) / 2;
-      const rx2 = cardX + halfW + gap;
-      const panelH = rightH; // ambas necesitan espacio para el banner de link
+      // ── LED con 2 o 3 versiones de video: N columnas IGUALES (mismo
+      // ancho y alto para todas, cada una con su preview + link de video) ──
+      const nVideos = t.videoUrl3 ? 3 : 2;
+      const colW = (cardW - gap * (nVideos - 1)) / nVideos;
+      const panelH = rightH; // todas necesitan espacio para el banner de link
       const frameH = leftH - 0.7;
-      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: cardX, y: cardY, w: halfW, h: panelH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
-      slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: rx2, y: cardY, w: halfW, h: panelH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      for (let i = 0; i < nVideos; i++) {
+        const px = cardX + i * (colW + gap);
+        slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: px, y: cardY, w: colW, h: panelH, fill:{color:ORANGE}, line:{color:ORANGE}, rectRadius:0.12 });
+      }
       mostrarTipoArribaCodigo = true;
 
       async function panelVideo(px, pw, videoUrl, previewUrl, label) {
@@ -2036,8 +2064,14 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
           { text: videoUrl ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: videoUrl ? '2563EB' : '9CA3AF', hyperlink: videoUrl ? { url: videoViewUrl(videoUrl) } : undefined } }
         ], { x: px + 0.3, y: vy, w: pw - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
       }
-      await panelVideo(cardX, halfW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
-      await panelVideo(rx2, halfW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+      const videosLED = [
+        { url: t.videoUrl, preview: t.videoPreviewUrl, label: 'VIDEO · V1' },
+        { url: t.videoUrl2, preview: t.videoPreviewUrl2, label: 'VIDEO · V2' },
+        { url: t.videoUrl3, preview: t.videoPreviewUrl3, label: 'VIDEO · V3' }
+      ].slice(0, nVideos);
+      for (let i = 0; i < videosLED.length; i++) {
+        await panelVideo(cardX + i * (colW + gap), colW, videosLED[i].url, videosLED[i].preview, videosLED[i].label);
+      }
 
     } else if (esLED) {
       // ── LED: no hay foto frontal/panorámica, solo 1 video. Un solo
@@ -2233,15 +2267,15 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     let mostrarTipoArribaCodigo = false;
 
     if (esLED && t.videoUrl2) {
-      // ── LED con 2 versiones de video: 2 columnas IGUALES (mismo ancho
-      // y alto para ambas). ──
-      const halfW = (cardW - gap) / 2;
-      const rx2 = cardX + halfW + gap;
+      // ── LED con 2 o 3 versiones de video: N columnas IGUALES ──
+      const nVideos = t.videoUrl3 ? 3 : 2;
+      const colW = (cardW - gap * (nVideos - 1)) / nVideos;
       const panelH = rightH;
       const frameH = leftH - 0.7;
       doc.setFillColor(...orangeRGB);
-      doc.roundedRect(cardX, cardY, halfW, panelH, 0.12, 0.12, 'F');
-      doc.roundedRect(rx2, cardY, halfW, panelH, 0.12, 0.12, 'F');
+      for (let i = 0; i < nVideos; i++) {
+        doc.roundedRect(cardX + i * (colW + gap), cardY, colW, panelH, 0.12, 0.12, 'F');
+      }
       mostrarTipoArribaCodigo = true;
 
       async function panelVideoPdf(px, pw, videoUrl, previewUrl, label) {
@@ -2288,8 +2322,14 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
           doc.text('N/A', px + pw/2, vy + 0.32, { align: 'center' });
         }
       }
-      await panelVideoPdf(cardX, halfW, t.videoUrl, t.videoPreviewUrl, 'VIDEO · V1');
-      await panelVideoPdf(rx2, halfW, t.videoUrl2, t.videoPreviewUrl2, 'VIDEO · V2');
+      const videosLED = [
+        { url: t.videoUrl, preview: t.videoPreviewUrl, label: 'VIDEO · V1' },
+        { url: t.videoUrl2, preview: t.videoPreviewUrl2, label: 'VIDEO · V2' },
+        { url: t.videoUrl3, preview: t.videoPreviewUrl3, label: 'VIDEO · V3' }
+      ].slice(0, nVideos);
+      for (let i = 0; i < videosLED.length; i++) {
+        await panelVideoPdf(cardX + i * (colW + gap), colW, videosLED[i].url, videosLED[i].preview, videosLED[i].label);
+      }
 
     } else if (esLED) {
       // ── LED: sin foto frontal/panorámica, solo 1 video. Panel ancho
