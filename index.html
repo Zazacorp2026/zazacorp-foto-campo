@@ -328,6 +328,7 @@
     #zaza-anulada-ov.bye { opacity: 0; }
     .zaza-anulada-card { position: relative; background: #101013; border: 1px solid rgba(255,92,92,.4); border-radius: var(--radius-lg); padding: 26px 26px 24px; max-width: 340px; width: 100%; text-align: center; box-shadow: var(--shadow-pop); margin-top: 80px; }
   </style>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -579,6 +580,84 @@
 
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
+
+// ===== Subida directa a Drive (OAuth) — mucho más rápida que cortar =====
+// ===== el video en pedazos: el navegador sube el archivo completo   =====
+// ===== a Drive por su cuenta, sin pasar por Apps Script.            =====
+const GOOGLE_CLIENT_ID = '885976652720-c1rmvahd2uh1p79rcgl8qq0b2vanjfo0.apps.googleusercontent.com';
+const DRIVE_UPLOAD_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let _gDriveTokenClient = null;
+let _gDriveAccessToken = null;
+let _gDriveTokenExpiry = 0;
+
+function obtenerAccessTokenDrive() {
+  return new Promise((resolve, reject) => {
+    if (_gDriveAccessToken && Date.now() < _gDriveTokenExpiry - 30000) { resolve(_gDriveAccessToken); return; }
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+      reject(new Error('Google Identity Services no cargó (revisa tu conexión) — se subirá por el método anterior.'));
+      return;
+    }
+    if (!_gDriveTokenClient) {
+      _gDriveTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: DRIVE_UPLOAD_SCOPE,
+        callback: () => {} // se sobreescribe por llamada, ver abajo
+      });
+    }
+    _gDriveTokenClient.callback = (resp) => {
+      if (resp.error) { reject(new Error('No se autorizó el acceso a Drive: ' + resp.error)); return; }
+      _gDriveAccessToken = resp.access_token;
+      _gDriveTokenExpiry = Date.now() + (resp.expires_in || 3500) * 1000;
+      resolve(_gDriveAccessToken);
+    };
+    _gDriveTokenClient.requestAccessToken({ prompt: _gDriveAccessToken ? '' : 'consent' });
+  });
+}
+
+// Sube un video DIRECTO a Drive (Resumable Upload API), con progreso real,
+// sin cortarlo en pedazos ni pasar por Apps Script. Devuelve la URL de
+// visualización directa, en el mismo formato que ya usa el backend.
+async function subirVideoDirectoADrive(file, cliente, fecha, onProgreso) {
+  const token = await obtenerAccessTokenDrive();
+
+  const resCarpeta = await fetch(SCRIPT_URL + '?action=rfObtenerCarpetaId&cliente=' + encodeURIComponent(cliente || '') + '&fecha=' + encodeURIComponent(fecha || ''));
+  const dataCarpeta = await resCarpeta.json();
+  if (!dataCarpeta.ok || !dataCarpeta.folderId) throw new Error('No se pudo preparar la carpeta de Drive');
+  const folderId = dataCarpeta.folderId;
+
+  const metadata = { name: 'video_' + Date.now() + '_' + (file.name || 'video.mp4'), parents: [folderId] };
+  const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': file.type || 'video/mp4' },
+    body: JSON.stringify(metadata)
+  });
+  if (!initRes.ok) throw new Error('No se pudo iniciar la subida a Drive (HTTP ' + initRes.status + ')');
+  const uploadUrl = initRes.headers.get('Location');
+  if (!uploadUrl) throw new Error('Drive no devolvió URL de subida');
+
+  const fileId = await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', uploadUrl, true);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable && onProgreso) onProgreso(ev.loaded, ev.total); };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try { resolve(JSON.parse(xhr.responseText).id); } catch(e) { reject(new Error('Respuesta inesperada de Drive')); }
+      } else reject(new Error('Falló la subida a Drive (HTTP ' + xhr.status + ')'));
+    };
+    xhr.onerror = () => reject(new Error('Error de red subiendo a Drive'));
+    xhr.send(file);
+  });
+
+  // Hacer el archivo visible por link (mismo criterio que usa el backend para las fotos)
+  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' })
+  });
+
+  return 'https://drive.google.com/uc?export=view&id=' + fileId;
+}
 
 // Nombres para el selector — las contraseñas viven solo en el backend (Code.gs), nunca aquí.
 const FOTOGRAFOS = {
@@ -1465,6 +1544,21 @@ async function subirVideoPorPartes(file, onProgreso) {
   return finData.videoUrl;
 }
 
+// Intenta primero la subida DIRECTA a Drive (rápida, un solo stream);
+// si el fotógrafo no autoriza o algo falla (sin Internet a Google, etc.)
+// cae automáticamente al método anterior por pedazos, para no romper
+// la subida.
+async function subirVideoRapido(file, cliente, fecha, onProgreso) {
+  try {
+    return await subirVideoDirectoADrive(file, cliente, fecha, (cargado, total) => {
+      if (onProgreso) onProgreso(Math.round(cargado / total * 100), 100, true);
+    });
+  } catch (e) {
+    console.warn('Subida directa a Drive falló, usando método por pedazos:', e.message);
+    return await subirVideoPorPartes(file, onProgreso);
+  }
+}
+
 async function submitToma() {
   if (!captureData.frontal && !captureData.panoramica && !captureData.video) return;
   const btn = document.getElementById('submit-toma');
@@ -1480,21 +1574,21 @@ async function submitToma() {
   let videoUrlPrecargado3 = '';
   try {
     if (captureData.videoFile) {
-      videoUrlPrecargado = await subirVideoPorPartes(captureData.videoFile, (hecho, total) => {
+      videoUrlPrecargado = await subirVideoRapido(captureData.videoFile, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video, un momento...';
-        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 1: ' + pct + '% (' + hecho + '/' + total + ')...'; }
+        else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 1: ' + pct + '%...'; }
       });
     }
     if (captureData.videoFile2) {
-      videoUrlPrecargado2 = await subirVideoPorPartes(captureData.videoFile2, (hecho, total) => {
+      videoUrlPrecargado2 = await subirVideoRapido(captureData.videoFile2, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 2, un momento...';
-        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 2: ' + pct + '% (' + hecho + '/' + total + ')...'; }
+        else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 2: ' + pct + '%...'; }
       });
     }
     if (captureData.videoFile3) {
-      videoUrlPrecargado3 = await subirVideoPorPartes(captureData.videoFile3, (hecho, total) => {
+      videoUrlPrecargado3 = await subirVideoRapido(captureData.videoFile3, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 3, un momento...';
-        else { const pct = Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 3: ' + pct + '% (' + hecho + '/' + total + ')...'; }
+        else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 3: ' + pct + '%...'; }
       });
     }
   } catch (e) {
