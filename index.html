@@ -805,6 +805,9 @@ async function doLogin() {
     }
     currentUser = data.user;
     if (data.token) sessionStorage.setItem('zr_token', data.token);
+    sessionStorage.setItem('zr_user', JSON.stringify(currentUser));
+    sessionStorage.setItem('zr_role', currentRole);
+    sessionStorage.setItem('zr_login_ts', String(Date.now()));
     loginOk = true;
   } catch (e) {
     err.textContent = 'No se pudo verificar. Revisa tu conexión e intenta de nuevo.';
@@ -817,6 +820,12 @@ async function doLogin() {
   }
 
   document.getElementById('pin-screen').classList.remove('active');
+  entrarAlApp();
+}
+
+// Muestra la app ya logueada (usado tanto tras un login normal como al
+// restaurar una sesión guardada de sessionStorage).
+function entrarAlApp() {
   document.getElementById('app').style.display = 'flex';
   const nombreCorto = currentUser.nombre.split(' ')[0];
   document.getElementById('hdr-avatar').textContent = nombreCorto.charAt(0).toUpperCase();
@@ -835,9 +844,43 @@ async function doLogin() {
   }
 }
 
+// La sesión expira sola a las 6h (igual que el token del backend y que
+// Nexus), aunque la pestaña se quede abierta o se recargue la página.
+const ZR_SESION_TTL_MS = 6 * 60 * 60 * 1000;
+function zrSesionExpirada() {
+  const ts = Number(sessionStorage.getItem('zr_login_ts') || 0);
+  return !ts || (Date.now() - ts) > ZR_SESION_TTL_MS;
+}
+function zrLimpiarSesionGuardada() {
+  sessionStorage.removeItem('zr_user');
+  sessionStorage.removeItem('zr_role');
+  sessionStorage.removeItem('zr_token');
+  sessionStorage.removeItem('zr_login_ts');
+}
+
+// Al cargar la página, si hay una sesión guardada y no expiró, entra
+// directo a la app sin pedir PIN/contraseña de nuevo.
+function restaurarSesionZR() {
+  const userRaw = sessionStorage.getItem('zr_user');
+  const role = sessionStorage.getItem('zr_role');
+  if (!userRaw || !role || zrSesionExpirada()) {
+    if (userRaw) zrLimpiarSesionGuardada();
+    return;
+  }
+  try {
+    currentUser = JSON.parse(userRaw);
+    currentRole = role;
+    document.getElementById('role-screen').style.display = 'none';
+    entrarAlApp();
+  } catch (e) { zrLimpiarSesionGuardada(); }
+}
+document.addEventListener('DOMContentLoaded', restaurarSesionZR);
+setInterval(() => { if (currentUser && zrSesionExpirada()) doLogout(); }, 5 * 60 * 1000);
+
 function doLogout() {
   detenerPollingFotografo();
   currentUser = null; currentRole = null;
+  zrLimpiarSesionGuardada();
   document.getElementById('app').style.display = 'none';
   document.getElementById('role-screen').style.display = 'flex';
 }
