@@ -581,6 +581,29 @@
 <script>
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
 
+// ══════════════════════════════════════════════════════════════
+//  FASE 2 · Token obligatorio en cada acción de escritura
+//  El backend ahora EXIGE un token de sesión válido en todo POST
+//  (rfCrearAsignacion, rfGuardarToma, etc.) — antes solo se emitía en
+//  el login pero ninguna acción lo pedía de vuelta. En vez de editar
+//  cada llamada a la API por separado, se intercepta aquí UNA sola vez
+//  cualquier POST hacia SCRIPT_URL y se le agrega el token guardado
+//  al loguearse (rfLogin), igual que ya se hace en Nexus.
+// ══════════════════════════════════════════════════════════════
+(function() {
+  const _fetchOriginal = window.fetch.bind(window);
+  window.fetch = function(url, opts) {
+    if (opts && opts.method === 'POST' && typeof url === 'string' && url.indexOf(SCRIPT_URL) === 0 && opts.body) {
+      try {
+        const parsed = JSON.parse(opts.body);
+        parsed.token = sessionStorage.getItem('zr_token') || '';
+        opts = Object.assign({}, opts, { body: JSON.stringify(parsed) });
+      } catch (e) { /* body no era JSON (ej. chunk de video en texto plano), se deja igual */ }
+    }
+    return _fetchOriginal(url, opts);
+  };
+})();
+
 // ===== Subida directa a Drive (OAuth) — mucho más rápida que cortar =====
 // ===== el video en pedazos: el navegador sube el archivo completo   =====
 // ===== a Drive por su cuenta, sin pasar por Apps Script.            =====
