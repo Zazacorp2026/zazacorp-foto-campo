@@ -1,6 +1,6 @@
 {
-  "name": "Zazacorp Foto Campo",
-  "short_name": "Foto Campo",
+  "name": "Zaza Report",
+  "short_name": "Zaza Report",
   "description": "App de tomas fotográficas OOH para fotógrafos de campo Zazacorp",
   "start_url": "./index.html",
   "display": "standalone",
