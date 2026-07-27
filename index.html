@@ -1855,7 +1855,8 @@ async function submitToma() {
       renderElementosFotografo();
     }
     closeCaptureModal();
-    showToast('📡 Sin conexión — se subirá cuando haya señal', 'warn');
+    console.warn('rfGuardarToma falló, se guarda en cola offline:', e && e.message);
+    showToast('📡 Sin conexión — se subirá cuando haya señal (' + (e && e.message ? e.message : 'sin detalle') + ')', 'warn');
   } finally {
     btn.disabled = false; btn.textContent = 'Subir toma ↑';
   }
@@ -1870,12 +1871,14 @@ async function flushQueue() {
   if (!offlineQueue.length) return;
   showToast('Subiendo ' + offlineQueue.length + ' tomas...', 'warn');
   const failed = [];
+  let ultimoError = '';
   for (const payload of offlineQueue) {
     try {
       const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, _offline: undefined }) });
       const data = await res.json();
-      if (!data.ok) failed.push(payload);
+      if (!data.ok) { failed.push(payload); ultimoError = data.error || 'error desconocido del servidor'; }
     } catch(e) {
+      ultimoError = e && e.message ? e.message : 'error de red';
       let yaExistia = false;
       try {
         const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(payload.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
@@ -1886,7 +1889,8 @@ async function flushQueue() {
     }
   }
   offlineQueue = failed; saveQueue(); showQueueBanner();
-  showToast(failed.length === 0 ? '✓ Todas las tomas subidas' : failed.length + ' tomas no pudieron subirse', failed.length === 0 ? 'ok' : 'err');
+  console.warn('flushQueue: último error visto:', ultimoError);
+  showToast(failed.length === 0 ? '✓ Todas las tomas subidas' : failed.length + ' tomas no pudieron subirse (' + ultimoError + ')', failed.length === 0 ? 'ok' : 'err');
   refrescarAsignacionesSilencioso();
 }
 function fileToBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
