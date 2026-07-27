@@ -1,4 +1,4 @@
-const CACHE = 'zazafoto-v6';
+const CACHE = 'zazafoto-v7';
 const PRECACHE = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -16,9 +16,15 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // Nunca cachear Apps Script ni APIs: evita datos viejos y errores de JSON.
-  if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
-    e.respondWith(fetch(e.request));
+  // Nunca cachear ni interceptar Apps Script/Drive: además de evitar datos
+  // viejos, Apps Script SIEMPRE responde con una redirección (302) antes
+  // del resultado real. Si el Service Worker reenvía él mismo peticiones
+  // POST (como rfGuardarToma, que manda el cuerpo con los datos de la
+  // toma) el navegador puede fallar al reenviar el cuerpo a través de esa
+  // redirección — la petición falla en silencio aunque haya señal. Al no
+  // llamar a respondWith() aquí, se deja que el navegador la maneje
+  // directamente, sin pasar por el Service Worker.
+  if (url.includes('script.google.com') || url.includes('script.googleusercontent.com') || url.includes('googleapis.com')) {
     return;
   }
   // La navegación principal (abrir/recargar la app) siempre intenta
