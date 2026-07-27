@@ -600,6 +600,13 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9
         opts = Object.assign({}, opts, { body: JSON.stringify(parsed) });
       } catch (e) { /* body no era JSON (ej. chunk de video en texto plano), se deja igual */ }
     }
+    // Las lecturas (GET: rfGetTodasAsignaciones, rfGetTomas, etc.) ahora
+    // también exigen sesión en el backend — se agrega el token como
+    // parámetro de la URL, sin tener que tocar cada llamada existente.
+    if ((!opts || !opts.method || opts.method === 'GET') && typeof url === 'string' && url.indexOf(SCRIPT_URL) === 0 && url.indexOf('token=') === -1) {
+      const sep = url.indexOf('?') === -1 ? '?' : '&';
+      url = url + sep + 'token=' + encodeURIComponent(sessionStorage.getItem('zr_token') || '');
+    }
     return _fetchOriginal(url, opts);
   };
 })();
