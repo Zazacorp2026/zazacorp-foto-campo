@@ -607,7 +607,27 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9
       const sep = url.indexOf('?') === -1 ? '?' : '&';
       url = url + sep + 'token=' + encodeURIComponent(sessionStorage.getItem('zr_token') || '');
     }
-    return _fetchOriginal(url, opts);
+    const esLlamadaBackend = typeof url === 'string' && url.indexOf(SCRIPT_URL) === 0;
+    const promesa = _fetchOriginal(url, opts);
+    if (esLlamadaBackend) {
+      // Detección centralizada de "sesión vencida": el backend responde
+      // {ok:false, sessionExpired:true} con HTTP 200 normal (no es un
+      // error de red), así que antes esto pasaba desapercibido — la app
+      // se quedaba mostrando la última copia guardada en silencio, sin
+      // avisar ni volver a intentar, dando la sensación de que "se
+      // demora mucho en actualizar" cuando en realidad ya nunca lo
+      // estaba logrando. Ahora, si detecta esa respuesta, fuerza el
+      // logout y avisa, en vez de quedarse pegado para siempre.
+      promesa.then(res => {
+        res.clone().json().then(data => {
+          if (data && data.sessionExpired && currentUser) {
+            doLogout();
+            showToast('⚠️ Tu sesión expiró — vuelve a iniciar sesión', 'warn');
+          }
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+    return promesa;
   };
 })();
 
@@ -1395,12 +1415,13 @@ function renderElementosFotografo() {
     return `
       <div class="elem-card">
         <div class="elem-header">
-          ${el.fotoReferencia ? `<img src="${el.fotoReferencia}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
-          <div class="elem-num${done?' done':uploading?' uploading':''}">${done?'✓':uploading?'⟳':String(i+1).padStart(2,'0')}</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
+            ${el.codigoRef ? `<div style="font-size:9px;font-weight:800;color:var(--orange);font-family:var(--mono);white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis">${el.codigoRef}</div>` : ''}
+            ${el.fotoReferencia ? `<img src="${el.fotoReferencia}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
+          </div>
           <div class="elem-info">
             <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : ''}</div>
             <div class="elem-ubic">${el.ubicacion || '—'}</div>
-            ${el.codigoRef ? `<div class="elem-ubic" style="color:var(--orange)">${el.codigoRef}</div>` : ''}
             ${el.ciudad ? `<div class="elem-ubic">📍 ${el.ciudad}</div>` : ''}
             ${el.cliente ? `<div class="elem-ubic">👤 ${el.cliente}</div>` : ''}
             ${badgeFotografoZR(el.fotografoAsignado)}
