@@ -451,6 +451,7 @@
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">📌</span></div><div class="stat-num" id="stat-ejec-activas">0</div><div class="stat-label">Activas</div></div>
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">✅</span></div><div class="stat-num" id="stat-ejec-completadas">0</div><div class="stat-label">Completadas</div></div>
       </div>
+      <button id="btnExportPendientesExcel" onclick="exportarPendientesExcel()" style="display:none;width:100%;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.35);border-radius:10px;color:#4ade80;font-size:12.5px;font-weight:700;padding:11px 12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-bottom:14px" onmouseover="this.style.background='rgba(74,222,128,.18)'" onmouseout="this.style.background='rgba(74,222,128,.08)'">⬇ Exportar pendientes (Excel)</button>
       <div class="agenda-title">Agenda</div>
       <div class="agenda-chips" id="agenda-chips-ejec">
         <button class="agenda-chip active blue" data-filtro="todo" onclick="filtrarAgenda('page-ejecutiva-lista','todo',this)">Todo</button>
@@ -961,6 +962,68 @@ function doLogout() {
   zrLimpiarSesionGuardada();
   document.getElementById('app').style.display = 'none';
   document.getElementById('role-screen').style.display = 'flex';
+}
+
+const RF_TURNO_LABEL = { DIA: 'Día', NOCHE: 'Noche', AMBAS: 'Día y Noche' };
+
+async function exportarPendientesExcel() {
+  const btn = document.getElementById('btnExportPendientesExcel');
+  const textoOriginal = btn.textContent;
+  btn.textContent = '⏳ Obteniendo datos...'; btn.disabled = true;
+
+  try {
+    if (typeof XLSX === 'undefined') {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+        s.onload = resolve;
+        s.onerror = () => {
+          const s2 = document.createElement('script');
+          s2.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s2.onload = resolve; s2.onerror = reject;
+          document.head.appendChild(s2);
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    btn.textContent = '⏳ Generando Excel...';
+    const res  = await fetch(SCRIPT_URL + '?action=rfExportarPendientesExcel', { cache: 'no-store' });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Error al obtener datos');
+
+    const pendientes = json.pendientes || [];
+    if (!pendientes.length) { showToast('No hay elementos pendientes', 'info'); return; }
+
+    const headers = ['Cliente','Tipo de Elemento','Ubicación','Código Ref','Estado','Tipo de Foto','Ciudad','Fotógrafo Asignado','Fecha Límite Elemento'];
+    const wsData  = [headers];
+
+    pendientes.forEach(p => {
+      wsData.push([
+        p.cliente, p.tipoElemento, p.ubicacion, p.codigoRef, p.estado,
+        RF_TURNO_LABEL[p.turno] || p.turno, p.ciudad, p.fotografoAsignado || 'Sin asignar', p.fechaLimite
+      ]);
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [
+      {wch:20},{wch:20},{wch:40},{wch:14},{wch:12},
+      {wch:14},{wch:16},{wch:20},{wch:16}
+    ];
+    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+    XLSX.utils.book_append_sheet(wb, ws, 'Pendientes');
+
+    const fecha = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, 'ZAZAREPORT_Pendientes_' + fecha + '.xlsx');
+
+    showToast('✅ Excel generado — ' + pendientes.length + ' pendientes', 'success');
+  } catch(e) {
+    showToast('❌ Error: ' + e.message, 'error');
+    console.error(e);
+  } finally {
+    btn.textContent = textoOriginal; btn.disabled = false;
+  }
 }
 
 function showPage(id) {
@@ -1975,6 +2038,8 @@ window.addEventListener('offline', actualizarEstadoConexion);
 async function showEjecutivaLista() {
   showPage('page-ejecutiva-lista');
   document.getElementById('fab-new-asig').style.display = 'flex';
+  const btnExport = document.getElementById('btnExportPendientesExcel');
+  if (btnExport) btnExport.style.display = (currentUser && (currentUser.nombre || '').toUpperCase() === 'JORGE') ? 'block' : 'none';
   const list = document.getElementById('ejec-asig-list');
   const listDone = document.getElementById('ejec-asig-list-done');
 
