@@ -1475,29 +1475,17 @@ function renderElementosFotografo() {
 
   function cardHtml(el, i, done) {
     const uploading = el.estado === 'SUBIENDO';
-    // Si ya está completado, mostrar la foto REAL que se tomó (viene de
-    // Tomas_Fotografia) en vez de la foto de referencia — antes siempre
-    // se mostraba la referencia, y si el elemento nunca tuvo una, salía
-    // el ícono genérico aunque la foto tomada sí existiera.
-    const fotoMostrar = (done && el.fotoTomada) ? el.fotoTomada : el.fotoReferencia;
-    // Solo las fotos de Google Drive (las tomas reales que sube el
-    // fotógrafo) necesitan el rodeo de descargarlas por el servidor —
-    // un <img src="https://drive.google.com/..."> directo falla seguido
-    // por el límite de Drive al "hotlinkear" muchas de golpe. La foto de
-    // referencia normalmente es de Cloudinary (viene del inventario de
-    // Nexus) y esa sí carga bien directo — mandarla también por Drive
-    // solo causaba "URL no reconocida" y perdía la foto sin necesidad.
-    const esDrive = fotoMostrar && fotoMostrar.indexOf('drive.google.com') !== -1;
+    // SIEMPRE la foto de referencia de Nexus/Cloudinary (nunca la foto que
+    // el fotógrafo tomó) — es la que carga rápido y directo, sin rodeos.
+    const fotoMostrar = el.fotoReferencia;
     return `
       <div class="elem-card">
         <div class="elem-header">
           <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
             ${el.codigoRef ? `<div style="font-size:9px;font-weight:800;color:var(--orange);font-family:var(--mono);white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis">${el.codigoRef}</div>` : ''}
-            ${!fotoMostrar
-              ? `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`
-              : esDrive
-                ? `<div class="foto-thumb-wrap" data-drive-url="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;overflow:hidden"><span style="font-size:16px;color:var(--muted)">⏳</span></div>`
-                : `<img src="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>`}
+            ${fotoMostrar
+              ? `<img src="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>`
+              : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
           </div>
           <div class="elem-info">
             <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : ''}</div>
@@ -1547,23 +1535,6 @@ function renderElementosFotografo() {
     : `<div class="empty-sub" style="padding:10px 0">Aún no hay elementos completados.</div>`;
 
   list.innerHTML = html;
-  _cargarFotosCompletadosReales();
-}
-
-// Descarga en un solo lote (vía el backend, sin problemas de CORS) las
-// fotos reales de los elementos ya fotografiados y las coloca donde
-// renderElementosFotografo dejó el contenedor placeholder (⏳).
-async function _cargarFotosCompletadosReales() {
-  const wraps = document.querySelectorAll('#elem-list .foto-thumb-wrap[data-drive-url]');
-  if (!wraps.length) return;
-  const urls = Array.from(wraps).map(w => w.dataset.driveUrl);
-  const mapa = await descargarFotosEnLote(urls);
-  wraps.forEach(w => {
-    const b64 = mapa[w.dataset.driveUrl];
-    w.innerHTML = b64
-      ? `<img src="${b64}" style="width:100%;height:100%;object-fit:cover">`
-      : `<span style="font-size:20px;color:var(--muted)">📷</span>`;
-  });
 }
 
 function goBackToList() { showPage('page-asignaciones'); if (currentUser && currentUser.esAdmin) renderVistaAdminFotografo(); else renderAsignacionesFotografo(); }
