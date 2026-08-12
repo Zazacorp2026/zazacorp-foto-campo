@@ -500,7 +500,7 @@
     </div>
   </div>
 
-  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="asignacionEnEdicion=null;showEjecutivaForm()">+ Crear nueva asignación</button>
+  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="asignacionEnEdicion=null;_idemKeyNuevaAsignacion=null;showEjecutivaForm()">+ Crear nueva asignación</button>
   <button id="fab-new-clean" onclick="zrEmpezarDeCero()">🗑 Crear nueva asignación (borrar borrador)</button>
   <div id="contador-elems"><span>📦</span><span class="cnt-num" id="contador-elems-num">0</span><span>elementos seleccionados</span></div>
 </div>
@@ -1053,14 +1053,14 @@ function detenerPollingFotografo() {
 // "echo" interno de Google no responde a tiempo). En vez de mostrarle al
 // usuario un error y obligarlo a tocar "Reintentar"/"Sincronizar" a mano,
 // reintentamos automáticamente un par de veces antes de rendirnos.
-async function fetchConReintento(url, intentos) {
+async function fetchConReintento(url, intentos, opts) {
   intentos = intentos || 3;
   let ultimoError;
   for (let i = 0; i < intentos; i++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      const res = await fetch(url, Object.assign({ cache: 'no-store', signal: controller.signal }, opts));
       clearTimeout(timeoutId);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res;
@@ -1475,12 +1475,17 @@ function renderElementosFotografo() {
 
   function cardHtml(el, i, done) {
     const uploading = el.estado === 'SUBIENDO';
+    // SIEMPRE la foto de referencia de Nexus/Cloudinary (nunca la foto que
+    // el fotógrafo tomó) — es la que carga rápido y directo, sin rodeos.
+    const fotoMostrar = el.fotoReferencia;
     return `
       <div class="elem-card">
         <div class="elem-header">
           <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
             ${el.codigoRef ? `<div style="font-size:9px;font-weight:800;color:var(--orange);font-family:var(--mono);white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis">${el.codigoRef}</div>` : ''}
-            ${el.fotoReferencia ? `<img src="${el.fotoReferencia}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
+            ${fotoMostrar
+              ? `<img src="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>`
+              : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
           </div>
           <div class="elem-info">
             <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : ''}</div>
@@ -1690,7 +1695,11 @@ async function handleFile(event, tipo) {
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<video src="${url}" muted playsinline style="pointer-events:none"></video><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
-    captureData[previewKey] = await capturarFrameDeVideo(fileFinal).catch(() => null);
+    captureData[previewKey] = await capturarFrameDeVideoConReintento(fileFinal);
+    if (!captureData[previewKey]) {
+      const numeroVideo = tipo === 'video3' ? '3' : tipo === 'video2' ? '2' : '1';
+      showToast('⚠️ No se pudo generar la miniatura del video ' + numeroVideo + ' — el video sí se subirá, pero sin foto de portada en el reporte', 'warn');
+    }
     const mb = fileFinal.size / 1024 / 1024;
     if (mb > 15) showToast('📹 Video de ' + mb.toFixed(0) + 'MB: puede tardar un poco en subir', 'info');
   }
@@ -1701,27 +1710,70 @@ async function handleFile(event, tipo) {
 // LEDs) sacándolo directamente del archivo local en el navegador del
 // fotógrafo — esto solo funciona en el momento de subir el video, no se
 // puede sacar después desde el link de Drive por restricciones de CORS.
+// El <video> se agrega al DOM (oculto) porque algunos navegadores no
+// disparan "seeked" de forma confiable en un <video> que nunca se
+// insertó — y SIEMPRE se limpia (revokeObjectURL + quitar del DOM), en
+// éxito, error o timeout: antes solo se limpiaba si la captura salía
+// bien, así que cada intento fallido dejaba memoria sin liberar, y con
+// 3 videos seguidos en la misma sesión eso hacía más probable que el
+// 2do o 3er intento también fallara.
 function capturarFrameDeVideo(file) {
   return new Promise((resolve, reject) => {
     const videoEl = document.createElement('video');
     videoEl.muted = true; videoEl.playsInline = true;
-    videoEl.src = URL.createObjectURL(file);
+    videoEl.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;';
+    const objUrl = URL.createObjectURL(file);
+    videoEl.src = objUrl;
+    document.body.appendChild(videoEl);
+
+    let terminado = false;
+    let timeoutId;
+    const limpiar = () => {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(timeoutId);
+      URL.revokeObjectURL(objUrl);
+      videoEl.remove();
+    };
+
     videoEl.addEventListener('loadeddata', () => {
       videoEl.currentTime = Math.min(0.5, (videoEl.duration || 1) / 2);
     });
     videoEl.addEventListener('seeked', () => {
+      if (terminado) return;
       try {
         const canvas = document.createElement('canvas');
         canvas.width = videoEl.videoWidth || 480;
         canvas.height = videoEl.videoHeight || 854;
         canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(videoEl.src);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      } catch (e) { reject(e); }
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        limpiar();
+        resolve(dataUrl);
+      } catch (e) { limpiar(); reject(e); }
     });
-    videoEl.addEventListener('error', reject);
-    setTimeout(() => reject(new Error('timeout')), 8000);
+    videoEl.addEventListener('error', () => { limpiar(); reject(new Error('No se pudo leer el video')); });
+    // 15s en vez de 8s: bajo carga (varios videos en la misma sesión de
+    // captura) el navegador puede tardar más en decodificar el primer
+    // frame, y 8s se quedaba corto seguido.
+    timeoutId = setTimeout(() => { limpiar(); reject(new Error('timeout')); }, 15000);
+    videoEl.load();
   });
+}
+
+// Un reintento antes de rendirse — y ahora, si de verdad falla, se le
+// avisa al fotógrafo en el momento (antes se tragaba el error en
+// silencio: el video se subía bien pero sin miniatura, y nadie se
+// enteraba hasta exportar el reporte semanas después).
+async function capturarFrameDeVideoConReintento(file) {
+  try {
+    return await capturarFrameDeVideo(file);
+  } catch (e) {
+    try {
+      return await capturarFrameDeVideo(file);
+    } catch (e2) {
+      return null;
+    }
+  }
 }
 function updateCaptureStep() {
   const total = (captureData.frontal?1:0)+(captureData.panoramica?1:0)+(captureData.video?1:0);
@@ -2143,6 +2195,11 @@ async function showEjecutivaLista() {
 
 let misAsignacionesCache = [];
 let asignacionEnEdicion = null; // null = creando nueva; objeto = editando existente
+// Se genera una sola vez por intento de "Crear asignación" y se reutiliza
+// si hay que reintentar (ver crearAsignacion()) — evita que un reintento,
+// automático o manual, cree la asignación duplicada cuando Apps Script sí
+// la guardó pero la respuesta no llegó a tiempo al navegador.
+let _idemKeyNuevaAsignacion = null;
 
 // ══════════════════════════════════════════════════════════════
 //  EXPORTAR REPORTE FOTOGRÁFICO (PPT / PDF) — mismo estilo visual
@@ -3409,20 +3466,29 @@ async function crearAsignacion() {
   btn.textContent = esEdicion ? 'Guardando...' : 'Creando...';
 
   try {
+    // Misma clave mientras el intento de crear siga fallando en el
+    // navegador — si Apps Script ya la había guardado (el típico
+    // "echo... 404" con respuestas grandes), el backend detecta la clave
+    // repetida y devuelve la asignación existente en vez de duplicarla.
+    if (!esEdicion && !_idemKeyNuevaAsignacion) {
+      _idemKeyNuevaAsignacion = (crypto.randomUUID ? crypto.randomUUID() : 'idem-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    }
     const payload = esEdicion
       ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente: clienteFinal, fechaLimite, observaciones, elementos }
-      : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos };
+      : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos, idempotencyKey: _idemKeyNuevaAsignacion };
 
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+    // Reintento automático solo al crear (protegido por idempotencyKey,
+    // no puede duplicar). Al editar se deja el fetch simple: si falla,
+    // el usuario ve el error y decide si reintentar manualmente.
+    const res = esEdicion
+      ? await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+      : await fetchConReintento(SCRIPT_URL, 3, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
 
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
 
     asignacionEnEdicion = null;
+    _idemKeyNuevaAsignacion = null;
     if (esEdicion) {
       showToast('✓ Asignación actualizada', 'ok');
       showEjecutivaLista();
