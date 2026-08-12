@@ -500,7 +500,7 @@
     </div>
   </div>
 
-  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="asignacionEnEdicion=null;showEjecutivaForm()">+ Crear nueva asignación</button>
+  <button class="fab-new" id="fab-new-asig" style="display:none" onclick="asignacionEnEdicion=null;_idemKeyNuevaAsignacion=null;showEjecutivaForm()">+ Crear nueva asignación</button>
   <button id="fab-new-clean" onclick="zrEmpezarDeCero()">🗑 Crear nueva asignación (borrar borrador)</button>
   <div id="contador-elems"><span>📦</span><span class="cnt-num" id="contador-elems-num">0</span><span>elementos seleccionados</span></div>
 </div>
@@ -1053,14 +1053,14 @@ function detenerPollingFotografo() {
 // "echo" interno de Google no responde a tiempo). En vez de mostrarle al
 // usuario un error y obligarlo a tocar "Reintentar"/"Sincronizar" a mano,
 // reintentamos automáticamente un par de veces antes de rendirnos.
-async function fetchConReintento(url, intentos) {
+async function fetchConReintento(url, intentos, opts) {
   intentos = intentos || 3;
   let ultimoError;
   for (let i = 0; i < intentos; i++) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 12000);
     try {
-      const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+      const res = await fetch(url, Object.assign({ cache: 'no-store', signal: controller.signal }, opts));
       clearTimeout(timeoutId);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res;
@@ -2143,6 +2143,11 @@ async function showEjecutivaLista() {
 
 let misAsignacionesCache = [];
 let asignacionEnEdicion = null; // null = creando nueva; objeto = editando existente
+// Se genera una sola vez por intento de "Crear asignación" y se reutiliza
+// si hay que reintentar (ver crearAsignacion()) — evita que un reintento,
+// automático o manual, cree la asignación duplicada cuando Apps Script sí
+// la guardó pero la respuesta no llegó a tiempo al navegador.
+let _idemKeyNuevaAsignacion = null;
 
 // ══════════════════════════════════════════════════════════════
 //  EXPORTAR REPORTE FOTOGRÁFICO (PPT / PDF) — mismo estilo visual
@@ -3409,20 +3414,29 @@ async function crearAsignacion() {
   btn.textContent = esEdicion ? 'Guardando...' : 'Creando...';
 
   try {
+    // Misma clave mientras el intento de crear siga fallando en el
+    // navegador — si Apps Script ya la había guardado (el típico
+    // "echo... 404" con respuestas grandes), el backend detecta la clave
+    // repetida y devuelve la asignación existente en vez de duplicarla.
+    if (!esEdicion && !_idemKeyNuevaAsignacion) {
+      _idemKeyNuevaAsignacion = (crypto.randomUUID ? crypto.randomUUID() : 'idem-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    }
     const payload = esEdicion
       ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente: clienteFinal, fechaLimite, observaciones, elementos }
-      : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos };
+      : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos, idempotencyKey: _idemKeyNuevaAsignacion };
 
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
+    // Reintento automático solo al crear (protegido por idempotencyKey,
+    // no puede duplicar). Al editar se deja el fetch simple: si falla,
+    // el usuario ve el error y decide si reintentar manualmente.
+    const res = esEdicion
+      ? await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
+      : await fetchConReintento(SCRIPT_URL, 3, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
 
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
 
     asignacionEnEdicion = null;
+    _idemKeyNuevaAsignacion = null;
     if (esEdicion) {
       showToast('✓ Asignación actualizada', 'ok');
       showEjecutivaLista();
