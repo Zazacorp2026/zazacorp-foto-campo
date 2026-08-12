@@ -1480,21 +1480,24 @@ function renderElementosFotografo() {
     // se mostraba la referencia, y si el elemento nunca tuvo una, salía
     // el ícono genérico aunque la foto tomada sí existiera.
     const fotoMostrar = (done && el.fotoTomada) ? el.fotoTomada : el.fotoReferencia;
-    // Un <img src="https://drive.google.com/..."> directo falla seguido
-    // (CORS/límite de Drive al "hotlinkear" muchas imágenes de golpe —
-    // se ve como imagen rota). El resto de la app ya resuelve esto
-    // descargando el archivo en el servidor y pasándolo como base64
-    // (ver descargarFotosEnLote); acá se deja un contenedor con la URL
-    // en data-drive-url y _cargarFotosCompletadosReales() lo completa
-    // después de insertar el HTML.
+    // Solo las fotos de Google Drive (las tomas reales que sube el
+    // fotógrafo) necesitan el rodeo de descargarlas por el servidor —
+    // un <img src="https://drive.google.com/..."> directo falla seguido
+    // por el límite de Drive al "hotlinkear" muchas de golpe. La foto de
+    // referencia normalmente es de Cloudinary (viene del inventario de
+    // Nexus) y esa sí carga bien directo — mandarla también por Drive
+    // solo causaba "URL no reconocida" y perdía la foto sin necesidad.
+    const esDrive = fotoMostrar && fotoMostrar.indexOf('drive.google.com') !== -1;
     return `
       <div class="elem-card">
         <div class="elem-header">
           <div style="display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0">
             ${el.codigoRef ? `<div style="font-size:9px;font-weight:800;color:var(--orange);font-family:var(--mono);white-space:nowrap;max-width:64px;overflow:hidden;text-overflow:ellipsis">${el.codigoRef}</div>` : ''}
-            ${fotoMostrar
-              ? `<div class="foto-thumb-wrap" data-drive-url="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;overflow:hidden"><span style="font-size:16px;color:var(--muted)">⏳</span></div>`
-              : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`}
+            ${!fotoMostrar
+              ? `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`
+              : esDrive
+                ? `<div class="foto-thumb-wrap" data-drive-url="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;background:var(--dark3);display:flex;align-items:center;justify-content:center;overflow:hidden"><span style="font-size:16px;color:var(--muted)">⏳</span></div>`
+                : `<img src="${fotoMostrar}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;background:var(--dark3)"/>`}
           </div>
           <div class="elem-info">
             <div class="elem-tipo">${el.tipoElemento || 'Elemento'}${el.turno === 'DIA' ? '<span class="turno-tag DIA">☀️ Día</span>' : el.turno === 'NOCHE' ? '<span class="turno-tag NOCHE">🌙 Noche</span>' : ''}</div>
