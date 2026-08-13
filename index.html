@@ -235,8 +235,12 @@
     #fab-new-clean { position: fixed; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 88px); max-width: 608px; margin: 0 auto; display: none; align-items: center; justify-content: center; gap: 8px; padding: 13px; border-radius: var(--radius-md); background: rgba(16,18,21,0.85); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--border-strong); color: var(--muted); font-size: 13px; font-weight: 700; z-index: 50; box-shadow: var(--shadow-card); }
     #fab-new-clean:active { color: var(--red); border-color: rgba(255,92,92,0.4); }
 
-    #export-status-bar { display:none; position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: linear-gradient(90deg, var(--blue), #7cd4ff); color: #0a0a0a; padding: 11px 16px; font-size: 12.5px; font-weight: 800; align-items: center; gap: 10px; justify-content: center; font-family: var(--mono); }
+    #export-status-bar { display:none; position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: linear-gradient(90deg, var(--blue), #7cd4ff); color: #0a0a0a; padding: 11px 16px; font-size: 12.5px; font-weight: 800; align-items: center; gap: 10px; justify-content: center; font-family: var(--mono); flex-direction: column; }
     #export-status-bar.show { display: flex; }
+    #export-status-row { display: flex; align-items: center; gap: 10px; justify-content: center; width: 100%; }
+    #export-status-pct { font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+    #export-status-track { width: min(320px, 70vw); height: 5px; border-radius: 3px; background: rgba(0,0,0,0.18); margin-top: 6px; overflow: hidden; }
+    #export-status-fill { height: 100%; width: 0%; background: #0a0a0a; border-radius: 3px; transition: width .25s ease; }
     #manual-modal { display:none; position: fixed; inset: 0; z-index: 400; background: rgba(0,0,0,0.68); backdrop-filter: blur(3px); }
     #manual-modal.open { display: flex; align-items: flex-end; justify-content: center; }
     #manual-modal .manual-sheet { background: var(--dark2); border-top: 1px solid var(--border-strong); width: 100%; max-width: 640px; max-height: 85vh; overflow-y: auto; border-radius: 22px 22px 0 0; padding: 22px; }
@@ -359,7 +363,10 @@
 </div>
 
 <div id="app" style="display:none">
-  <div id="export-status-bar"><span class="spinner"></span><span id="export-status-text">Generando reporte...</span></div>
+  <div id="export-status-bar">
+    <div id="export-status-row"><span class="spinner"></span><span id="export-status-text">Generando reporte...</span><span id="export-status-pct"></span></div>
+    <div id="export-status-track"><div id="export-status-fill"></div></div>
+  </div>
 
   <div id="manual-modal">
     <div class="manual-sheet">
@@ -2405,17 +2412,37 @@ async function descargarFotosEnLote(urls) {
   return {};
 }
 
+// Actualiza el texto y la barra de progreso del export. pct es 0-100
+// (o null para dejar el % como está, útil cuando solo cambia el texto).
+function setExportProgress(pct, texto) {
+  const barText = document.getElementById('export-status-text');
+  const barPct = document.getElementById('export-status-pct');
+  const fill = document.getElementById('export-status-fill');
+  if (texto != null && barText) barText.textContent = texto;
+  if (pct != null) {
+    const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+    if (barPct) barPct.textContent = clamped + '%';
+    if (fill) fill.style.width = clamped + '%';
+  }
+}
+
 async function exportarReporte(asignacionId, formato, btnEl) {
   const a = misAsignacionesCache.find(x => x.id === asignacionId);
   if (!a) { showToast('No se encontró la asignación', 'err'); return; }
 
   const bar = document.getElementById('export-status-bar');
-  const barText = document.getElementById('export-status-text');
   bar.classList.add('show');
-  barText.textContent = 'Generando reporte ' + (formato === 'pptx' ? 'PPT' : 'PDF') + '...';
+  setExportProgress(0, 'Generando reporte ' + (formato === 'pptx' ? 'PPT' : 'PDF') + '...');
   if (btnEl) { btnEl.disabled = true; btnEl.style.opacity = '0.5'; }
 
+  // Mientras se descargan las fotos (una sola llamada al backend, sin
+  // forma de saber el avance real desde afuera) se anima el % subiendo
+  // despacio hasta un tope, solo para dejar claro que sigue trabajando
+  // y no se quedó pegado — al terminar la descarga se salta al % real.
+  let tickerFotos = null;
+
   try {
+    setExportProgress(5, 'Obteniendo tomas registradas...');
     // Traer las tomas reales (con URLs de Drive) para este cliente
     const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente));
     if (!res.ok) throw new Error('No se pudieron obtener las tomas');
@@ -2429,17 +2456,29 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     // backend (evita problemas de CORS y es más rápido que una por una)
     const todasUrls = [];
     tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl, t.videoPreviewUrl2, t.videoPreviewUrl3); });
+    const totalFotos = new Set(todasUrls.filter(Boolean)).size;
+    setExportProgress(12, 'Descargando ' + totalFotos + ' fotos de Drive...');
+    let pctFotos = 12;
+    tickerFotos = setInterval(() => {
+      pctFotos = Math.min(60, pctFotos + 2);
+      setExportProgress(pctFotos, null);
+    }, 700);
     const fotosMap = await descargarFotosEnLote(todasUrls);
+    clearInterval(tickerFotos); tickerFotos = null;
+    setExportProgress(60, 'Fotos descargadas. Generando diapositivas...');
 
     if (formato === 'pptx') {
       await generarReportePPT(a, tomas, fotosMap);
     } else {
       await generarReportePDF(a, tomas, fotosMap);
     }
+    setExportProgress(100, '¡Listo!');
   } catch(e) {
     showToast('❌ Error generando reporte: ' + e.message, 'err');
   } finally {
+    if (tickerFotos) clearInterval(tickerFotos);
     bar.classList.remove('show');
+    setExportProgress(0, 'Generando reporte...');
     if (btnEl) { btnEl.disabled = false; btnEl.style.opacity = '1'; }
   }
 }
@@ -2474,7 +2513,10 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
   const colLeftW = 5.6;
   const colRightW = cardW - colLeftW - gap;
 
+  let _slideIdx = 0;
   for (const t of tomas) {
+    _slideIdx++;
+    setExportProgress(60 + Math.round((_slideIdx / tomas.length) * 35), 'Generando diapositiva ' + _slideIdx + ' de ' + tomas.length + '...');
     const slide = pres.addSlide();
     slide.background = { color: WHITE };
 
@@ -2701,7 +2743,10 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
   doc.addImage(ZR_COVER_IMG.split(',').pop(), 'JPEG', 0, 0, 13.333, 7.5);
 
   // ── UNA PÁGINA POR ELEMENTO (mismo diseño que el PPT) ────
+  let _pagIdx = 0;
   for (const t of tomas) {
+    _pagIdx++;
+    setExportProgress(60 + Math.round((_pagIdx / tomas.length) * 35), 'Generando página ' + _pagIdx + ' de ' + tomas.length + '...');
     doc.addPage([13.333, 7.5], 'landscape');
     doc.setFillColor(255,255,255);
     doc.rect(0, 0, 13.333, 7.5, 'F');
