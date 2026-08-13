@@ -2154,6 +2154,10 @@ async function showEjecutivaLista() {
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
           <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pptx',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PPT (${completados}/${total})</button>
+          <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pdf',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PDF (${completados}/${total})</button>
         </div>`;
       return `
         <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(a.fechaLimite)}" data-estado="${estadoDeAsig(pct)}">
@@ -2446,6 +2450,22 @@ function setExportProgress(pct, texto) {
     if (barPct) barPct.textContent = clamped + '%';
     if (fill) fill.style.width = clamped + '%';
   }
+}
+
+// Botón de emergencia en asignaciones AÚN NO completas — deja bajar el
+// PPT/PDF con lo que ya se subió hasta ahora, para poder enviarlo con
+// urgencia aunque falten elementos. Reutiliza exportarReporte() tal
+// cual — esa función ya arma el reporte solo con las tomas que existan
+// para esa asignación, sin exigir que estén completas.
+function confirmarExportarParcial(asignacionId, formato, btnEl, completados, total) {
+  const faltan = total - completados;
+  const ok = confirm(
+    '⚠️ Esta asignación todavía NO está completa (' + completados + '/' + total + ' — faltan ' + faltan + ').\n\n' +
+    'El reporte va a salir SOLO con lo que ya se subió; los elementos pendientes no van a aparecer.\n\n' +
+    '¿Descargar de todos modos?'
+  );
+  if (!ok) return;
+  exportarReporte(asignacionId, formato, btnEl);
 }
 
 async function exportarReporte(asignacionId, formato, btnEl) {
