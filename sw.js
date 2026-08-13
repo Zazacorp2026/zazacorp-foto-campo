@@ -1,4 +1,4 @@
-const CACHE = 'zazafoto-v9';
+const CACHE = 'zazafoto-v10';
 const PRECACHE = ['./index.html', './manifest.json', './icon/icon-192.png', './icon/icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(
