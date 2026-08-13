@@ -1586,6 +1586,28 @@ async function sincronizarManual() {
   }
 }
 
+// Si un elemento ya se ve COMPLETADO en pantalla (porque el fotógrafo
+// acaba de subir su foto y esta misma app lo actualizó al instante), un
+// refresco en segundo plano NUNCA debe hacerlo retroceder a PENDIENTE —
+// aunque el servidor, por su caché de unos segundos, todavía responda
+// con el dato de ANTES de esa subida. Esto es lo que causaba que a
+// veces, al volver a entrar a una asignación justo después de subir,
+// se viera "sin subir" por un momento y luego se corrigiera solo.
+function fusionarSinRetrocederCompletados(viejas, nuevas) {
+  const completadosViejos = new Set();
+  (viejas || []).forEach(a => (a.elementos || []).forEach(el => {
+    if (el && el.estado === 'COMPLETADO') completadosViejos.add(el.id);
+  }));
+  if (completadosViejos.size) {
+    (nuevas || []).forEach(a => (a.elementos || []).forEach(el => {
+      if (el && completadosViejos.has(el.id) && el.estado !== 'COMPLETADO') {
+        el.estado = 'COMPLETADO';
+      }
+    }));
+  }
+  return nuevas;
+}
+
 async function refrescarAsignacionesSilencioso() {
   try {
     const esAdmin = !!(currentUser && currentUser.esAdmin);
@@ -1594,7 +1616,7 @@ async function refrescarAsignacionesSilencioso() {
       : (SCRIPT_URL + '?action=rfGetAsignacionesPorFotografo&fotografo=' + encodeURIComponent(currentUser ? currentUser.nombre : ''));
     const res = await fetchConReintento(url, 2);
     if (!res.ok) return;
-    const nuevasAsignaciones = await res.json();
+    const nuevasAsignaciones = fusionarSinRetrocederCompletados(asignaciones, await res.json());
     // Evitar repintado (parpadeo) si nada cambió (comparar por sesión/rol actual)
     const cacheJsonKey = 'zr_' + (esAdmin ? 'ADMIN' : (currentUser ? currentUser.nombre : ''));
     const nuevoJson = JSON.stringify(nuevasAsignaciones);
