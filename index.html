@@ -878,9 +878,10 @@ async function doLogin() {
   btn.disabled = true;
   let loginOk = false, motivoFallo = '';
   try {
-    const url = SCRIPT_URL + '?action=rfLogin&role=' + encodeURIComponent(currentRole)
-      + '&userId=' + encodeURIComponent(userId) + '&pass=' + encodeURIComponent(pass) + '&_t=' + Date.now();
-    const res = await fetch(url, { cache: 'no-store' });
+    // Antes iba por GET con la contraseña/PIN en la URL (queda en los
+    // logs de acceso del servidor en texto plano) — ahora va en el
+    // cuerpo, igual que ya se corrigió en Nexus.
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'rfLogin', role: currentRole, userId, pass }) });
     const data = await res.json();
     if (!data.ok) {
       err.textContent = data.error || 'Credenciales incorrectas.';
@@ -1963,13 +1964,18 @@ async function submitToma() {
       });
     }
   } catch (e) {
-    btn.disabled = false; btn.textContent = 'Subir toma ↑';
+    // El video no cabe en la cola offline (localStorage no aguanta
+    // archivos de varios MB) — pero captureData/captureTarget NO se
+    // tocan y el modal se queda abierto, así que la foto/video capturado
+    // sigue ahí. Antes esto no quedaba claro y parecía que se había
+    // perdido todo; ahora el botón y el mensaje lo dicen explícito.
+    btn.disabled = false; btn.textContent = '↻ Reintentar subida';
     if (currentAsig) {
       const elem = (currentAsig.elementos||[]).find(e => e.id === captureTarget.elementoId);
       if (elem) elem.estado = 'PENDIENTE';
       renderElementosFotografo();
     }
-    showToast('❌ No se pudo subir el video: ' + e.message, 'error');
+    showToast('❌ No se pudo subir el video (' + e.message + '). Tu foto/video NO se perdió — toca "Reintentar subida" cuando tengas señal', 'error');
     return;
   }
 
