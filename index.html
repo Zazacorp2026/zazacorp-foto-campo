@@ -3667,7 +3667,21 @@ function mostrarZazaAnulada() {
   setTimeout(() => { if (ov.parentNode) { ov.classList.add('bye'); setTimeout(() => ov.remove(), 320); } }, 2600);
 }
 
-if ('serviceWorker' in navigator) { navigator.serviceWorker.register('./sw.js'); }
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+  // Cuando el navegador termina de instalar una versión nueva del Service
+  // Worker (detectado por el cambio de CACHE en sw.js) y esta toma control
+  // de la página, recargamos una sola vez para que el usuario reciba el
+  // index.html nuevo en vez de seguir con el JS viejo cargado en memoria
+  // (esto es lo que dejaba a algunos usuarios sin poder ingresar tras un
+  // cambio en el login: la app seguía corriendo la versión anterior).
+  let swRecargando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swRecargando) return;
+    swRecargando = true;
+    window.location.reload();
+  });
+}
 
 // ===== Contador flotante de elementos seleccionados (form ejecutiva) =====
 (function() {
