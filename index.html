@@ -1051,7 +1051,12 @@ function showPage(id) {
 let pollingFotografoInterval = null;
 function iniciarPollingFotografo() {
   if (pollingFotografoInterval) return; // ya está corriendo
-  pollingFotografoInterval = setInterval(refrescarAsignacionesSilencioso, 20000); // cada 20s
+  // Antes cada 20s — con varios fotógrafos con la app abierta todo el
+  // día, eso es tráfico constante al mismo backend que comparte Nexus,
+  // sumando presión de fondo sobre un recurso limitado (cupos de
+  // ejecución de Apps Script). 45s sigue sintiéndose "en vivo" para el
+  // fotógrafo sin generar tanto ruido de fondo.
+  pollingFotografoInterval = setInterval(refrescarAsignacionesSilencioso, 45000); // cada 45s
 }
 function detenerPollingFotografo() {
   if (pollingFotografoInterval) { clearInterval(pollingFotografoInterval); pollingFotografoInterval = null; }
