@@ -1181,6 +1181,24 @@ function renderVistaAdminFotografo() {
   }).join('');
 }
 
+// Una asignación 100% de elementos LED normalmente deja vacío el campo
+// de "fecha límite" general (el de Elementos Fijos) — cada LED trae su
+// propia fecha en su propio campo (fechaLimiteElemento), porque distintos
+// LEDs de la misma asignación pueden tener clientes/fechas distintas.
+// Antes de esto, la tarjeta, el orden y la urgencia de la asignación
+// solo miraban el campo general y mostraban "Sin fecha"/urgencia normal
+// aunque sí hubiera fecha puesta en los LEDs — este helper resuelve la
+// fecha REAL a mostrar: la general si existe, si no la más próxima de
+// sus elementos.
+function fechaLimiteEfectiva_(a) {
+  if (a.fechaLimite) return a.fechaLimite;
+  const fechas = (a.elementos || [])
+    .map(function (e) { return e.fechaLimiteElemento; })
+    .filter(Boolean)
+    .sort();
+  return fechas[0] || '';
+}
+
 function urgenciaDeFecha(fecha) {
   if (!fecha) return 'normal';
   const d = new Date(String(fecha).slice(0,10) + 'T00:00:00');
@@ -1296,7 +1314,7 @@ function renderAsignacionesFotografo() {
 
   const activas = asignaciones.filter(a => pctDe(a).pct < 100);
   const completadas = asignaciones.filter(a => pctDe(a).pct === 100)
-    .sort((a, b) => new Date(b.fechaCompletada || b.fechaLimite || 0) - new Date(a.fechaCompletada || a.fechaLimite || 0));
+    .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
   badge.textContent = activas.length;
   const statA = document.getElementById('stat-foto-activas'); if (statA) statA.textContent = activas.length;
   const statC = document.getElementById('stat-foto-completadas'); if (statC) statC.textContent = completadas.length;
@@ -1304,12 +1322,12 @@ function renderAsignacionesFotografo() {
   function cardHtml(a, done) {
     const { total, completados, pct } = pctDe(a);
     return `
-      <div class="asig-card${done?' done':''}" data-urgencia="${urgenciaDeFecha(a.fechaLimite)}" data-estado="${estadoDeAsig(pct)}" onclick="openAsignacionFotografo('${a.id}')">
+      <div class="asig-card${done?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" onclick="openAsignacionFotografo('${a.id}')">
         <div class="asig-header">
           <div>
             <div class="asig-cliente">${a.cliente}</div>
             <div class="asig-meta">${total} elemento${total!==1?'s':''}${a.creadoPor ? ' · 👤 ' + a.creadoPor : ''}</div>
-            ${done ? `<div class="fl-chip" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.4);color:var(--green)"><span class="fl-label">✅ COMPLETADA:</span> ${a.fechaCompletada || a.fechaLimite || '—'}</div>` : fechaLimiteChipHTML(a.fechaLimite)}
+            ${done ? `<div class="fl-chip" style="background:rgba(52,211,153,0.14);border-color:rgba(52,211,153,0.4);color:var(--green)"><span class="fl-label">✅ COMPLETADA:</span> ${a.fechaCompletada || fechaLimiteEfectiva_(a) || '—'}</div>` : fechaLimiteChipHTML(fechaLimiteEfectiva_(a))}
             ${a.observaciones ? `<div style="margin-top:8px;display:flex;gap:8px;align-items:flex-start;background:rgba(255,107,0,0.1);border:1px solid rgba(255,107,0,0.35);border-left:3px solid var(--orange);border-radius:8px;padding:8px 10px"><span style="font-size:13px;line-height:1.3">💬</span><span style="font-size:12.5px;color:#fff;font-weight:600;line-height:1.4">${a.observaciones}</span></div>` : ''}
           </div>
           <div class="asig-progress">
@@ -1354,7 +1372,7 @@ function openAsignacionFotografo(id) {
   currentAsig = asignaciones.find(a => a.id === id);
   if (!currentAsig) return;
   document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
-  document.getElementById('asig-detail-meta').innerHTML = `${(currentAsig.elementos||[]).length} elementos ${fechaLimiteChipHTML(currentAsig.fechaLimite)}`;
+  document.getElementById('asig-detail-meta').innerHTML = `${(currentAsig.elementos||[]).length} elementos ${fechaLimiteChipHTML(fechaLimiteEfectiva_(currentAsig))}`;
   document.getElementById('ruta-resultado').innerHTML = '';
   renderElementosFotografo();
   showPage('page-elementos');
@@ -2148,7 +2166,7 @@ async function showEjecutivaLista() {
 
     const activas = mias.filter(a => pctDe(a).pct < 100);
     const completadas = mias.filter(a => pctDe(a).pct === 100)
-      .sort((a, b) => new Date(b.fechaCompletada || b.fechaLimite || 0) - new Date(a.fechaCompletada || a.fechaLimite || 0));
+      .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
 
     document.getElementById('ejec-badge').textContent = activas.length;
     document.getElementById('ejec-badge-done').textContent = completadas.length;
@@ -2171,11 +2189,11 @@ async function showEjecutivaLista() {
           <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pdf',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PDF (${completados}/${total})</button>
         </div>`;
       return `
-        <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(a.fechaLimite)}" data-estado="${estadoDeAsig(pct)}">
+        <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
-              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${a.fechaLimite || 'Sin fecha'}</div>
+              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${fechaLimiteEfectiva_(a) || 'Sin fecha'}</div>
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
@@ -3557,6 +3575,18 @@ async function crearAsignacion() {
     clienteFinal = clientesLED.length === 1 ? clientesLED[0] : clientesLED.length > 1 ? 'Varios clientes (LED)' : '';
   }
   if (!clienteFinal) { showToast('Ingresa el nombre del cliente (o el cliente de al menos un elemento LED)', 'warn'); return; }
+
+  // Ninguna asignación se guarda sin al menos una fecha límite en algún
+  // lado (la general de "Elementos Fijos" o la de alguno de sus
+  // elementos LED) — antes no había ningún control acá y se llegaron a
+  // crear asignaciones sin fecha en ningún campo (el backend valida lo
+  // mismo, esto solo evita el viaje al servidor si ya se sabe que va a
+  // fallar).
+  const tieneAlgunaFecha = !!fechaLimite || elementos.some(e => e.fechaLimiteElemento);
+  if (!tieneAlgunaFecha) {
+    showToast('Ingresa una fecha límite (la general, o la de al menos un elemento) antes de guardar', 'warn');
+    return;
+  }
 
   const btn = document.getElementById('btn-crear-asignacion');
   const esEdicion = !!asignacionEnEdicion;
