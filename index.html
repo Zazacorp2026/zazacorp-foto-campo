@@ -826,7 +826,15 @@ function goToPin(role) {
   } else {
     title.textContent = 'Identificación de Ejecutiv@';
     sub.textContent = 'Selecciona tu nombre e ingresa tu contraseña';
-    EJECUTIVAS.forEach(nombre => sel.add(new Option(nombre.split(' ')[0], nombre)));
+    // Lorena, Ricardo, etc. muestran solo el primer nombre como siempre
+    // — pero hay 2 ejecutivas que comparten el primer nombre (Verónica
+    // Terán y Verónica Triviño), y mostrar solo "VERONICA" en el
+    // selector no dejaba saber cuál era cuál. Para esas dos (y solo
+    // esas dos) se muestra el nombre completo.
+    EJECUTIVAS.forEach(nombre => {
+      const esVeronicaAmbigua = nombre === 'VERONICA TERAN' || nombre === 'VERONICA TRIVINO';
+      sel.add(new Option(esVeronicaAmbigua ? nombre : nombre.split(' ')[0], nombre));
+    });
     btn.className = 'pin-btn ejecutiva';
     input.placeholder = '••••••••';
     input.removeAttribute('maxlength');
