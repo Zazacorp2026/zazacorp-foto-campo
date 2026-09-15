@@ -421,6 +421,9 @@
     <div id="queue-wrap" style="display:none;padding:12px 16px 0">
       <div class="queue-banner"><span>📡</span><span id="queue-count">0 tomas pendientes de subir</span><button class="queue-retry" onclick="flushQueue()">Subir ahora</button></div>
     </div>
+    <div id="subidas-pendientes-wrap" style="display:none;padding:12px 16px 0">
+      <div class="queue-banner" style="align-items:flex-start"><span>⚠️</span><div style="flex:1"><div id="subidas-pendientes-texto">Tienes una subida sin terminar de guardar</div><div id="subidas-pendientes-lista" style="margin-top:6px;display:flex;flex-direction:column;gap:6px"></div></div></div>
+    </div>
 
     <div id="page-asignaciones" class="page">
       <div class="stats-row">
@@ -750,9 +753,50 @@ let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
 let captureTarget = null;
-let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null };
+let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null,
+  fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '',
+  videoUrlSubido: '', videoUrlSubido2: '', videoUrlSubido3: '' };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
 let elementosFormCount = 0;
+
+// ── Caché de video/foto YA subidos, para sobrevivir una recarga real ──
+// El caché en captureData (en memoria) solo sirve mientras la pestaña
+// sigue viva — si el celular la recarga a la mitad de una subida
+// pesada (pasa seguido con videos grandes, por presión de memoria), esa
+// memoria se pierde igual y "Reintentar" volvía a subir todo desde
+// cero, duplicando el archivo en Drive. Esto guarda lo mismo en
+// localStorage (nombre+tamaño del archivo + la URL que ya se subió),
+// así que si el fotógrafo vuelve a elegir el MISMO archivo para el
+// mismo elemento después de una recarga, se reconoce y no se re-sube.
+const RF_VIGENCIA_CACHE_SUBIDA_MS = 48 * 3600 * 1000; // 48h
+function _rfClaveSubida(elementoId, slot) { return (elementoId || '') + '_' + slot; }
+function _rfGetCacheSubidas() {
+  try { return JSON.parse(localStorage.getItem('rf_subidas_cache') || '{}'); } catch(e) { return {}; }
+}
+function _rfGuardarSubidaCache(elementoId, slot, nombre, tam, url) {
+  if (!url) return;
+  try {
+    const cache = _rfGetCacheSubidas();
+    cache[_rfClaveSubida(elementoId, slot)] = { nombre: nombre, tam: tam, url: url, ts: Date.now() };
+    localStorage.setItem('rf_subidas_cache', JSON.stringify(cache));
+  } catch(e) {}
+}
+function _rfBuscarSubidaCache(elementoId, slot, nombre, tam) {
+  try {
+    const entry = _rfGetCacheSubidas()[_rfClaveSubida(elementoId, slot)];
+    if (!entry) return '';
+    if (Date.now() - entry.ts > RF_VIGENCIA_CACHE_SUBIDA_MS) return '';
+    if (entry.nombre !== nombre || entry.tam !== tam) return '';
+    return entry.url || '';
+  } catch(e) { return ''; }
+}
+function _rfLimpiarCacheSubidas(elementoId) {
+  try {
+    const cache = _rfGetCacheSubidas();
+    ['video', 'video2', 'video3', 'frontal', 'panoramica'].forEach(slot => { delete cache[_rfClaveSubida(elementoId, slot)]; });
+    localStorage.setItem('rf_subidas_cache', JSON.stringify(cache));
+  } catch(e) {}
+}
 
 function goToPin(role) {
   currentRole = role;
@@ -901,8 +945,12 @@ function entrarAlApp() {
   if (currentRole === 'fotografo') {
     document.getElementById('fab-new-asig').style.display = 'none';
     showQueueBanner();
+    // Se muestra ya mismo (con lo que haya en caché) y de nuevo cuando
+    // terminen de cargar las asignaciones frescas, para poder mostrar
+    // la ubicación real del elemento en vez de solo su id.
+    showSubidasPendientesBanner();
     showPage('page-asignaciones');
-    loadAsignacionesFotografo();
+    loadAsignacionesFotografo().then(showSubidasPendientesBanner);
   } else {
     document.getElementById('fab-new-asig').style.display = 'flex';
     showEjecutivaLista();
@@ -1650,7 +1698,9 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null, video3: null, videoPreview3: null, videoFile3: null };
+  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null, video3: null, videoPreview3: null, videoFile3: null,
+    fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '',
+    videoUrlSubido: '', videoUrlSubido2: '', videoUrlSubido3: '' };
   resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video'); resetSlot('video2'); resetSlot('video3');
   toggleVideo2(false); toggleVideo3(false);
   document.getElementById('obs-input').value = '';
@@ -1701,12 +1751,24 @@ async function handleFile(event, tipo) {
   if (file.type.startsWith('image/')) {
     const b64 = await compressImage(file, 1200, 0.78);
     captureData[tipo] = b64;
+    // Si ya se había subido una foto de este slot en un intento previo
+    // (el fotógrafo la cambió antes de reintentar), esa URL ya no sirve
+    // — hay que subir la nueva. Pero si es la MISMA foto (mismo tamaño)
+    // que ya se había subido antes de que la app se recargara, se
+    // reusa la URL guardada en vez de subirla de nuevo.
+    const urlCacheadaFoto = captureTarget ? _rfBuscarSubidaCache(captureTarget.elementoId, tipo, tipo, b64.length) : '';
+    if (tipo === 'frontal') captureData.fotoFrontalUrlSubida = urlCacheadaFoto;
+    if (tipo === 'panoramica') captureData.fotoPanoramicaUrlSubida = urlCacheadaFoto;
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
   } else {
     const fileKey = tipo === 'video3' ? 'videoFile3' : tipo === 'video2' ? 'videoFile2' : 'videoFile';
     const previewKey = tipo === 'video3' ? 'videoPreview3' : tipo === 'video2' ? 'videoPreview2' : 'videoPreview';
+    // Mismo criterio que con las fotos: un video nuevo en este slot
+    // invalida cualquier URL ya subida antes para él.
+    const urlSubidaKey = tipo === 'video3' ? 'videoUrlSubido3' : tipo === 'video2' ? 'videoUrlSubido2' : 'videoUrlSubido';
+    captureData[urlSubidaKey] = '';
     // IMPORTANTE: el celular (sobre todo iOS) guarda el video grabado en un
     // archivo temporal que puede limpiar solo, a veces antes de que la app
     // llegue a subirlo (el fotógrafo puede tardar en llenar observaciones,
@@ -1723,6 +1785,12 @@ async function handleFile(event, tipo) {
       console.warn('No se pudo copiar el video a memoria, se usará la referencia original:', e.message);
     }
     captureData[fileKey] = fileFinal;
+    // Si es el MISMO video (mismo nombre+tamaño) que ya se había subido
+    // antes de que la app se recargara a la mitad, reusar esa URL en
+    // vez de volver a subirlo — esto es lo que evita el duplicado.
+    if (captureTarget) {
+      captureData[urlSubidaKey] = _rfBuscarSubidaCache(captureTarget.elementoId, tipo, fileFinal.name, fileFinal.size);
+    }
     captureData[tipo] = 'PENDIENTE'; // marcador: se sube por partes recién al confirmar
     const url = URL.createObjectURL(fileFinal);
     const zone = document.getElementById('slot-' + tipo);
@@ -2071,27 +2139,35 @@ async function submitToma() {
     renderElementosFotografo();
   }
 
-  let videoUrlPrecargado = '';
-  let videoUrlPrecargado2 = '';
-  let videoUrlPrecargado3 = '';
+  // OJO: antes estas 3 eran variables locales que se reiniciaban en
+  // cada llamada a submitToma() — si el video ya se había subido bien
+  // pero el paso FINAL (guardar en la hoja) fallaba por Apps Script
+  // lento, "Reintentar subida" volvía a subir el video desde cero,
+  // dejando el archivo anterior huérfano en Drive (duplicado, nunca se
+  // limpiaba porque nunca llegó a guardarse en la hoja). Ahora la URL
+  // ya subida se guarda en captureData, que SÍ sobrevive a un
+  // reintento — si ya está ahí, no se vuelve a subir.
   try {
-    if (captureData.videoFile) {
-      videoUrlPrecargado = await subirVideoRapido(captureData.videoFile, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
+    if (captureData.videoFile && !captureData.videoUrlSubido) {
+      captureData.videoUrlSubido = await subirVideoRapido(captureData.videoFile, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video, un momento...';
         else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 1: ' + pct + '%...'; }
       });
+      _rfGuardarSubidaCache(captureTarget.elementoId, 'video', captureData.videoFile.name, captureData.videoFile.size, captureData.videoUrlSubido);
     }
-    if (captureData.videoFile2) {
-      videoUrlPrecargado2 = await subirVideoRapido(captureData.videoFile2, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
+    if (captureData.videoFile2 && !captureData.videoUrlSubido2) {
+      captureData.videoUrlSubido2 = await subirVideoRapido(captureData.videoFile2, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 2, un momento...';
         else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 2: ' + pct + '%...'; }
       });
+      _rfGuardarSubidaCache(captureTarget.elementoId, 'video2', captureData.videoFile2.name, captureData.videoFile2.size, captureData.videoUrlSubido2);
     }
-    if (captureData.videoFile3) {
-      videoUrlPrecargado3 = await subirVideoRapido(captureData.videoFile3, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
+    if (captureData.videoFile3 && !captureData.videoUrlSubido3) {
+      captureData.videoUrlSubido3 = await subirVideoRapido(captureData.videoFile3, captureTarget.cliente, captureTarget.fecha, (hecho, total, esDirecta) => {
         if (hecho === 'finalizando') btn.innerHTML = '<span class="spinner"></span> Uniendo el video 3, un momento...';
         else { const pct = esDirecta ? hecho : Math.round(hecho / total * 100); btn.innerHTML = '<span class="spinner"></span> Subiendo video 3: ' + pct + '%...'; }
       });
+      _rfGuardarSubidaCache(captureTarget.elementoId, 'video3', captureData.videoFile3.name, captureData.videoFile3.size, captureData.videoUrlSubido3);
     }
   } catch (e) {
     // El video no cabe en la cola offline (localStorage no aguanta
@@ -2110,9 +2186,18 @@ async function submitToma() {
   }
 
   btn.innerHTML = '<span class="spinner"></span> Subiendo fotos...';
-  let fotoFrontalUrl = null, fotoPanoramicaUrl = null;
-  if (captureData.frontal) fotoFrontalUrl = await subirFotoRapida(captureData.frontal, captureTarget.cliente, captureTarget.fecha, 'frontal');
-  if (captureData.panoramica) fotoPanoramicaUrl = await subirFotoRapida(captureData.panoramica, captureTarget.cliente, captureTarget.fecha, 'panoramica');
+  // Mismo criterio que con el video: reusar la URL ya subida en un
+  // intento previo en vez de volver a subir la foto en cada reintento.
+  if (captureData.frontal && !captureData.fotoFrontalUrlSubida) {
+    captureData.fotoFrontalUrlSubida = await subirFotoRapida(captureData.frontal, captureTarget.cliente, captureTarget.fecha, 'frontal') || '';
+    _rfGuardarSubidaCache(captureTarget.elementoId, 'frontal', 'frontal', captureData.frontal.length, captureData.fotoFrontalUrlSubida);
+  }
+  if (captureData.panoramica && !captureData.fotoPanoramicaUrlSubida) {
+    captureData.fotoPanoramicaUrlSubida = await subirFotoRapida(captureData.panoramica, captureTarget.cliente, captureTarget.fecha, 'panoramica') || '';
+    _rfGuardarSubidaCache(captureTarget.elementoId, 'panoramica', 'panoramica', captureData.panoramica.length, captureData.fotoPanoramicaUrlSubida);
+  }
+  const fotoFrontalUrl = captureData.fotoFrontalUrlSubida || null;
+  const fotoPanoramicaUrl = captureData.fotoPanoramicaUrlSubida || null;
 
   const payload = {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
@@ -2122,9 +2207,9 @@ async function submitToma() {
     fotoPanoramicaBase64: fotoPanoramicaUrl ? null : captureData.panoramica,
     fotoFrontalUrlPrecargada: fotoFrontalUrl || '',
     fotoPanoramicaUrlPrecargada: fotoPanoramicaUrl || '',
-    videoUrlPrecargado: videoUrlPrecargado, videoPreviewBase64: captureData.videoPreview || '',
-    videoUrlPrecargado2: videoUrlPrecargado2, videoPreviewBase64_2: captureData.videoPreview2 || '',
-    videoUrlPrecargado3: videoUrlPrecargado3, videoPreviewBase64_3: captureData.videoPreview3 || '',
+    videoUrlPrecargado: captureData.videoUrlSubido || '', videoPreviewBase64: captureData.videoPreview || '',
+    videoUrlPrecargado2: captureData.videoUrlSubido2 || '', videoPreviewBase64_2: captureData.videoPreview2 || '',
+    videoUrlPrecargado3: captureData.videoUrlSubido3 || '', videoPreviewBase64_3: captureData.videoPreview3 || '',
     fotografo: currentUser ? currentUser.nombre : '',
     observaciones: document.getElementById('obs-input').value,
     codigoRef: captureTarget.codigoRef || '', turno: captureTarget.turno || 'AMBAS'
@@ -2146,6 +2231,8 @@ async function submitToma() {
       if (elem) elem.estado = 'COMPLETADO';
       renderElementosFotografo();
     }
+    _rfLimpiarCacheSubidas(captureTarget.elementoId); // ya quedó guardada de verdad, no hace falta recordar más
+    showSubidasPendientesBanner();
     closeCaptureModal();
     showToast('✓ Toma subida a Drive', 'ok');
     // Refrescar la lista de asignaciones EN SEGUNDO PLANO (sin cambiar
@@ -2171,6 +2258,8 @@ async function submitToma() {
         if (elem) elem.estado = 'COMPLETADO';
         renderElementosFotografo();
       }
+      _rfLimpiarCacheSubidas(captureTarget.elementoId);
+      showSubidasPendientesBanner();
       closeCaptureModal();
       showToast('✓ Toma subida a Drive', 'ok');
       refrescarAsignacionesSilencioso();
@@ -2178,6 +2267,11 @@ async function submitToma() {
       return;
     }
 
+    // El video/foto ya subidos quedan referenciados dentro de este
+    // mismo payload (las URLs, no los archivos) — la cola offline no
+    // necesita el caché de recuperación para reintentar más tarde.
+    _rfLimpiarCacheSubidas(captureTarget.elementoId);
+    showSubidasPendientesBanner();
     payload._offline = true;
     offlineQueue.push(payload); saveQueue(); showQueueBanner();
     if (currentAsig) {
@@ -2197,6 +2291,57 @@ function showQueueBanner() {
   const wrap = document.getElementById('queue-wrap'); const count = document.getElementById('queue-count');
   if (offlineQueue.length > 0) { wrap.style.display = 'block'; count.textContent = offlineQueue.length + ' toma' + (offlineQueue.length>1?'s':'') + ' pendiente' + (offlineQueue.length>1?'s':'') + ' de subir'; }
   else wrap.style.display = 'none';
+}
+
+// Busca un elemento por su id en las asignaciones ya cargadas, junto
+// con la asignación a la que pertenece (hace falta lo segundo para
+// poder "entrar" a esa asignación antes de abrir el elemento).
+function _rfBuscarElementoYAsignacion(elementoId) {
+  for (const asig of asignaciones) {
+    const el = (asig.elementos || []).find(e => e.id === elementoId);
+    if (el) return { asig, el };
+  }
+  return null;
+}
+function irASubidaPendiente(elementoId) {
+  const info = _rfBuscarElementoYAsignacion(elementoId);
+  if (!info) { showToast('No se encontró ese elemento en tu lista actual — puede que ya no esté asignado a ti', 'warn'); return; }
+  openAsignacionFotografo(info.asig.id);
+  openCapture(info.el);
+}
+// Aviso para cuando la app se cerró/recargó con un video o foto YA
+// subido a Drive pero sin llegar a guardarse en la hoja (ver
+// _rfGuardarSubidaCache) — sin este aviso, esa subida quedaba
+// "pendiente" solo visible si la fotógrafa notaba que el elemento
+// seguía sin marcarse como completado en su lista.
+function showSubidasPendientesBanner() {
+  const wrap = document.getElementById('subidas-pendientes-wrap');
+  const lista = document.getElementById('subidas-pendientes-lista');
+  const texto = document.getElementById('subidas-pendientes-texto');
+  if (!wrap || !lista || !texto) return;
+  const cache = _rfGetCacheSubidas();
+  const ahora = Date.now();
+  const elementoIds = Array.from(new Set(
+    Object.keys(cache)
+      .filter(k => cache[k] && (ahora - cache[k].ts) <= RF_VIGENCIA_CACHE_SUBIDA_MS)
+      .map(k => k.replace(/_(video3|video2|video|frontal|panoramica)$/, ''))
+  ));
+  if (!elementoIds.length) { wrap.style.display = 'none'; return; }
+  texto.textContent = elementoIds.length === 1
+    ? '⚠️ Tienes una subida sin terminar de guardar:'
+    : '⚠️ Tienes ' + elementoIds.length + ' subidas sin terminar de guardar:';
+  lista.innerHTML = '';
+  elementoIds.forEach(id => {
+    const info = _rfBuscarElementoYAsignacion(id);
+    const etiqueta = info ? (info.el.ubicacion || info.el.tipoElemento || id) : id;
+    const btn = document.createElement('button');
+    btn.className = 'queue-retry';
+    btn.style.cssText = 'width:100%;text-align:left';
+    btn.textContent = '📍 ' + etiqueta + ' — tocar para completar';
+    btn.onclick = () => irASubidaPendiente(id);
+    lista.appendChild(btn);
+  });
+  wrap.style.display = 'block';
 }
 async function flushQueue() {
   if (!offlineQueue.length) return;
@@ -3779,7 +3924,13 @@ function showToast(msg, type) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.className = 'show ' + (type || '');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.className = '', 3000);
+  // Antes siempre 3s fijos — los mensajes largos (ej. "vía rápida
+  // falló: <motivo>, subiendo por el método normal") se cerraban antes
+  // de que alcanzara a leerse en un celular. Ahora el tiempo escala con
+  // lo largo del mensaje: 3s mínimo (mensajes cortos, sin cambio),
+  // hasta 12s para los más largos.
+  const duracion = Math.min(12000, Math.max(3000, String(msg || '').length * 70));
+  t._timer = setTimeout(() => t.className = '', duracion);
 }
 
 // ===== Fecha límite: abrir el calendario nativo al primer toque =====
