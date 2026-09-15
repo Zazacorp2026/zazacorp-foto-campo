@@ -587,7 +587,7 @@
 </div>
 
 <script>
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyTlN29P6a_52u7vmAk9hwGCFNb2hCPjHeIdnQsVTkYdaEiVDmcz1lTkI-3slIVbcptkw/exec';
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz9neOVfThdVgXhx4UbLDkl6BxAzIIe1nmUz3ktrY8grrNJF87QVeoK113f-JzuUVLKiA/exec';
 
 // ══════════════════════════════════════════════════════════════
 //  FASE 2 · Token obligatorio en cada acción de escritura
@@ -1816,7 +1816,14 @@ function updateSubmitBtn() {
 // 3 veces solo; si se corta la señal, no hay que resubir todo el video.
 async function subirVideoPorPartes(file, onProgreso) {
   const CHUNK_SIZE = 8388606; // múltiplo de 3: los pedazos de base64 se unen como texto sin relleno intermedio
-  const CONCURRENCIA = 3;
+  // Antes 3 en paralelo: en la práctica, Apps Script respondía cada
+  // petición en 11-47s (comprobado con las herramientas de desarrollador
+  // en una conexión rápida de computadora) en vez de 1-2s normales —
+  // varias peticiones simultáneas compitiendo por los recursos limitados
+  // de Apps Script parecen ser la causa, no la señal del celular. Subir
+  // de a un pedazo a la vez es más lento en el papel, pero más
+  // predecible y evita que 3 peticiones lentas se atropellen entre sí.
+  const CONCURRENCIA = 1;
   const uploadId = 'VUP-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
   const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
@@ -1831,11 +1838,14 @@ async function subirVideoPorPartes(file, onProgreso) {
     let ultimoError;
     for (let intento = 0; intento < 3; intento++) {
       // Sin AbortController+timeout, con mala señal de celular este fetch
-      // se podía quedar esperando una respuesta que nunca llega —
-      // ni error ni éxito, la barra de subida se quedaba pegada para
-      // siempre. 45s es generoso para un pedazo de ~8MB incluso en 3G.
+      // se podía quedar esperando una respuesta que nunca llega — ni
+      // error ni éxito, la barra de subida se quedaba pegada para
+      // siempre. Se comprobó con las herramientas de desarrollador que
+      // Apps Script puede tardar hasta ~47s en responder aunque la
+      // conexión sea buena (no es cosa del pedazo de video en sí) — 100s
+      // da margen real sin abortar peticiones que sí iban a funcionar.
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const timeoutId = setTimeout(() => controller.abort(), 100000);
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'rfSubirVideoChunk', uploadId, chunkIndex: i, chunkBase64: b64 }), signal: controller.signal });
@@ -1863,10 +1873,12 @@ async function subirVideoPorPartes(file, onProgreso) {
   if (onProgreso) onProgreso('finalizando', totalChunks);
 
   // Unir los pedazos y escribir a Drive puede tardar más que un pedazo
-  // suelto (Apps Script decodifica y guarda el video completo) — 90s
-  // le da margen de sobra sin dejar la pantalla colgada indefinidamente.
+  // suelto (Apps Script decodifica y guarda el video completo, y ya
+  // vimos que Apps Script por sí solo puede tardar decenas de segundos
+  // en responder) — 150s da margen real sin dejar la pantalla colgada
+  // indefinidamente.
   const finController = new AbortController();
-  const finTimeoutId = setTimeout(() => finController.abort(), 90000);
+  const finTimeoutId = setTimeout(() => finController.abort(), 150000);
   let finData;
   try {
     const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
