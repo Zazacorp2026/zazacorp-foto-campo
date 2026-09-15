@@ -1872,13 +1872,24 @@ async function subirVideoPorPartes(file, onProgreso) {
     });
     let ultimoError;
     for (let intento = 0; intento < 3; intento++) {
+      // Sin AbortController+timeout, con mala señal de celular este fetch
+      // se podía quedar esperando una respuesta que nunca llega —
+      // ni error ni éxito, la barra de subida se quedaba pegada para
+      // siempre. 45s es generoso para un pedazo de ~8MB incluso en 3G.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
       try {
         const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'rfSubirVideoChunk', uploadId, chunkIndex: i, chunkBase64: b64 }) });
+          body: JSON.stringify({ action: 'rfSubirVideoChunk', uploadId, chunkIndex: i, chunkBase64: b64 }), signal: controller.signal });
+        clearTimeout(timeoutId);
         const data = await res.json();
         if (!data.ok) throw new Error(data.error || 'Error subiendo parte del video');
         return;
-      } catch (e) { ultimoError = e; await new Promise(r => setTimeout(r, 800 * (intento + 1))); }
+      } catch (e) {
+        clearTimeout(timeoutId);
+        ultimoError = e.name === 'AbortError' ? new Error('Sin respuesta del servidor (tiempo agotado)') : e;
+        await new Promise(r => setTimeout(r, 800 * (intento + 1)));
+      }
     }
     throw ultimoError || new Error('No se pudo subir el video');
   }
@@ -1893,10 +1904,22 @@ async function subirVideoPorPartes(file, onProgreso) {
   }
   if (onProgreso) onProgreso('finalizando', totalChunks);
 
-  const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: 'rfFinalizarVideoChunks', uploadId, mime: file.type || 'video/mp4', nombre: file.name,
-      cliente: captureTarget ? captureTarget.cliente : '', fecha: captureTarget ? captureTarget.fecha : '' }) });
-  const finData = await finRes.json();
+  // Unir los pedazos y escribir a Drive puede tardar más que un pedazo
+  // suelto (Apps Script decodifica y guarda el video completo) — 90s
+  // le da margen de sobra sin dejar la pantalla colgada indefinidamente.
+  const finController = new AbortController();
+  const finTimeoutId = setTimeout(() => finController.abort(), 90000);
+  let finData;
+  try {
+    const finRes = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'rfFinalizarVideoChunks', uploadId, mime: file.type || 'video/mp4', nombre: file.name,
+        cliente: captureTarget ? captureTarget.cliente : '', fecha: captureTarget ? captureTarget.fecha : '' }), signal: finController.signal });
+    finData = await finRes.json();
+  } catch (e) {
+    throw e.name === 'AbortError' ? new Error('Sin respuesta del servidor uniendo el video (tiempo agotado)') : e;
+  } finally {
+    clearTimeout(finTimeoutId);
+  }
   if (!finData.ok) throw new Error(finData.error || 'Error uniendo las partes del video');
   return finData.videoUrl;
 }
