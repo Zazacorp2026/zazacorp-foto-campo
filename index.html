@@ -680,69 +680,6 @@ function obtenerAccessTokenDrive() {
   });
 }
 
-// Sube un video DIRECTO a Drive (Resumable Upload API), con progreso real,
-// sin cortarlo en pedazos ni pasar por Apps Script. Devuelve la URL de
-// visualización directa, en el mismo formato que ya usa el backend.
-async function subirVideoDirectoADrive(file, cliente, fecha, onProgreso) {
-  const token = await obtenerAccessTokenDrive();
-
-  const resCarpeta = await fetch(SCRIPT_URL + '?action=rfObtenerCarpetaId&cliente=' + encodeURIComponent(cliente || '') + '&fecha=' + encodeURIComponent(fecha || ''));
-  const dataCarpeta = await resCarpeta.json();
-  if (!dataCarpeta.ok || !dataCarpeta.folderId) throw new Error('No se pudo preparar la carpeta de Drive');
-  const folderId = dataCarpeta.folderId;
-
-  const metadata = { name: 'video_' + Date.now() + '_' + (file.name || 'video.mp4'), parents: [folderId] };
-  const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': file.type || 'video/mp4', 'X-Upload-Content-Length': String(file.size || 0) },
-    body: JSON.stringify(metadata)
-  });
-  if (!initRes.ok) throw new Error('No se pudo iniciar la subida a Drive (HTTP ' + initRes.status + ')');
-  const uploadUrl = initRes.headers.get('Location');
-  if (!uploadUrl) throw new Error('Drive no devolvió URL de subida');
-
-  const fileId = await new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', uploadUrl, true);
-    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
-    xhr.upload.onprogress = (ev) => { if (ev.lengthComputable && onProgreso) onProgreso(ev.loaded, ev.total); };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText).id); } catch(e) { reject(new Error('Respuesta inesperada de Drive')); }
-      } else reject(new Error('Falló la subida a Drive (HTTP ' + xhr.status + ')'));
-    };
-    xhr.onerror = () => reject(new Error('Error de red subiendo a Drive'));
-    xhr.send(file);
-  });
-
-  // Verificación de integridad: en móviles (sobre todo iOS/PWA) se ha visto
-  // que con videos grandes el PUT anterior puede "responder OK" pero el
-  // cuerpo llega vacío/incompleto por presión de memoria, dejando un
-  // archivo de 0 bytes en Drive sin que salte ningún error. Por eso acá
-  // se confirma el tamaño real subido; si dio 0 (o no vino), se borra el
-  // archivo roto y se lanza un error — eso hace que subirVideoRapido()
-  // caiga automáticamente al método por partes (más lento pero confiable),
-  // en vez de dejar pasar un video inservible como si hubiera funcionado.
-  const metaRes = await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '?fields=size', {
-    headers: { 'Authorization': 'Bearer ' + token }
-  });
-  const metaData = await metaRes.json().catch(() => ({}));
-  const bytesSubidos = Number(metaData.size || 0);
-  if (!bytesSubidos) {
-    try { await fetch('https://www.googleapis.com/drive/v3/files/' + fileId, { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } }); } catch(e) {}
-    throw new Error('El video se subió con 0 bytes (fallo de la subida directa)');
-  }
-
-  // Hacer el archivo visible por link (mismo criterio que usa el backend para las fotos)
-  await fetch('https://www.googleapis.com/drive/v3/files/' + fileId + '/permissions', {
-    method: 'POST',
-    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ role: 'reader', type: 'anyone' })
-  });
-
-  return 'https://drive.google.com/uc?export=view&id=' + fileId;
-}
-
 // Nombres para el selector — las contraseñas viven solo en el backend (Code.gs), nunca aquí.
 const FOTOGRAFOS = {
   'cristopher': { nombre: 'Cristopher' },
@@ -1924,20 +1861,14 @@ async function subirVideoPorPartes(file, onProgreso) {
   return finData.videoUrl;
 }
 
-// Intenta primero la subida DIRECTA a Drive (rápida, un solo stream);
-// si el fotógrafo no autoriza o algo falla (sin Internet a Google, etc.)
-// cae automáticamente al método anterior por pedazos, para no romper
-// la subida.
+// La subida DIRECTA a Drive (con la cuenta propia del fotógrafo) se quitó
+// para video: la carpeta destino es de la cuenta del sistema, no del
+// fotógrafo, así que Drive le rechazaba la escritura con 403 aunque el
+// permiso de Google sí se autorizara — fallaba siempre, no por señal ni
+// por navegador. El método por pedazos sube con la cuenta del sistema
+// (dueña de la carpeta), por eso es el único confiable para video.
 async function subirVideoRapido(file, cliente, fecha, onProgreso) {
-  try {
-    return await subirVideoDirectoADrive(file, cliente, fecha, (cargado, total) => {
-      if (onProgreso) onProgreso(Math.round(cargado / total * 100), 100, true);
-    });
-  } catch (e) {
-    console.warn('Subida directa a Drive falló, usando método por pedazos:', e.message);
-    showToast('⚠️ Vía rápida falló (' + e.message + '), subiendo por el método normal', 'warn');
-    return await subirVideoPorPartes(file, onProgreso);
-  }
+  return await subirVideoPorPartes(file, onProgreso);
 }
 
 // Convierte un dataURL (foto ya comprimida) a Blob para subirlo directo.
