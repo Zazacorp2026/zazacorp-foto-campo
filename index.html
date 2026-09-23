@@ -2343,30 +2343,55 @@ function showSubidasPendientesBanner() {
   });
   wrap.style.display = 'block';
 }
+// Antes, CUALQUIER rechazo del servidor (network hiccup, tanto como un
+// error de validación imposible de arreglar solo, ej. "Debes adjuntar
+// al menos una foto o video") se volvía a guardar en la cola tal cual,
+// para reintentarse de nuevo en el siguiente flushQueue (que corre solo
+// cada 45s). Una toma con un error de validación NUNCA va a pasar por
+// más veces que se reintente — se quedaba reintentando por siempre,
+// mostrando el mismo error una y otra vez, sin que el fotógrafo supiera
+// qué hacer con eso. Ahora cada intento fallido se cuenta
+// (payload._intentos); tras 3 intentos, esa toma puntual se saca de la
+// cola (las demás siguen reintentando normal) y se avisa claro qué
+// elemento necesita rehacerse a mano.
+const FLUSH_MAX_INTENTOS = 3;
 async function flushQueue() {
   if (!offlineQueue.length) return;
   showToast('Subiendo ' + offlineQueue.length + ' tomas...', 'warn');
   const failed = [];
+  const abandonadas = [];
   let ultimoError = '';
   for (const payload of offlineQueue) {
+    let ok = false;
     try {
       const res = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...payload, _offline: undefined }) });
       const data = await res.json();
-      if (!data.ok) { failed.push(payload); ultimoError = data.error || 'error desconocido del servidor'; }
+      ok = !!data.ok;
+      if (!ok) ultimoError = data.error || 'error desconocido del servidor';
     } catch(e) {
       ultimoError = e && e.message ? e.message : 'error de red';
-      let yaExistia = false;
       try {
         const chk = await fetch(SCRIPT_URL + '?action=rfVerificarTomaReciente&elementoId=' + encodeURIComponent(payload.elementoId) + '&_t=' + Date.now(), { cache: 'no-store' });
         const chkData = await chk.json();
-        yaExistia = !!(chkData && chkData.existe);
+        ok = !!(chkData && chkData.existe);
       } catch(e2) {}
-      if (!yaExistia) failed.push(payload);
     }
+    if (ok) continue;
+    payload._intentos = (payload._intentos || 0) + 1;
+    if (payload._intentos >= FLUSH_MAX_INTENTOS) abandonadas.push(payload);
+    else failed.push(payload);
   }
   offlineQueue = failed; saveQueue(); showQueueBanner();
   console.warn('flushQueue: último error visto:', ultimoError);
-  showToast(failed.length === 0 ? '✓ Todas las tomas subidas' : failed.length + ' tomas no pudieron subirse (' + ultimoError + ')', failed.length === 0 ? 'ok' : 'err');
+  if (abandonadas.length) {
+    const lugares = abandonadas.map(p => p.ubicacion || p.codigoRef || p.elementoId).join(', ');
+    showToast('⚠️ ' + abandonadas.length + ' toma(s) no se pudieron guardar tras varios intentos (' + ultimoError + ') — hay que rehacerlas a mano: ' + lugares, 'err');
+  }
+  if (failed.length === 0 && abandonadas.length === 0) {
+    showToast('✓ Todas las tomas subidas', 'ok');
+  } else if (failed.length) {
+    showToast(failed.length + ' toma(s) pendiente(s), reintentando (' + ultimoError + ')', 'warn');
+  }
   refrescarAsignacionesSilencioso();
 }
 function fileToBase64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); }); }
