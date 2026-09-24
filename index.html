@@ -1124,13 +1124,28 @@ async function fetchConReintento(url, intentos, opts) {
 // válido) — por eso este helper aparte, para las acciones POST que
 // devuelven { ok, ... } o { error }. Un segundo intento casi siempre lo
 // resuelve, sin que la persona tenga que volver a tocar el botón.
+//
+// FIX (2026-09-24): faltaba un caso — a veces la respuesta ni siquiera
+// llega a fallar, se queda "Pendiente" en la red indefinidamente (el
+// servidor SÍ procesó la acción, pero la entrega de vuelta nunca
+// llegó). Sin límite de tiempo, esto dejaba la pantalla colgada para
+// siempre, sin ningún aviso — como le pasó a Jorge al borrar una toma:
+// se borró en el Sheet pero la pantalla nunca se enteró. Ahora cada
+// intento tiene un tope de 12s; si se pasa, se aborta y se reintenta
+// (o se avisa del error) en vez de quedarse esperando para siempre.
 async function postJsonConReintentoParseo_(payload) {
   const intentar = async () => {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    });
-    return await res.json();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    try {
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload), signal: controller.signal
+      });
+      return await res.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
   };
   try {
     return await intentar();
@@ -1614,7 +1629,7 @@ function renderElementosFotografo() {
             ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
               : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
               : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esTipoLED(el.tipoElemento)?'🎥 Grabar video':'📷 Fotografiar'}</button>`}
-            ${(currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}','${done ? 'COMPLETADA ✓' : 'PENDIENTE'}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
+            ${(currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}','${(el.estado||'PENDIENTE').replace(/'/g,"\\'")}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -3442,9 +3457,15 @@ function confirmarAnularAsignacion(asignacionId, cliente, origen) {
 // la lista de la ejecutiva (que no significa nada para Jorge viendo el
 // módulo de fotógrafo).
 async function anularAsignacion(asignacionId, origen) {
+  showToast('⏳ Anulando asignación...', 'info');
   try {
     const data = await postJsonConReintentoParseo_({ action: 'rfAnularAsignacion', asignacionId });
-    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    if (!data.ok) {
+      // Igual que en borrarElemento: si el reintento se topa con "no
+      // encontrada", es porque el 1er intento ya la había anulado y solo
+      // se perdió la respuesta en el camino — no es un error real.
+      if (!/no encontrada/i.test(data.error || '')) throw new Error(data.error || 'Error desconocido');
+    }
     mostrarZazaAnulada();
     if (origen === 'fotografo-detalle') {
       // Se borró desde el detalle de elementos ("Subir fotos/videos yo
@@ -3468,22 +3489,37 @@ async function anularAsignacion(asignacionId, origen) {
 // asignación) — solo admin, desde el detalle de "Subir fotos/videos yo
 // mismo" donde se ve exactamente cuál está pendiente o completada.
 function confirmarBorrarElemento(elementoId, tipo, ubicacion, estado) {
-  // FIX (2026-09-24): el diálogo ahora muestra el ESTADO exacto de la
-  // toma que se va a borrar (Pendiente/Completada) — capa extra de
-  // seguridad después de que se borró por error una toma completada en
-  // vez de la pendiente (causa real: un ID duplicado en el Sheet, ya
-  // reparado; ver rfRepararIdsDuplicadosElementos y el blindaje nuevo
-  // en rfBorrarElemento).
-  const detalle = tipo + (ubicacion ? ' · ' + ubicacion : '') + ' · Estado: ' + estado;
+  // FIX (2026-09-24): el diálogo muestra el ESTADO exacto de la toma
+  // que se va a borrar (Pendiente/Completado) — capa extra de
+  // seguridad. `estado` ahora es el valor REAL guardado en el Sheet
+  // (no un texto bonito) para que el servidor pueda comparar el estado
+  // que viste en pantalla contra el estado actual real en ese instante
+  // (ver rfBorrarElemento) — si tu pantalla tenía datos viejos
+  // cargados, el servidor rechaza el borrado en vez de adivinar.
+  const estadoTexto = estado === 'COMPLETADO' ? 'COMPLETADA ✓' : estado;
+  const detalle = tipo + (ubicacion ? ' · ' + ubicacion : '') + ' · Estado: ' + estadoTexto;
   if (!confirm('¿Borrar esta toma (' + detalle + ')? Esta acción no se puede deshacer.')) return;
-  borrarElemento(elementoId);
+  borrarElemento(elementoId, estado);
 }
 
-async function borrarElemento(elementoId) {
+async function borrarElemento(elementoId, estadoEsperado) {
+  showToast('⏳ Borrando toma...', 'info');
   try {
-    const data = await postJsonConReintentoParseo_({ action: 'rfBorrarElemento', elementoId });
-    if (!data.ok) throw new Error(data.error || 'Error desconocido');
-    showToast('✓ Toma borrada', 'ok');
+    const data = await postJsonConReintentoParseo_({ action: 'rfBorrarElemento', elementoId, estadoEsperado });
+    if (!data.ok) {
+      // Si los 2 intentos de postJsonConReintentoParseo_ mandaron la
+      // petición (p. ej. la respuesta del 1er intento se perdió en el
+      // camino) y el 1er intento SÍ había borrado el elemento, el 2do
+      // intento se topa con "no encontrado" — no es un error real, es
+      // una confirmación tardía de que ya se borró.
+      if (/no encontrado/i.test(data.error || '')) {
+        showToast('✓ Toma borrada (confirmado)', 'ok');
+      } else {
+        throw new Error(data.error || 'Error desconocido');
+      }
+    } else {
+      showToast('✓ Toma borrada', 'ok');
+    }
     if (data.asignacionBorrada) {
       // Era la última toma de esa asignación — ya no existe, se vuelve a la lista
       currentAsig = null;
