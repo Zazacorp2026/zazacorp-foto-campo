@@ -3894,11 +3894,20 @@ async function crearAsignacion() {
 
     asignacionEnEdicion = null;
     _idemKeyNuevaAsignacion = null;
+    // FIX (2026-09-24): si el mismo elemento venía repetido en la lista
+    // (mismo cliente+tipo+ubicación+código+turno — por ejemplo el mismo
+    // LED marcado 2 veces por error), el backend ya lo filtra solo antes
+    // de guardar. Avisamos aquí para que quien creó la asignación sepa
+    // que se omitió algo, en vez de asumir que se guardó todo tal cual
+    // lo marcó.
+    if (data.duplicadosOmitidos) {
+      showToast('⚠️ Se omitieron ' + data.duplicadosOmitidos + ' elemento(s) repetido(s) (mismo cliente y ubicación marcados 2 veces)', 'warn');
+    }
     if (esEdicion) {
       showToast('✓ Asignación actualizada', 'ok');
       showEjecutivaLista();
     } else {
-      showAsignacionExito(clienteFinal, elementos.length);
+      showAsignacionExito(clienteFinal, elementos.length - (data.duplicadosOmitidos || 0));
     }
   } catch(e) {
     showToast('❌ ' + e.message, 'err');
