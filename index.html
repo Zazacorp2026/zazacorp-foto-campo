@@ -1614,7 +1614,12 @@ function renderElementosFotografo() {
             ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
               : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
               : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esTipoLED(el.tipoElemento)?'🎥 Grabar video':'📷 Fotografiar'}</button>`}
-            ${(currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
+            ${/* PAUSADO (2026-09-24): se detectó un caso donde se borró un
+                elemento distinto al que se tocó — hasta confirmar la causa
+                exacta, este botón queda desactivado (false) para no
+                arriesgar más tomas/fotos ya subidas. Ver notas en
+                confirmarBorrarElemento/borrarElemento más abajo. */ ''}
+            ${(false && currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
           </div>
         </div>
       </div>`;
