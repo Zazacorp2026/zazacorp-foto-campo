@@ -1115,6 +1115,30 @@ async function fetchConReintento(url, intentos, opts) {
   throw ultimoError;
 }
 
+// "Unexpected token '<'... is not valid JSON": Apps Script a veces
+// entrega una respuesta lenta/pesada a través de una URL de redirección
+// temporal que puede fallar en el camino — llega una página HTML de
+// error en vez del JSON esperado, aunque la petición sí haya llegado.
+// fetchConReintento (arriba) reintenta fallos de RED/HTTP, pero no este
+// caso (la respuesta SÍ llega, con código 200, solo que no es JSON
+// válido) — por eso este helper aparte, para las acciones POST que
+// devuelven { ok, ... } o { error }. Un segundo intento casi siempre lo
+// resuelve, sin que la persona tenga que volver a tocar el botón.
+async function postJsonConReintentoParseo_(payload) {
+  const intentar = async () => {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  };
+  try {
+    return await intentar();
+  } catch (eParse) {
+    return await intentar();
+  }
+}
+
 async function loadAsignacionesFotografo() {
   const esAdmin = !!(currentUser && currentUser.esAdmin);
   const cacheKey = 'zr_cache_asig_foto_' + (esAdmin ? 'ADMIN' : (currentUser ? currentUser.nombre : ''));
@@ -3419,11 +3443,7 @@ function confirmarAnularAsignacion(asignacionId, cliente, origen) {
 // módulo de fotógrafo).
 async function anularAsignacion(asignacionId, origen) {
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'rfAnularAsignacion', asignacionId })
-    });
-    const data = await res.json();
+    const data = await postJsonConReintentoParseo_({ action: 'rfAnularAsignacion', asignacionId });
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
     mostrarZazaAnulada();
     if (origen === 'fotografo-detalle') {
@@ -3455,11 +3475,7 @@ function confirmarBorrarElemento(elementoId, tipo, ubicacion) {
 
 async function borrarElemento(elementoId) {
   try {
-    const res = await fetch(SCRIPT_URL, {
-      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action: 'rfBorrarElemento', elementoId })
-    });
-    const data = await res.json();
+    const data = await postJsonConReintentoParseo_({ action: 'rfBorrarElemento', elementoId });
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
     showToast('✓ Toma borrada', 'ok');
     if (data.asignacionBorrada) {
