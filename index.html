@@ -1586,9 +1586,12 @@ function renderElementosFotografo() {
             ${el.cliente ? `<div class="elem-ubic">👤 ${el.cliente}</div>` : ''}
             ${badgeFotografoZR(el.fotografoAsignado)}
           </div>
-          ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
-            : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
-            : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esTipoLED(el.tipoElemento)?'🎥 Grabar video':'📷 Fotografiar'}</button>`}
+          <div style="display:flex;flex-direction:column;align-items:stretch;gap:6px;flex-shrink:0">
+            ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
+              : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
+              : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esTipoLED(el.tipoElemento)?'🎥 Grabar video':'📷 Fotografiar'}</button>`}
+            ${(currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
+          </div>
         </div>
       </div>`;
   }
@@ -3436,6 +3439,44 @@ async function anularAsignacion(asignacionId, origen) {
     } else {
       showEjecutivaLista();
     }
+  } catch(e) {
+    showToast('❌ ' + e.message, 'err');
+  }
+}
+
+// FEATURE (2026-09-24): borrar UNA sola toma/elemento (no toda la
+// asignación) — solo admin, desde el detalle de "Subir fotos/videos yo
+// mismo" donde se ve exactamente cuál está pendiente o completada.
+function confirmarBorrarElemento(elementoId, tipo, ubicacion) {
+  const detalle = tipo + (ubicacion ? ' · ' + ubicacion : '');
+  if (!confirm('¿Borrar esta toma (' + detalle + ')? Esta acción no se puede deshacer.')) return;
+  borrarElemento(elementoId);
+}
+
+async function borrarElemento(elementoId) {
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'rfBorrarElemento', elementoId })
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    showToast('✓ Toma borrada', 'ok');
+    if (data.asignacionBorrada) {
+      // Era la última toma de esa asignación — ya no existe, se vuelve a la lista
+      currentAsig = null;
+      goBackToList();
+    } else if (currentAsig) {
+      // Seguimos viendo el mismo detalle: se quita solo esa toma en
+      // pantalla, sin esperar un viaje redondo al servidor para verla
+      // desaparecer.
+      currentAsig.elementos = (currentAsig.elementos || []).filter(e => e.id !== elementoId);
+      renderElementosFotografo();
+    }
+    // Refresca en segundo plano para que la lista/el resumen por
+    // fotógrafo (y cualquier otra pantalla que se abra después, de
+    // cualquier usuario) queden al día con el Sheet real.
+    loadAsignacionesFotografo();
   } catch(e) {
     showToast('❌ ' + e.message, 'err');
   }
