@@ -1614,12 +1614,7 @@ function renderElementosFotografo() {
             ${uploading ? `<span class="elem-action uploading-tag">⟳ Subiendo</span>`
               : done ? `<button class="elem-action done-tag" onclick='openCapture(${JSON.stringify(el)})' style="border:none">✓ Listo · Corregir</button>`
               : `<button class="elem-action shoot" onclick='openCapture(${JSON.stringify(el)})'>${esTipoLED(el.tipoElemento)?'🎥 Grabar video':'📷 Fotografiar'}</button>`}
-            ${/* PAUSADO (2026-09-24): se detectó un caso donde se borró un
-                elemento distinto al que se tocó — hasta confirmar la causa
-                exacta, este botón queda desactivado (false) para no
-                arriesgar más tomas/fotos ya subidas. Ver notas en
-                confirmarBorrarElemento/borrarElemento más abajo. */ ''}
-            ${(false && currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
+            ${(currentUser && currentUser.esAdmin && !uploading) ? `<button onclick="event.stopPropagation();confirmarBorrarElemento('${el.id}','${(el.tipoElemento||'Elemento').replace(/'/g,"\\'")}','${(el.ubicacion||'').replace(/'/g,"\\'")}','${done ? 'COMPLETADA ✓' : 'PENDIENTE'}')" title="Borrar esta toma (Admin)" style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:6px;font-size:10.5px;font-weight:700;padding:4px 6px;cursor:pointer">🗑️ Borrar</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -3472,8 +3467,14 @@ async function anularAsignacion(asignacionId, origen) {
 // FEATURE (2026-09-24): borrar UNA sola toma/elemento (no toda la
 // asignación) — solo admin, desde el detalle de "Subir fotos/videos yo
 // mismo" donde se ve exactamente cuál está pendiente o completada.
-function confirmarBorrarElemento(elementoId, tipo, ubicacion) {
-  const detalle = tipo + (ubicacion ? ' · ' + ubicacion : '');
+function confirmarBorrarElemento(elementoId, tipo, ubicacion, estado) {
+  // FIX (2026-09-24): el diálogo ahora muestra el ESTADO exacto de la
+  // toma que se va a borrar (Pendiente/Completada) — capa extra de
+  // seguridad después de que se borró por error una toma completada en
+  // vez de la pendiente (causa real: un ID duplicado en el Sheet, ya
+  // reparado; ver rfRepararIdsDuplicadosElementos y el blindaje nuevo
+  // en rfBorrarElemento).
+  const detalle = tipo + (ubicacion ? ' · ' + ubicacion : '') + ' · Estado: ' + estado;
   if (!confirm('¿Borrar esta toma (' + detalle + ')? Esta acción no se puede deshacer.')) return;
   borrarElemento(elementoId);
 }
