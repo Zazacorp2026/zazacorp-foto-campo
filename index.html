@@ -1177,7 +1177,7 @@ function renderVistaAdminFotografo() {
     (a.elementos || []).forEach(el => {
       const f = el.fotografoAsignado || 'Sin asignar';
       if (!grupos[f]) grupos[f] = [];
-      grupos[f].push({ ...el, cliente: a.cliente, creadoPor: a.creadoPor });
+      grupos[f].push({ ...el, cliente: a.cliente, creadoPor: a.creadoPor, asignacionId: el.asignacionId || a.id });
     });
   });
   const nombres = Object.keys(grupos).sort();
@@ -1191,20 +1191,42 @@ function renderVistaAdminFotografo() {
     const items = grupos[f];
     const done = items.filter(e => e.estado === 'COMPLETADO').length;
     const pct = items.length ? Math.round(done / items.length * 100) : 0;
+
+    // FEATURE (2026-09-24, admin/Jorge): agrupa los elementos de este
+    // fotógrafo por asignación para poder borrar la asignación COMPLETA
+    // (todos sus elementos, en el Sheet, para todos) con un solo botón
+    // — sin repetirlo en cada elemento suyo. Reusa rfAnularAsignacion,
+    // que ya existía y ya estaba protegida a solo dueña o JORGE; solo
+    // faltaba poder dispararla desde este módulo.
+    const porAsig = {};
+    items.forEach(el => {
+      const k = el.asignacionId || (el.cliente + '|' + el.creadoPor);
+      (porAsig[k] = porAsig[k] || []).push(el);
+    });
+
+    const filas = Object.keys(porAsig).map(k => {
+      const grupoItems = porAsig[k];
+      const asigId = grupoItems[0].asignacionId;
+      return grupoItems.map((el, i) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
+            <div style="font-size:12px">
+              <div style="color:#fff;font-weight:600">${el.tipoElemento || 'Elemento'} · ${el.cliente || '—'}</div>
+              <div class="empty-sub">${el.ubicacion || '—'}${el.creadoPor ? ' · Pidió: ' + el.creadoPor : ''}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+              <span style="font-size:11px;font-weight:700;color:${el.estado==='COMPLETADO'?'var(--green)':'var(--muted)'}">${el.estado==='COMPLETADO'?'✓ Listo':'Pendiente'}</span>
+              ${(i === 0 && asigId) ? `<button onclick="event.stopPropagation();confirmarAnularAsignacion('${asigId}','${(el.cliente||'').replace(/'/g,"\\'")}','fotografo')" title="Borrar toda esta asignación (Admin)" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:var(--red);border-radius:6px;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;white-space:nowrap">🗑️ Borrar</button>` : ''}
+            </div>
+          </div>`).join('');
+    }).join('');
+
     return `
       <div class="elem-card" style="border-color:${pct===100?'var(--green)':'var(--blue)'}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <div style="font-weight:800;font-size:16px;color:#fff">👤 ${f}</div>
           <div style="text-align:right"><span style="font-size:20px;font-weight:800;color:${pct===100?'var(--green)':'var(--orange)'}">${pct}%</span><div class="empty-sub">${done}/${items.length}</div></div>
         </div>
-        ${items.map(el => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border)">
-            <div style="font-size:12px">
-              <div style="color:#fff;font-weight:600">${el.tipoElemento || 'Elemento'} · ${el.cliente || '—'}</div>
-              <div class="empty-sub">${el.ubicacion || '—'}${el.creadoPor ? ' · Pidió: ' + el.creadoPor : ''}</div>
-            </div>
-            <span style="font-size:11px;font-weight:700;color:${el.estado==='COMPLETADO'?'var(--green)':'var(--muted)'}">${el.estado==='COMPLETADO'?'✓ Listo':'Pendiente'}</span>
-          </div>`).join('')}
+        ${filas}
       </div>`;
   }).join('');
 }
@@ -3372,12 +3394,16 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
   showToast('✓ Reporte PDF descargado', 'ok');
 }
 
-function confirmarAnularAsignacion(asignacionId, cliente) {
+function confirmarAnularAsignacion(asignacionId, cliente, origen) {
   if (!confirm('¿Seguro que quieres anular la asignación de "' + cliente + '"? Esta acción no se puede deshacer.')) return;
-  anularAsignacion(asignacionId);
+  anularAsignacion(asignacionId, origen);
 }
 
-async function anularAsignacion(asignacionId) {
+// `origen` distingue desde dónde se disparó el borrado, para refrescar
+// la vista en la que la persona ya estaba en vez de siempre saltar a
+// la lista de la ejecutiva (que no significa nada para Jorge viendo el
+// módulo de fotógrafo).
+async function anularAsignacion(asignacionId, origen) {
   try {
     const res = await fetch(SCRIPT_URL, {
       method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -3386,7 +3412,11 @@ async function anularAsignacion(asignacionId) {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
     mostrarZazaAnulada();
-    showEjecutivaLista();
+    if (origen === 'fotografo') {
+      loadAsignacionesFotografo(); // recarga del servidor y repinta el módulo de fotógrafo
+    } else {
+      showEjecutivaLista();
+    }
   } catch(e) {
     showToast('❌ ' + e.message, 'err');
   }
