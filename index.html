@@ -450,6 +450,7 @@
       <div style="margin-bottom:14px">
         <div style="font-size:19px;font-weight:800;color:#fff" id="asig-detail-cliente"></div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px" id="asig-detail-meta"></div>
+        <div id="admin-borrar-asig-btn-wrap"></div>
       </div>
       <button class="ruta-btn" onclick="verRutaSugerida()">🗺️ Ver ruta sugerida</button>
       <div id="ruta-resultado"></div>
@@ -1424,6 +1425,16 @@ function openAsignacionFotografo(id) {
   document.getElementById('asig-detail-cliente').textContent = currentAsig.cliente;
   document.getElementById('asig-detail-meta').innerHTML = `${(currentAsig.elementos||[]).length} elementos ${fechaLimiteChipHTML(fechaLimiteEfectiva_(currentAsig))}`;
   document.getElementById('ruta-resultado').innerHTML = '';
+  // FEATURE (2026-09-24): pediste poder borrar la asignación justo
+  // desde acá (el detalle "Subir fotos/videos yo mismo"), porque aquí
+  // se ve exactamente qué falta antes de decidir borrarla — solo para
+  // tu usuario admin, reusando la misma rfAnularAsignacion de siempre.
+  const btnWrap = document.getElementById('admin-borrar-asig-btn-wrap');
+  if (btnWrap) {
+    btnWrap.innerHTML = (currentUser && currentUser.esAdmin)
+      ? `<button onclick="confirmarAnularAsignacion('${currentAsig.id}','${(currentAsig.cliente||'').replace(/'/g,"\\'")}','fotografo-detalle')" style="margin-top:10px;width:100%;padding:9px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);border-radius:8px;color:var(--red);font-size:12.5px;font-weight:700;cursor:pointer">🗑️ Borrar esta asignación (Admin)</button>`
+      : '';
+  }
   renderElementosFotografo();
   showPage('page-elementos');
 }
@@ -3412,7 +3423,15 @@ async function anularAsignacion(asignacionId, origen) {
     const data = await res.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
     mostrarZazaAnulada();
-    if (origen === 'fotografo') {
+    if (origen === 'fotografo-detalle') {
+      // Se borró desde el detalle de elementos ("Subir fotos/videos yo
+      // mismo") — ese detalle ya no existe, así que se vuelve a la
+      // lista (que a su vez recarga del servidor) en vez de intentar
+      // repintar una asignación que ya no está.
+      currentAsig = null;
+      goBackToList();
+      loadAsignacionesFotografo();
+    } else if (origen === 'fotografo') {
       loadAsignacionesFotografo(); // recarga del servidor y repinta el módulo de fotógrafo
     } else {
       showEjecutivaLista();
