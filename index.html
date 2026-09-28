@@ -437,6 +437,9 @@
         <button class="agenda-chip" data-filtro="proceso" onclick="filtrarAgenda('page-asignaciones','proceso',this)">En proceso</button>
         <button class="agenda-chip" data-filtro="pendientes" onclick="filtrarAgenda('page-asignaciones','pendientes',this)">Pendientes</button>
       </div>
+      <select id="mes-filtro-foto" onchange="aplicarFiltroMes('page-asignaciones')" style="width:100%;margin-bottom:14px;padding:9px 10px;background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:12.5px;font-family:'Space Grotesk',sans-serif">
+        <option value="">📅 Todos los meses</option>
+      </select>
       <div class="section-title" id="asig-title-activas">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
       <button class="ruta-btn global" onclick="verRutaDelDia()">🚗 Ruta única de todo el día (todos los clientes)</button>
       <div id="ruta-dia-resultado"></div>
@@ -470,6 +473,9 @@
         <button class="agenda-chip blue" data-filtro="proceso" onclick="filtrarAgenda('page-ejecutiva-lista','proceso',this)">En proceso</button>
         <button class="agenda-chip blue" data-filtro="pendientes" onclick="filtrarAgenda('page-ejecutiva-lista','pendientes',this)">Pendientes</button>
       </div>
+      <select id="mes-filtro-ejec" onchange="aplicarFiltroMes('page-ejecutiva-lista')" style="width:100%;margin-bottom:14px;padding:9px 10px;background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:12.5px;font-family:'Space Grotesk',sans-serif">
+        <option value="">📅 Todos los meses</option>
+      </select>
       <div class="section-title blue" id="ejec-title-activas">Asignaciones pendientes<span class="badge blue" id="ejec-badge">0</span></div>
       <div id="ejec-asig-list"></div>
 
@@ -483,7 +489,7 @@
       <div class="tipo-body" id="tipo-body-cliente">
       <div class="form-card">
         <label class="form-label">Cliente *</label>
-        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="onClienteInput()"/>
+        <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="syncClienteDesde('form-cliente')"/>
         <datalist id="clientes-datalist"></datalist>
         <label class="form-label">Fecha límite</label>
         <input class="form-input" id="form-fecha-limite" type="date"/>
@@ -503,6 +509,15 @@
 
       <div class="tipo-title" id="tipo-title-fijos" style="margin-top:20px" onclick="toggleTipoSection('fijos')"><span class="tipo-title-left"><span>⚡</span><span>ASIGNACIONES FUERA DE BITÁCORA</span></span><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div class="tipo-body" id="tipo-body-fijos">
+      <!-- FEATURE (2026-09-28): el campo Cliente ya existía, pero vivía
+           SOLO en la sección de arriba ("Asignaciones elementos fijos"),
+           fácil de no notar. Se agrega acá también, mismo dato, para
+           que quien esté armando una asignación fuera de bitácora lo
+           vea justo donde lo está llenando — no hace falta abrir la
+           otra sección para encontrarlo. Los 2 campos se mantienen
+           sincronizados entre sí (ver syncClienteDesde en el script). -->
+      <label class="form-label">Cliente *</label>
+      <input class="form-input" id="form-cliente-fijos" placeholder="Nombre del cliente" list="clientes-datalist" oninput="syncClienteDesde('form-cliente-fijos')" style="margin-bottom:14px">
       <div id="elementos-form-list-fijos"></div>
       <button class="add-elem-btn" onclick="addElementoForm(null,false)">+ Agregar elemento fijo</button>
       </div>
@@ -1289,6 +1304,17 @@ function fechaLimiteEfectiva_(a) {
   return fechas[0] || '';
 }
 
+// FEATURE (2026-09-25): filtro por mes en Agenda — devuelve "YYYY-MM"
+// (o '' si no hay fecha) a partir de la fecha límite EFECTIVA de la
+// asignación, el mismo campo que ya se muestra en cada tarjeta. Se usa
+// como data-mes en las tarjetas para poder filtrar sin tocar el
+// backend ni recargar nada — el filtrado es puro DOM, igual que ya
+// hace el resto de los chips de Agenda (Todo/Completadas/Proceso/Pendientes).
+function mesDeAsig_(a) {
+  const f = fechaLimiteEfectiva_(a);
+  return f ? String(f).slice(0, 7) : '';
+}
+
 function urgenciaDeFecha(fecha) {
   if (!fecha) return 'normal';
   const d = new Date(String(fecha).slice(0,10) + 'T00:00:00');
@@ -1358,6 +1384,13 @@ function filtrarAgenda(pageId, filtro, btnEl) {
   if (tituloEjecCompletadas) tituloEjecCompletadas.style.display = mostrarCompletadas ? '' : 'none';
   if (listaEjecCompletadas) listaEjecCompletadas.style.display = mostrarCompletadas ? '' : 'none';
 
+  // FEATURE (2026-09-25): filtro por mes — se combina con el chip de
+  // estado ya existente (Todo/Completadas/Proceso/Pendientes) en vez de
+  // reemplazarlo. El <select> vive junto a los chips de cada pantalla;
+  // "" (Todos los meses) no filtra nada, igual que antes.
+  const selMes = document.getElementById(pageId === 'page-asignaciones' ? 'mes-filtro-foto' : 'mes-filtro-ejec');
+  const mesSel = selMes ? selMes.value : '';
+
   const listas = Array.from(page.querySelectorAll('[id$="-list"], [id$="-list-done"], #asig-list'));
   listas.forEach(lista => {
     if (lista.style.display === 'none') return;
@@ -1367,14 +1400,16 @@ function filtrarAgenda(pageId, filtro, btnEl) {
       let visible = true;
       if (filtro === 'proceso') visible = (e === 'proceso');
       else if (filtro === 'pendientes') visible = (e === 'pendiente');
+      if (visible && mesSel) visible = (card.dataset.mes === mesSel);
       card.style.display = visible ? '' : 'none';
       if (visible) visibles++;
     });
     let vacio = lista.querySelector('.agenda-empty-msg');
     if (vacio) vacio.remove();
     const totalCards = lista.querySelectorAll('[data-estado]').length;
-    if (totalCards > 0 && visibles === 0 && filtro !== 'todo' && filtro !== 'completadas') {
+    if (totalCards > 0 && visibles === 0 && (filtro !== 'todo' || mesSel) && filtro !== 'completadas') {
       const msgs = { proceso: 'No hay asignaciones en proceso.', pendientes: 'No hay asignaciones pendientes.' };
+      if (mesSel && !msgs[filtro]) msgs[filtro] = 'No hay asignaciones ese mes.';
       const div = document.createElement('div');
       div.className = 'agenda-empty-msg empty-sub';
       div.style.cssText = 'padding:24px 0;text-align:center';
@@ -1382,6 +1417,36 @@ function filtrarAgenda(pageId, filtro, btnEl) {
       lista.appendChild(div);
     }
   });
+}
+
+// Se dispara al cambiar el <select> de mes — reaplica el filtro
+// combinado usando el chip de estado que ya estaba activo (no lo toca).
+function aplicarFiltroMes(pageId) {
+  const chipActivo = document.querySelector(
+    (pageId === 'page-asignaciones' ? '#agenda-chips-foto' : '#agenda-chips-ejec') + ' .agenda-chip.active'
+  );
+  filtrarAgenda(pageId, chipActivo ? chipActivo.dataset.filtro : 'todo', null);
+}
+
+// Llena el <select> de mes con los meses que de verdad aparecen en las
+// asignaciones cargadas (no una lista fija) — evita mostrar meses
+// vacíos y automáticamente incluye meses nuevos según se van creando
+// asignaciones. Conserva la selección actual si ese mes sigue
+// existiendo en los datos nuevos (para no perder el filtro al
+// refrescar en segundo plano).
+const MESES_ES_ = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function poblarFiltroMes_(selectId, lista) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const valorPrevio = sel.value;
+  const meses = Array.from(new Set(lista.map(a => mesDeAsig_(a)).filter(Boolean))).sort().reverse();
+  sel.innerHTML = '<option value="">📅 Todos los meses</option>' +
+    meses.map(m => {
+      const [y, mm] = m.split('-');
+      const nombre = MESES_ES_[parseInt(mm, 10) - 1] || mm;
+      return `<option value="${m}">${nombre.charAt(0).toUpperCase() + nombre.slice(1)} ${y}</option>`;
+    }).join('');
+  if (meses.includes(valorPrevio)) sel.value = valorPrevio;
 }
 
 function renderAsignacionesFotografo() {
@@ -1412,7 +1477,7 @@ function renderAsignacionesFotografo() {
   function cardHtml(a, done) {
     const { total, completados, pct } = pctDe(a);
     return `
-      <div class="asig-card${done?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" onclick="openAsignacionFotografo('${a.id}')">
+      <div class="asig-card${done?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" data-mes="${mesDeAsig_(a)}" onclick="openAsignacionFotografo('${a.id}')">
         <div class="asig-header">
           <div>
             <div class="asig-cliente">${a.cliente}</div>
@@ -1449,11 +1514,16 @@ function renderAsignacionesFotografo() {
   html += '</div>';
 
   list.innerHTML = html;
+  poblarFiltroMes_('mes-filtro-foto', asignaciones);
 
   // Reaplicar el filtro activo tras repintar (el polling silencioso
   // repinta cada 20s; sin esto el filtro se perdía, causando parpadeo).
+  // También reaplica si hay un mes elegido, aunque el chip esté en
+  // "Todo" — antes solo miraba el chip, así que un filtro de mes activo
+  // se perdía en cada repintado.
   const chipActivo = document.querySelector('#agenda-chips-foto .agenda-chip.active');
-  if (chipActivo && chipActivo.dataset.filtro !== 'todo') {
+  const mesActivo = document.getElementById('mes-filtro-foto');
+  if (chipActivo && (chipActivo.dataset.filtro !== 'todo' || (mesActivo && mesActivo.value))) {
     filtrarAgenda('page-asignaciones', chipActivo.dataset.filtro, chipActivo);
   }
 }
@@ -1893,7 +1963,33 @@ async function handleFile(event, tipo) {
 // bien, así que cada intento fallido dejaba memoria sin liberar, y con
 // 3 videos seguidos en la misma sesión eso hacía más probable que el
 // 2do o 3er intento también fallara.
-function capturarFrameDeVideo(file) {
+// Revisa si un canvas capturado salió negro (o casi) — muestrea solo
+// unos pocos puntos (esquinas + centro), no el canvas entero, para que
+// sea instantáneo incluso en frames grandes. Si el sampleo mismo falla
+// por algún motivo (p.ej. canvas "tainted"), no bloquea la captura —
+// se asume que el frame está bien, para no rechazar de más.
+function frameEsNegro_(canvas) {
+  try {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    const puntos = [[2,2],[w-2,2],[2,h-2],[w-2,h-2],[Math.floor(w/2),Math.floor(h/2)]];
+    return puntos.every(function([x,y]) {
+      const d = ctx.getImageData(x, y, 1, 1).data;
+      return d[0] < 8 && d[1] < 8 && d[2] < 8;
+    });
+  } catch(e) { return false; }
+}
+
+// FIX (2026-09-24): en algunos navegadores/celulares, el evento
+// "seeked" del <video> dispara ANTES de que el fotograma ya
+// decodificado esté realmente pintado en el elemento — capturarlo en
+// ese instante exacto daba un canvas completamente negro, aunque el
+// video en sí sí tuviera imagen normal (esto generaba el "print" en
+// negro que se veía en el reporte, con el video bien). Ahora se espera
+// un frame de pintado extra (requestAnimationFrame) antes de capturar,
+// y si aun así sale negro, se rechaza para que el reintento de abajo
+// pruebe con OTRO instante del video en vez de repetir el mismo punto.
+function capturarFrameDeVideo(file, tiempoSeekDeseado) {
   return new Promise((resolve, reject) => {
     const videoEl = document.createElement('video');
     videoEl.muted = true; videoEl.playsInline = true;
@@ -1913,19 +2009,26 @@ function capturarFrameDeVideo(file) {
     };
 
     videoEl.addEventListener('loadeddata', () => {
-      videoEl.currentTime = Math.min(0.5, (videoEl.duration || 1) / 2);
+      const mitad = (videoEl.duration || 1) / 2;
+      videoEl.currentTime = tiempoSeekDeseado != null
+        ? Math.min(tiempoSeekDeseado, videoEl.duration || tiempoSeekDeseado)
+        : Math.min(0.5, mitad);
     });
     videoEl.addEventListener('seeked', () => {
       if (terminado) return;
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = videoEl.videoWidth || 480;
-        canvas.height = videoEl.videoHeight || 854;
-        canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        limpiar();
-        resolve(dataUrl);
-      } catch (e) { limpiar(); reject(e); }
+      requestAnimationFrame(() => {
+        if (terminado) return;
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoEl.videoWidth || 480;
+          canvas.height = videoEl.videoHeight || 854;
+          canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          if (frameEsNegro_(canvas)) { limpiar(); reject(new Error('frame-negro')); return; }
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          limpiar();
+          resolve(dataUrl);
+        } catch (e) { limpiar(); reject(e); }
+      });
     });
     videoEl.addEventListener('error', () => { limpiar(); reject(new Error('No se pudo leer el video')); });
     // 15s en vez de 8s: bajo carga (varios videos en la misma sesión de
@@ -1939,13 +2042,16 @@ function capturarFrameDeVideo(file) {
 // Un reintento antes de rendirse — y ahora, si de verdad falla, se le
 // avisa al fotógrafo en el momento (antes se tragaba el error en
 // silencio: el video se subía bien pero sin miniatura, y nadie se
-// enteraba hasta exportar el reporte semanas después).
+// enteraba hasta exportar el reporte semanas después). El reintento
+// prueba en OTRO instante del video (1.5s en vez de 0.5s) — si el
+// primer punto cayó en un frame negro/vacío, este tiene más chance de
+// caer en un fotograma con imagen real.
 async function capturarFrameDeVideoConReintento(file) {
   try {
-    return await capturarFrameDeVideo(file);
+    return await capturarFrameDeVideo(file, 0.5);
   } catch (e) {
     try {
-      return await capturarFrameDeVideo(file);
+      return await capturarFrameDeVideo(file, 1.5);
     } catch (e2) {
       return null;
     }
@@ -2541,7 +2647,7 @@ async function showEjecutivaLista() {
           <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pdf',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PDF (${completados}/${total})</button>
         </div>`;
       return `
-        <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}">
+        <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" data-mes="${mesDeAsig_(a)}">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
@@ -2574,11 +2680,15 @@ async function showEjecutivaLista() {
       ? renderLista(completadas)
       : `<div class="empty-sub" style="padding:14px 0">Aún no tienes asignaciones completadas.</div>`;
 
+    poblarFiltroMes_('mes-filtro-ejec', mias);
+
     // Reaplicar el filtro que estaba activo antes de este repintado
     // (el polling silencioso repinta cada 20s y sin esto el filtro se
-    // perdía, causando el efecto de parpadeo entre vistas).
+    // perdía, causando el efecto de parpadeo entre vistas). También
+    // reaplica si hay un mes elegido, aunque el chip esté en "Todo".
     const chipActivo = document.querySelector('#agenda-chips-ejec .agenda-chip.active');
-    if (chipActivo && chipActivo.dataset.filtro !== 'todo') {
+    const mesActivo = document.getElementById('mes-filtro-ejec');
+    if (chipActivo && (chipActivo.dataset.filtro !== 'todo' || (mesActivo && mesActivo.value))) {
       filtrarAgenda('page-ejecutiva-lista', chipActivo.dataset.filtro, chipActivo);
     }
   }
@@ -3579,6 +3689,7 @@ function showEjecutivaForm() {
     if (formTitle) formTitle.textContent = 'EDITAR ASIGNACIÓN — ELEMENTOS FIJOS';
     btn.textContent = 'Guardar cambios';
     document.getElementById('form-cliente').value = a.cliente || '';
+    document.getElementById('form-cliente-fijos').value = a.cliente || '';
     document.getElementById('form-fecha-limite').value = a.fechaLimite || '';
     document.getElementById('form-observaciones').value = a.observaciones || '';
     abrirTipoSection('cliente');
@@ -3593,8 +3704,18 @@ function showEjecutivaForm() {
     if (formTitle) formTitle.textContent = 'ASIGNACIONES ELEMENTOS FIJOS';
     btn.textContent = 'Crear asignación';
     document.getElementById('form-cliente').value = '';
+    document.getElementById('form-cliente-fijos').value = '';
     document.getElementById('form-fecha-limite').value = '';
     document.getElementById('form-observaciones').value = '';
+    // FIX (2026-09-28): al crear una asignación NUEVA, esta sección
+    // (la que tiene el campo Cliente) se quedaba colapsada — nunca se
+    // abría sola, a diferencia de cuando se EDITA una ya existente
+    // (que sí la abre, unas líneas arriba). Si alguien iba directo a
+    // "Asignaciones fuera de bitácora" sin notar esta otra sección
+    // arriba (nombre parecido, fácil de confundir), nunca veía dónde
+    // poner el cliente — y al guardar salía el error de "Ingresa el
+    // nombre del cliente" sin ningún campo visible para arreglarlo.
+    abrirTipoSection('cliente');
   }
   loadClientesAutocomplete();
 }
@@ -3609,6 +3730,21 @@ async function loadClientesAutocomplete() {
     const dl = document.getElementById('clientes-datalist');
     dl.innerHTML = clientesCache.map(c => `<option value="${c}"></option>`).join('');
   } catch(e) { /* silencioso, no es crítico */ }
+}
+
+// FEATURE (2026-09-28): hay 2 campos de Cliente en pantalla (el de
+// "Asignaciones elementos fijos" arriba, y el de "Asignaciones fuera
+// de bitácora" — para que se vea justo donde se está armando la
+// asignación) pero UN SOLO dato real: "form-cliente" sigue siendo la
+// fuente de verdad que usa crearAsignacion(). Escribir en cualquiera
+// de los 2 actualiza el otro al toque, así nunca quedan
+// desincronizados sin importar cuál llene la persona.
+function syncClienteDesde(origenId) {
+  const valor = document.getElementById(origenId).value;
+  const otroId = origenId === 'form-cliente' ? 'form-cliente-fijos' : 'form-cliente';
+  const otro = document.getElementById(otroId);
+  if (otro) otro.value = valor;
+  onClienteInput();
 }
 
 let onClienteInputTimer = null;
@@ -4268,6 +4404,7 @@ if ('serviceWorker' in navigator) {
   function restaurarBorrador(draft) {
     restaurando = true;
     document.getElementById('form-cliente').value = draft.cliente || '';
+    document.getElementById('form-cliente-fijos').value = draft.cliente || '';
     document.getElementById('form-fecha-limite').value = draft.fechaLimite || '';
     document.getElementById('form-observaciones').value = draft.observaciones || '';
 
