@@ -492,7 +492,7 @@
         <input class="form-input" id="form-cliente" placeholder="Nombre del cliente" list="clientes-datalist" oninput="syncClienteDesde('form-cliente')"/>
         <datalist id="clientes-datalist"></datalist>
         <label class="form-label">Fecha límite</label>
-        <input class="form-input" id="form-fecha-limite" type="date"/>
+        <input class="form-input" id="form-fecha-limite" type="date" oninput="syncFechaDesde('form-fecha-limite')"/>
         <label class="form-label">Observaciones generales</label>
         <textarea class="form-textarea" id="form-observaciones" placeholder="Notas para el fotógraf@ (opcional)"></textarea>
       </div>
@@ -518,6 +518,10 @@
            sincronizados entre sí (ver syncClienteDesde en el script). -->
       <label class="form-label">Cliente *</label>
       <input class="form-input" id="form-cliente-fijos" placeholder="Nombre del cliente" list="clientes-datalist" oninput="syncClienteDesde('form-cliente-fijos')" style="margin-bottom:14px">
+      <!-- FEATURE (2026-09-28): mismo caso que Cliente — Fecha límite
+           también vivía solo arriba y se exigía igual al guardar. -->
+      <label class="form-label">Fecha límite</label>
+      <input class="form-input" id="form-fecha-limite-fijos" type="date" oninput="syncFechaDesde('form-fecha-limite-fijos')" style="margin-bottom:14px">
       <div id="elementos-form-list-fijos"></div>
       <button class="add-elem-btn" onclick="addElementoForm(null,false)">+ Agregar elemento fijo</button>
       </div>
@@ -3691,6 +3695,7 @@ function showEjecutivaForm() {
     document.getElementById('form-cliente').value = a.cliente || '';
     document.getElementById('form-cliente-fijos').value = a.cliente || '';
     document.getElementById('form-fecha-limite').value = a.fechaLimite || '';
+    document.getElementById('form-fecha-limite-fijos').value = a.fechaLimite || '';
     document.getElementById('form-observaciones').value = a.observaciones || '';
     abrirTipoSection('cliente');
     // Precargar los elementos existentes como filas manuales editables
@@ -3706,6 +3711,7 @@ function showEjecutivaForm() {
     document.getElementById('form-cliente').value = '';
     document.getElementById('form-cliente-fijos').value = '';
     document.getElementById('form-fecha-limite').value = '';
+    document.getElementById('form-fecha-limite-fijos').value = '';
     document.getElementById('form-observaciones').value = '';
     // FIX (2026-09-28): al crear una asignación NUEVA, esta sección
     // (la que tiene el campo Cliente) se quedaba colapsada — nunca se
@@ -3745,6 +3751,14 @@ function syncClienteDesde(origenId) {
   const otro = document.getElementById(otroId);
   if (otro) otro.value = valor;
   onClienteInput();
+}
+
+// Mismo mecanismo que syncClienteDesde, para el par de campos de Fecha límite.
+function syncFechaDesde(origenId) {
+  const valor = document.getElementById(origenId).value;
+  const otroId = origenId === 'form-fecha-limite' ? 'form-fecha-limite-fijos' : 'form-fecha-limite';
+  const otro = document.getElementById(otroId);
+  if (otro) otro.value = valor;
 }
 
 let onClienteInputTimer = null;
@@ -4033,6 +4047,7 @@ async function crearAsignacion() {
       showToast('📅 Horario de tomas (mar/jue, corte 7am): fecha reprogramada a ' + fechaAjustada, 'warn');
       fechaLimite = fechaAjustada;
       document.getElementById('form-fecha-limite').value = fechaLimite;
+      document.getElementById('form-fecha-limite-fijos').value = fechaLimite;
     }
   }
   const observaciones = document.getElementById('form-observaciones').value.trim();
@@ -4406,6 +4421,7 @@ if ('serviceWorker' in navigator) {
     document.getElementById('form-cliente').value = draft.cliente || '';
     document.getElementById('form-cliente-fijos').value = draft.cliente || '';
     document.getElementById('form-fecha-limite').value = draft.fechaLimite || '';
+    document.getElementById('form-fecha-limite-fijos').value = draft.fechaLimite || '';
     document.getElementById('form-observaciones').value = draft.observaciones || '';
 
     document.getElementById('elementos-form-list-fijos').innerHTML = '';
