@@ -3605,6 +3605,10 @@ async function anularAsignacion(asignacionId, origen) {
       // se perdió la respuesta en el camino — no es un error real.
       if (!/no encontrada/i.test(data.error || '')) throw new Error(data.error || 'Error desconocido');
     }
+    // Descarta las copias locales de las listas: si no, la lista vieja (con la
+    // asignación ya borrada) se vuelve a pintar al instante antes de que llegue
+    // la del servidor y parece que "no se borró".
+    try { Object.keys(localStorage).filter(k => k.indexOf('zr_cache_asig') === 0).forEach(k => localStorage.removeItem(k)); } catch(e) {}
     mostrarZazaAnulada();
     if (origen === 'fotografo-detalle') {
       // Se borró desde el detalle de elementos ("Subir fotos/videos yo
