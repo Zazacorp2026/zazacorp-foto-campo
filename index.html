@@ -548,9 +548,14 @@
         <input type="file" id="inp-frontal" accept="image/*" style="display:none" onchange="handleFile(event,'frontal')"/>
       </div>
       <div class="capture-slot" id="capture-slot-panoramica">
-        <div class="slot-label">🌅 Foto Panorámica <span style="color:var(--red)">*</span></div>
+        <div class="slot-label">🌅 Foto Panorámica A <span style="color:var(--red)">*</span></div>
         <div class="slot-zone" id="slot-panoramica" onclick="triggerCapture('panoramica')"><div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div></div>
         <input type="file" id="inp-panoramica" accept="image/*" style="display:none" onchange="handleFile(event,'panoramica')"/>
+      </div>
+      <div class="capture-slot" id="capture-slot-panoramicaBB">
+        <div class="slot-label">🌄 Foto Panorámica B <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional · otro lado)</span></div>
+        <div class="slot-zone" id="slot-panoramicaB" onclick="triggerCapture('panoramicaB')"><div class="slot-icon">📷</div><div class="slot-text">Toca para tomar foto</div></div>
+        <input type="file" id="inp-panoramicaB" accept="image/*" style="display:none" onchange="handleFile(event,'panoramicaB')"/>
       </div>
       <div class="capture-slot">
         <div class="slot-label" id="capture-slot-video-label">🎬 Video <span style="color:var(--muted);font-weight:400;text-transform:none">(opcional)</span></div>
@@ -779,8 +784,8 @@ let currentUser = null;
 let asignaciones = [];
 let currentAsig = null;
 let captureTarget = null;
-let captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null,
-  fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '',
+let captureData = { frontal: null, panoramica: null, panoramicaB: null, video: null, videoPreview: null, videoFile: null,
+  fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '', fotoPanoramicaBUrlSubida: '',
   videoUrlSubido: '', videoUrlSubido2: '', videoUrlSubido3: '', videoUrlSubido4: '' };
 let offlineQueue = JSON.parse(localStorage.getItem('rf_queue') || '[]');
 let elementosFormCount = 0;
@@ -819,7 +824,7 @@ function _rfBuscarSubidaCache(elementoId, slot, nombre, tam) {
 function _rfLimpiarCacheSubidas(elementoId) {
   try {
     const cache = _rfGetCacheSubidas();
-    ['video', 'video2', 'video3', 'video4', 'frontal', 'panoramica'].forEach(slot => { delete cache[_rfClaveSubida(elementoId, slot)]; });
+    ['video', 'video2', 'video3', 'video4', 'frontal', 'panoramica', 'panoramicaB'].forEach(slot => { delete cache[_rfClaveSubida(elementoId, slot)]; });
     localStorage.setItem('rf_subidas_cache', JSON.stringify(cache));
   } catch(e) {}
 }
@@ -1853,10 +1858,10 @@ function openCapture(el) {
     tipoElemento: el.tipoElemento || '', ubicacion: el.ubicacion || '', codigoRef: el.codigoRef || '',
     turno: el.turno || 'AMBAS'
   };
-  captureData = { frontal: null, panoramica: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null, video3: null, videoPreview3: null, videoFile3: null, video4: null, videoPreview4: null, videoFile4: null,
-    fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '',
+  captureData = { frontal: null, panoramica: null, panoramicaB: null, video: null, videoPreview: null, videoFile: null, video2: null, videoPreview2: null, videoFile2: null, video3: null, videoPreview3: null, videoFile3: null, video4: null, videoPreview4: null, videoFile4: null,
+    fotoFrontalUrlSubida: '', fotoPanoramicaUrlSubida: '', fotoPanoramicaBUrlSubida: '',
     videoUrlSubido: '', videoUrlSubido2: '', videoUrlSubido3: '', videoUrlSubido4: '' };
-  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('video'); resetSlot('video2'); resetSlot('video3'); resetSlot('video4');
+  resetSlot('frontal'); resetSlot('panoramica'); resetSlot('panoramicaB'); resetSlot('video'); resetSlot('video2'); resetSlot('video3'); resetSlot('video4');
   toggleVideo2(false); toggleVideo3(false); toggleVideo4(false);
   document.getElementById('obs-input').value = '';
   document.getElementById('capture-title').innerHTML =
@@ -1869,6 +1874,7 @@ function openCapture(el) {
   const esLED = esTipoLED(el.tipoElemento);
   document.getElementById('capture-slot-frontal').style.display = esLED ? 'none' : 'block';
   document.getElementById('capture-slot-panoramica').style.display = esLED ? 'none' : 'block';
+  document.getElementById('capture-slot-panoramicaB').style.display = esLED ? 'none' : 'block';
   document.getElementById('btn-add-video2').style.display = esLED ? 'block' : 'none';
   document.getElementById('btn-add-video3').style.display = 'none';
   document.getElementById('btn-add-video4').style.display = 'none';
@@ -1922,6 +1928,7 @@ async function handleFile(event, tipo) {
     const urlCacheadaFoto = captureTarget ? _rfBuscarSubidaCache(captureTarget.elementoId, tipo, tipo, b64.length) : '';
     if (tipo === 'frontal') captureData.fotoFrontalUrlSubida = urlCacheadaFoto;
     if (tipo === 'panoramica') captureData.fotoPanoramicaUrlSubida = urlCacheadaFoto;
+    if (tipo === 'panoramicaB') captureData.fotoPanoramicaBUrlSubida = urlCacheadaFoto;
     const zone = document.getElementById('slot-' + tipo);
     zone.innerHTML = `<img src="${b64}"><div class="slot-overlay"><button class="slot-change-btn" onclick="triggerCapture('${tipo}')">Cambiar</button></div>`;
     zone.classList.add('filled');
@@ -2087,7 +2094,7 @@ function updateSubmitBtn() {
   const video4Requerido = document.getElementById('capture-slot-video4').style.display !== 'none';
   const ready = esLED
     ? !!captureData.video && (!video2Requerido || !!captureData.video2) && (!video3Requerido || !!captureData.video3) && (!video4Requerido || !!captureData.video4)
-    : !!(captureData.frontal || captureData.panoramica || captureData.video);
+    : !!(captureData.frontal || captureData.panoramica || captureData.panoramicaB || captureData.video);
   btn.disabled = !ready;
   btn.textContent = ready ? 'Subir toma ↑' : (esLED ? (video4Requerido && !captureData.video4 ? 'Graba la 4ta versión de video' : video3Requerido && !captureData.video3 ? 'Graba la 3ra versión de video' : (video2Requerido && !captureData.video2 ? 'Graba la 2da versión de video' : 'Graba el video vertical')) : 'Toma al menos 1 foto o video');
 }
@@ -2330,7 +2337,7 @@ async function subirFotoRapida(dataUrl, cliente, fecha, nombreBase) {
 }
 
 async function submitToma() {
-  if (!captureData.frontal && !captureData.panoramica && !captureData.video) return;
+  if (!captureData.frontal && !captureData.panoramica && !captureData.panoramicaB && !captureData.video) return;
   const btn = document.getElementById('submit-toma');
   btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Subiendo...';
   if (currentAsig) {
@@ -2403,8 +2410,13 @@ async function submitToma() {
     captureData.fotoPanoramicaUrlSubida = await subirFotoRapida(captureData.panoramica, captureTarget.cliente, captureTarget.fecha, 'panoramica') || '';
     _rfGuardarSubidaCache(captureTarget.elementoId, 'panoramica', 'panoramica', captureData.panoramica.length, captureData.fotoPanoramicaUrlSubida);
   }
+  if (captureData.panoramicaB && !captureData.fotoPanoramicaBUrlSubida) {
+    captureData.fotoPanoramicaBUrlSubida = await subirFotoRapida(captureData.panoramicaB, captureTarget.cliente, captureTarget.fecha, 'panoramicaB') || '';
+    _rfGuardarSubidaCache(captureTarget.elementoId, 'panoramicaB', 'panoramicaB', captureData.panoramicaB.length, captureData.fotoPanoramicaBUrlSubida);
+  }
   const fotoFrontalUrl = captureData.fotoFrontalUrlSubida || null;
   const fotoPanoramicaUrl = captureData.fotoPanoramicaUrlSubida || null;
+  const fotoPanoramicaBUrl = captureData.fotoPanoramicaBUrlSubida || null;
 
   const payload = {
     action: 'rfGuardarToma', elementoId: captureTarget.elementoId, asignacionId: captureTarget.asignacionId,
@@ -2414,6 +2426,8 @@ async function submitToma() {
     fotoPanoramicaBase64: fotoPanoramicaUrl ? null : captureData.panoramica,
     fotoFrontalUrlPrecargada: fotoFrontalUrl || '',
     fotoPanoramicaUrlPrecargada: fotoPanoramicaUrl || '',
+    fotoPanoramicaBBase64: fotoPanoramicaBUrl ? null : captureData.panoramicaB,
+    fotoPanoramicaBUrlPrecargada: fotoPanoramicaBUrl || '',
     videoUrlPrecargado: captureData.videoUrlSubido || '', videoPreviewBase64: captureData.videoPreview || '',
     videoUrlPrecargado2: captureData.videoUrlSubido2 || '', videoPreviewBase64_2: captureData.videoPreview2 || '',
     videoUrlPrecargado3: captureData.videoUrlSubido3 || '', videoPreviewBase64_3: captureData.videoPreview3 || '',
@@ -2532,7 +2546,7 @@ function showSubidasPendientesBanner() {
   const elementoIds = Array.from(new Set(
     Object.keys(cache)
       .filter(k => cache[k] && (ahora - cache[k].ts) <= RF_VIGENCIA_CACHE_SUBIDA_MS)
-      .map(k => k.replace(/_(video4|video3|video2|video|frontal|panoramica)$/, ''))
+      .map(k => k.replace(/_(video4|video3|video2|video|frontal|panoramicaB|panoramica)$/, ''))
   ));
   if (!elementoIds.length) { wrap.style.display = 'none'; return; }
   texto.textContent = elementoIds.length === 1
@@ -3015,7 +3029,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     // Descargar TODAS las fotos necesarias en un solo lote desde el
     // backend (evita problemas de CORS y es más rápido que una por una)
     const todasUrls = [];
-    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.videoPreviewUrl, t.videoPreviewUrl2, t.videoPreviewUrl3, t.videoPreviewUrl4); });
+    tomas.forEach(t => { todasUrls.push(t.fotoFrontalUrl, t.fotoPanoramicaUrl, t.fotoPanoramicaBUrl, t.videoPreviewUrl, t.videoPreviewUrl2, t.videoPreviewUrl3, t.videoPreviewUrl4); });
     const totalFotos = new Set(todasUrls.filter(Boolean)).size;
     setExportProgress(12, 'Descargando ' + totalFotos + ' fotos de Drive...');
     let pctFotos = 12;
@@ -3082,6 +3096,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
 
     const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
     const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+    const panoBB64 = fotosMap[t.fotoPanoramicaBUrl] || null;
     const turno = t.turno || 'AMBAS';
     const tieneVideo = !!t.videoUrl;
 
@@ -3091,6 +3106,10 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
     let mostrarTipoArribaCodigo = false;
+    // Distribución según las fotos tomadas: VA = vertical + panorámica (clásica) · AB = panorámica A + B
+    // (solo esas 2) · VAB = vertical + A + B (las 3 en una fila).
+    const modoPano = t.fotoPanoramicaBUrl ? (t.fotoFrontalUrl ? 'VAB' : 'AB') : 'VA';
+    let belowYCustom = null;
 
     if (esLED && t.videoUrl2) {
       // ── LED con 2 a 4 versiones de video: N columnas IGUALES (mismo
@@ -3165,6 +3184,42 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
         { text: t.videoUrl ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:11, bold:true, color: t.videoUrl ? '2563EB' : '9CA3AF', hyperlink: t.videoUrl ? { url: videoViewUrl(t.videoUrl) } : undefined } }
       ], { x: cardX + 0.3, y: vy, w: panelW - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
 
+    } else if (modoPano !== 'VA') {
+    // ── Panorámica A + B (con o sin vertical): fila de tarjetas con SOLO las fotos que hay + LINK VIDEO ──
+    {
+      const conVert = modoPano === 'VAB';
+      const paneles = [];
+      if (conVert) paneles.push({ label: 'FOTO VERTICAL', b64: frontalB64, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN, w: 2.7 });
+      paneles.push({ label: 'PANORÁMICA A', b64: panoB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
+      paneles.push({ label: 'PANORÁMICA B', b64: panoBB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
+      const topY = conVert ? 0.45 : 0.55, chP = conVert ? 4.0 : 3.75;
+      const nPano = paneles.filter(pp => !pp.w).length;
+      const libre = cardW - gap * (paneles.length - 1) - (conVert ? 2.7 : 0);
+      paneles.forEach(pp => { if (!pp.w) pp.w = libre / nPano; });
+      let px = cardX;
+      for (const pp of paneles) {
+        slide.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: px, y: topY, w: pp.w, h: chP, fill: { color: ORANGE }, line: { color: ORANGE }, rectRadius: 0.12 });
+        slide.addShape(pres.shapes.RECTANGLE, { x: px + pp.w/2 - 1, y: topY + 0.18, w: 2, h: 0.32, fill:{color:WHITE}, line:{color:WHITE} });
+        slide.addText(pp.label, { x: px + pp.w/2 - 1, y: topY + 0.18, w: 2, h: 0.32, fontSize:10, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1 });
+        const fx = px + 0.2, fy = topY + 0.6, fwid = pp.w - 0.4, fhei = chP - 0.8;
+        if (pp.b64) {
+          const dimP = await dimensionesImagen(pp.b64);
+          const rP = marcoFotoFija(fx, fy, fwid, fhei, dimP.w, dimP.h, pp.fw, pp.fh);
+          slide.addImage({ data: pp.b64, x: rP.x, y: rP.y, w: rP.w, h: rP.h });
+        } else {
+          slide.addShape(pres.shapes.RECTANGLE, { x:fx,y:fy,w:fwid,h:fhei, fill:{color:'D96A10'},line:{color:'D96A10'} });
+          slide.addText('Foto no disponible', { x:fx,y:fy+fhei/2-0.25,w:fwid,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
+        }
+        px += pp.w + gap;
+      }
+      const lyP = topY + chP + 0.2;
+      slide.addShape(pres.shapes.RECTANGLE, { x: cardX, y: lyP, w: cardW, h: 0.42, fill:{color:WHITE}, line:{color:'E5E7EB', width:1} });
+      slide.addText([
+        { text: 'LINK VIDEO', options: { fontSize:8, bold:true, color:NAVY, breakLine:true } },
+        { text: tieneVideo ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:9, bold:true, color: tieneVideo ? '2563EB' : '9CA3AF', hyperlink: tieneVideo ? { url: videoViewUrl(t.videoUrl) } : undefined } }
+      ], { x: cardX, y: lyP, w: cardW, h: 0.42, align:'center', valign:'middle', fontFace:'Arial' });
+      belowYCustom = lyP + 0.42 + 0.4;
+    }
     } else {
     // Tarjetas naranjas
     slide.addShape(pres.shapes.ROUNDED_RECTANGLE, {
@@ -3197,20 +3252,32 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     slide.addShape(pres.shapes.RECTANGLE, { x: frameLx - 1.675, y: frameLy + frameLh/2 - 0.15, w: 2.0, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
     slide.addText('FOTO VERTICAL', { x: frameLx - 1.675, y: frameLy + frameLh/2 - 0.15, w: 2.0, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
 
-    // ── Foto PANORÁMICA: tamaño fijo 16.33 x 7.35cm, centrada, sin recortar ni deformar ──
+    // ── Foto(s) PANORÁMICA: tamaño fijo 16.33 x 7.35cm, centrada, sin recortar ni deformar.
+    // Si la toma trae también Panorámica B (otro lado), se apilan A arriba y B abajo,
+    // cada una achicada para caber en la mitad del marco. ──
     const frameRx = rx + 1.2, frameRy = cardY + 0.15;
     const frameRw = colRightW - 1.2 - 0.15, frameRh = leftH - 0.3;
-    if (panoB64) {
-      const dimR = await dimensionesImagen(panoB64);
-      const rR = marcoFotoFija(frameRx, frameRy, frameRw, frameRh, dimR.w, dimR.h, FOTO_PANO_W_IN, FOTO_PANO_H_IN);
-      slide.addImage({ data: panoB64, x: rR.x, y: rR.y, w: rR.w, h: rR.h });
-    } else {
-      slide.addShape(pres.shapes.RECTANGLE, { x:frameRx,y:frameRy,w:frameRw,h:frameRh, fill:{color:'D96A10'},line:{color:'D96A10'} });
-      slide.addText('Foto no disponible', { x:frameRx,y:frameRy+frameRh/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
+    const hayPanoB = !!(t.fotoPanoramicaBUrl);
+    const panosPPT = hayPanoB
+      ? [{ b64: panoB64, label: 'PANORÁMICA A' }, { b64: panoBB64, label: 'PANORÁMICA B' }]
+      : [{ b64: panoB64, label: 'FOTO PANORÁMICA' }];
+    const gapPano = 0.12;
+    const hMarco = hayPanoB ? (frameRh - gapPano) / 2 : frameRh;
+    for (let pi = 0; pi < panosPPT.length; pi++) {
+      const fy = frameRy + pi * (hMarco + gapPano);
+      const lblW = hayPanoB ? 1.7 : 2.1;
+      if (panosPPT[pi].b64) {
+        const dimR = await dimensionesImagen(panosPPT[pi].b64);
+        const rR = marcoFotoFija(frameRx, fy, frameRw, hMarco, dimR.w, dimR.h, FOTO_PANO_W_IN, FOTO_PANO_H_IN);
+        slide.addImage({ data: panosPPT[pi].b64, x: rR.x, y: rR.y, w: rR.w, h: rR.h });
+      } else {
+        slide.addShape(pres.shapes.RECTANGLE, { x:frameRx,y:fy,w:frameRw,h:hMarco, fill:{color:'D96A10'},line:{color:'D96A10'} });
+        slide.addText('Foto no disponible', { x:frameRx,y:fy+hMarco/2-0.25,w:frameRw,h:0.5, fontSize:13,color:WHITE,align:'center',fontFace:'Arial' });
+      }
+      const lx = frameRx - 0.675 - lblW / 2;
+      slide.addShape(pres.shapes.RECTANGLE, { x: lx, y: fy + hMarco/2 - 0.15, w: lblW, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
+      slide.addText(panosPPT[pi].label, { x: lx, y: fy + hMarco/2 - 0.15, w: lblW, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
     }
-    slide.addShape(pres.shapes.RECTANGLE, { x: frameRx - 1.725, y: frameRy + frameRh/2 - 0.15, w: 2.1, h: 0.3, fill:{color:WHITE}, line:{color:WHITE}, rotate: 270 });
-    slide.addText('FOTO PANORÁMICA', { x: frameRx - 1.725, y: frameRy + frameRh/2 - 0.15, w: 2.1, h: 0.3, fontSize:9, bold:true, color:NAVY, align:'center', valign:'middle', fontFace:'Arial', charSpacing:1, rotate: 270 });
-
     // ── Caja "LINK VIDEO" dentro de la tarjeta derecha (siempre visible: link o N/A) ──
     {
       const vy = frameRy + frameRh + 0.12;
@@ -3223,7 +3290,7 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
     }
 
     // ── Zona blanca debajo de la tarjeta ──
-    const belowY = cardY + Math.max(leftH, rightH) - 0.05;
+    const belowY = (belowYCustom !== null) ? belowYCustom : cardY + Math.max(leftH, rightH) - 0.05;
 
     if (turno === 'DIA' || turno === 'NOCHE') {
       const esNoche = turno === 'NOCHE';
@@ -3314,6 +3381,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
 
     const frontalB64 = fotosMap[t.fotoFrontalUrl] || null;
     const panoB64 = fotosMap[t.fotoPanoramicaUrl] || null;
+    const panoBB64 = fotosMap[t.fotoPanoramicaBUrl] || null;
     const turno = t.turno || 'AMBAS';
     const tieneVideo = !!t.videoUrl;
 
@@ -3328,6 +3396,10 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     const rx = cardX + colLeftW + gap;
     const esLED = esTipoLED(t.tipoElemento);
     let mostrarTipoArribaCodigo = false;
+    // Distribución según las fotos tomadas: VA = vertical + panorámica (clásica) · AB = panorámica A + B
+    // (solo esas 2) · VAB = vertical + A + B (las 3 en una fila).
+    const modoPano = t.fotoPanoramicaBUrl ? (t.fotoFrontalUrl ? 'VAB' : 'AB') : 'VA';
+    let belowYCustom = null;
 
     if (esLED && t.videoUrl2) {
       // ── LED con 2 a 4 versiones de video: N columnas IGUALES ──
@@ -3451,6 +3523,58 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
         doc.text('N/A', cardX + panelW/2, vy + 0.32, { align: 'center' });
       }
 
+    } else if (modoPano !== 'VA') {
+    // ── Panorámica A + B (con o sin vertical): fila de tarjetas con SOLO las fotos que hay + LINK VIDEO ──
+    {
+      const conVert = modoPano === 'VAB';
+      const paneles = [];
+      if (conVert) paneles.push({ label: 'FOTO VERTICAL', b64: frontalB64, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN, w: 2.7 });
+      paneles.push({ label: 'PANORÁMICA A', b64: panoB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
+      paneles.push({ label: 'PANORÁMICA B', b64: panoBB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
+      const topY = conVert ? 0.45 : 0.55, chP = conVert ? 4.0 : 3.75;
+      const nPano = paneles.filter(pp => !pp.w).length;
+      const libre = cardW - gap * (paneles.length - 1) - (conVert ? 2.7 : 0);
+      paneles.forEach(pp => { if (!pp.w) pp.w = libre / nPano; });
+      let px = cardX;
+      for (const pp of paneles) {
+        doc.setFillColor(...orangeRGB);
+        doc.roundedRect(px, topY, pp.w, chP, 0.12, 0.12, 'F');
+        doc.setFillColor(255,255,255);
+        doc.rect(px + pp.w/2 - 1, topY + 0.18, 2, 0.32, 'F');
+        doc.setTextColor(26,43,74);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+        doc.text(pp.label, px + pp.w/2, topY + 0.395, { align: 'center', baseline: 'middle' });
+        const fx = px + 0.2, fy = topY + 0.6, fwid = pp.w - 0.4, fhei = chP - 0.8;
+        try {
+          if (pp.b64) {
+            const dimP = await dimensionesImagen(pp.b64);
+            const rP = marcoFotoFija(fx, fy, fwid, fhei, dimP.w, dimP.h, pp.fw, pp.fh);
+            doc.addImage(pp.b64, 'JPEG', rP.x, rP.y, rP.w, rP.h);
+          } else {
+            doc.setFillColor(217,106,16);
+            doc.rect(fx, fy, fwid, fhei, 'F');
+            doc.setTextColor(255,255,255); doc.setFontSize(11);
+            doc.text('Foto no disponible', fx + fwid/2, fy + fhei/2, { align: 'center' });
+          }
+        } catch(e) {}
+        px += pp.w + gap;
+      }
+      const lyP = topY + chP + 0.2;
+      doc.setFillColor(255,255,255); doc.setDrawColor(229,231,235); doc.setLineWidth(0.01);
+      doc.rect(cardX, lyP, cardW, 0.42, 'FD');
+      doc.setTextColor(26,43,74);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8);
+      doc.text('LINK VIDEO', cardX + cardW/2, lyP + 0.16, { align: 'center' });
+      doc.setFontSize(9);
+      if (tieneVideo) {
+        doc.setTextColor(37,99,235);
+        doc.textWithLink('Ver / descargar el video aquí', cardX + cardW/2, lyP + 0.34, { url: videoViewUrl(t.videoUrl), align: 'center' });
+      } else {
+        doc.setTextColor(156,163,175);
+        doc.text('N/A', cardX + cardW/2, lyP + 0.34, { align: 'center' });
+      }
+      belowYCustom = lyP + 0.42 + 0.4 + 0.28;
+    }
     } else {
     // Tarjetas naranjas (jsPDF sí soporta roundedRect)
     doc.setFillColor(...orangeRGB);
@@ -3485,24 +3609,35 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
     doc.text('FOTO VERTICAL', frameLx - 0.14, frameLy + frameLh/2 + 0.7, { angle: 90 });
 
-    // Foto panorámica — tamaño fijo 16.33 x 7.35cm, centrada
+    // Foto(s) panorámica — tamaño fijo 16.33 x 7.35cm, centrada. Con Panorámica B (otro lado)
+    // se apilan A arriba y B abajo, cada una achicada para caber en la mitad del marco.
     const frameRx = rx + 1.2, frameRy = cardY + 0.15;
     const frameRw = colRightW - 1.2 - 0.15, frameRh = leftH - 0.3;
-    try {
-      if (panoB64) {
-        const dimP = await dimensionesImagen(panoB64);
-        const rP = marcoFotoFija(frameRx, frameRy, frameRw, frameRh, dimP.w, dimP.h, FOTO_PANO_W_IN, FOTO_PANO_H_IN);
-        doc.addImage(panoB64, 'JPEG', rP.x, rP.y, rP.w, rP.h);
-      } else {
-        doc.setFillColor(217,106,16);
-        doc.rect(frameRx, frameRy, frameRw, frameRh, 'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(11);
-        doc.text('Foto no disponible', frameRx + frameRw/2, frameRy + frameRh/2, { align: 'center' });
-      }
-    } catch(e) {}
-    doc.setTextColor(26,43,74);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-    doc.text('FOTO PANORÁMICA', frameRx - 0.14, frameRy + frameRh/2 + 0.9, { angle: 90 });
+    const hayPanoB = !!(t.fotoPanoramicaBUrl);
+    const panosPDF = hayPanoB
+      ? [{ b64: panoB64, label: 'PANORÁMICA A' }, { b64: panoBB64, label: 'PANORÁMICA B' }]
+      : [{ b64: panoB64, label: 'FOTO PANORÁMICA' }];
+    const gapPano = 0.12;
+    const hMarco = hayPanoB ? (frameRh - gapPano) / 2 : frameRh;
+    for (let pi = 0; pi < panosPDF.length; pi++) {
+      const fy = frameRy + pi * (hMarco + gapPano);
+      try {
+        if (panosPDF[pi].b64) {
+          const dimP = await dimensionesImagen(panosPDF[pi].b64);
+          const rP = marcoFotoFija(frameRx, fy, frameRw, hMarco, dimP.w, dimP.h, FOTO_PANO_W_IN, FOTO_PANO_H_IN);
+          doc.addImage(panosPDF[pi].b64, 'JPEG', rP.x, rP.y, rP.w, rP.h);
+        } else {
+          doc.setFillColor(217,106,16);
+          doc.rect(frameRx, fy, frameRw, hMarco, 'F');
+          doc.setTextColor(255,255,255); doc.setFontSize(11);
+          doc.text('Foto no disponible', frameRx + frameRw/2, fy + hMarco/2, { align: 'center' });
+        }
+      } catch(e) {}
+      doc.setTextColor(26,43,74);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+      const lblTw = doc.getTextWidth(panosPDF[pi].label);
+      doc.text(panosPDF[pi].label, frameRx - 0.14, fy + hMarco/2 + lblTw/2, { angle: 90 });
+    }
 
     // Caja "LINK VIDEO" compacta: rótulo pequeño + link/N/A en una sola caja de 0.4in
     {
@@ -3524,7 +3659,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     }
     }
 
-    const belowY = cardY + Math.max(leftH, rightH) + 0.35;
+    const belowY = (belowYCustom !== null) ? belowYCustom : cardY + Math.max(leftH, rightH) + 0.35;
 
     // Tag turno DÍA/NOCHE
     if (turno === 'DIA' || turno === 'NOCHE') {
@@ -3560,7 +3695,7 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
     }
 
     // Línea separadora
-    doc.setDrawColor(229,231,235);
+    doc.setDrawColor(229,231,235); doc.setLineWidth(0.01);
     doc.line(cardX, codeY + 0.15, cardX + cardW, codeY + 0.15);
 
     // Footer: Cliente / Fecha / Ubicación
