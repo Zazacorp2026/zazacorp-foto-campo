@@ -926,16 +926,21 @@ async function doLogin() {
     // su PIN.
     let data;
     let ultimoError;
-    for (let intento = 0; intento < 2; intento++) {
+    // Hasta 4 intentos de 10 s cada uno (antes 2 sin límite de tiempo: si Google
+    // dejaba una petición colgada, el login se quedaba "Verificando..." minutos).
+    // Validar el PIN no escribe nada, así que repetirlo es seguro.
+    for (let intento = 0; intento < 4; intento++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 10000);
       try {
-        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'rfLogin', role: currentRole, userId, pass }) });
+        const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'rfLogin', role: currentRole, userId, pass }), signal: ctrl.signal });
         data = await res.json();
         ultimoError = null;
         break;
       } catch (e) {
         ultimoError = e;
-        if (intento === 0) await new Promise(r => setTimeout(r, 1000));
-      }
+        if (intento < 3) await new Promise(r => setTimeout(r, 600));
+      } finally { clearTimeout(timer); }
     }
     if (ultimoError) throw ultimoError;
     if (!data.ok) {
