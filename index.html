@@ -739,7 +739,7 @@ const FOTOGRAFOS = {
 
 const EJECUTIVAS = [
   'JORGE','LORENA','RICARDO','SASKYA','SHAYRA',
-  'VERONICA TERAN','VERONICA TRIVINO','YESENIA','ZULIA','PAMELA LARA'
+  'VERONICA TERAN','VERONICA TRIVINO','YESENIA','ZULIA','PAMELA LARA','SASKYA YEPEZ'
 ];
 
 const TIPOS_ELEMENTO = [
@@ -858,7 +858,7 @@ function goToPin(role) {
     // selector no dejaba saber cuál era cuál. Para esas dos (y solo
     // esas dos) se muestra el nombre completo.
     EJECUTIVAS.forEach(nombre => {
-      const esVeronicaAmbigua = nombre === 'VERONICA TERAN' || nombre === 'VERONICA TRIVINO';
+      const esVeronicaAmbigua = nombre === 'VERONICA TERAN' || nombre === 'VERONICA TRIVINO' || nombre === 'SASKYA' || nombre === 'SASKYA YEPEZ'; // nombres que se repiten: se muestra completo
       sel.add(new Option(esVeronicaAmbigua ? nombre : nombre.split(' ')[0], nombre));
     });
     btn.className = 'pin-btn ejecutiva';
