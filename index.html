@@ -762,16 +762,9 @@ function normalizarZR(v) {
     .replace(/\s+/g, ' ');
 }
 
-function esCiudadCostaSelector(ciudad) {
-  const c = normalizarZR(ciudad);
-  return ['GUAYAQUIL', 'LA AURORA', 'VIA A LA COSTA', 'VIA COSTA'].includes(c);
-}
-
-function fotografoAutomaticoPorCiudad(ciudad, manual) {
-  const c = normalizarZR(ciudad);
-  if (c === 'QUITO') return 'Saskhya';
-  if (esCiudadCostaSelector(ciudad)) return 'GYE';
-  return 'Yessenia';
+// (2026-10-20) REGLA ÚNICA: todo se asigna a Cristopher, EXCEPTO Quito que sigue siendo de Saskhya.
+function fotografoAutomaticoPorCiudad(ciudad, manual, tipo) {
+  return normalizarZR(ciudad).indexOf('QUITO') >= 0 ? 'Saskhya' : 'Cristopher';
 }
 
 function badgeFotografoZR(nombre) {
@@ -3971,7 +3964,7 @@ async function buscarElementosCliente() {
             <div style="font-weight:700;color:#fff;font-size:14px">${el.tipo || 'Elemento'} · <span style="color:var(--orange)">${el.codigo}</span></div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px">${el.direccion || el.lugar || '—'}</div>
             ${el.ciudad || el.lugar ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">📍 ${el.ciudad || el.lugar}</div>` : ''}
-            ${badgeFotografoZR(fotografoAutomaticoPorCiudad(el.ciudad || el.lugar, ""))}
+            ${badgeFotografoZR(fotografoAutomaticoPorCiudad(el.ciudad || el.lugar, "", el.tipo))}
             ${el.termino ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Vence: ${el.termino}</div>` : ''}
           </div>
         </div>
@@ -3997,14 +3990,12 @@ function setTurnoContratado(idx, turno) {
 }
 
 
-function renderFotografoPicker(prefix, ciudadInicial, valorInicial) {
+function renderFotografoPicker(prefix, ciudadInicial, valorInicial, tipo) {
   const ciudad = ciudadInicial || '';
-  const auto = fotografoAutomaticoPorCiudad(ciudad, valorInicial);
-  const mensaje = esCiudadCostaSelector(ciudad)
-    ? 'Guayaquil / La Aurora / Vía a la Costa se asignan automáticamente al grupo GYE.'
-    : (normalizarZR(ciudad) === 'QUITO'
-        ? 'Quito se asigna automáticamente a Saskhya.'
-        : 'Esta ciudad se asigna automáticamente a Yessenia.');
+  const auto = fotografoAutomaticoPorCiudad(ciudad, valorInicial, tipo);
+  const mensaje = normalizarZR(ciudad).indexOf('QUITO') >= 0
+    ? 'Quito se asigna automáticamente a Saskhya.'
+    : 'Todas las demás ciudades se asignan automáticamente a Cristopher.';
 
   return `
     <label class="form-label">Fotógrafo asignado</label>
@@ -4016,7 +4007,8 @@ function actualizarFotografoManual(idx) {
   const ciudadInput = document.getElementById('elem-ciudad-' + idx);
   const cont = document.getElementById('elem-fotografo-wrap-' + idx);
   if (!ciudadInput || !cont) return;
-  cont.innerHTML = renderFotografoPicker('elem-' + idx, ciudadInput.value, '');
+  const tipoSel = document.getElementById('elem-tipo-' + idx);
+  cont.innerHTML = renderFotografoPicker('elem-' + idx, ciudadInput.value, '', tipoSel ? tipoSel.value : '');
 }
 
 function addElementoForm(precarga, modoLed) {
@@ -4058,7 +4050,7 @@ function addElementoForm(precarga, modoLed) {
       <label class="form-label">Ciudad</label>
       <input class="form-input" id="elem-ciudad-${idx}" placeholder="Ej: Guayaquil, Quito, Cuenca" value="${(precarga.ciudad||'').replace(/"/g,'&quot;')}" oninput="actualizarFotografoManual(${idx})"/>
       <div id="elem-fotografo-wrap-${idx}">
-        ${renderFotografoPicker('elem-' + idx, precarga.ciudad || '', precarga.fotografoAsignado || '')}
+        ${renderFotografoPicker('elem-' + idx, precarga.ciudad || '', precarga.fotografoAsignado || '', precarga.tipoElemento || '')}
       </div>
       <label class="form-label">Foto requerida</label>
       <div class="turno-group" id="elem-turno-${idx}" data-value="${turnoActual}">
@@ -4135,7 +4127,7 @@ async function cargarInventarioLEDs() {
 }
 
 function fotografoAutomaticoLED(ciudad) {
-  return normalizarZR(ciudad).indexOf('QUITO') >= 0 ? 'Saskhya' : 'GYE';
+  return normalizarZR(ciudad).indexOf('QUITO') >= 0 ? 'Saskhya' : 'Cristopher';
 }
 
 function poblarSelectLED(idx, codigoPrecarga) {
@@ -4171,6 +4163,7 @@ function onTipoElementoManualChange(idx) {
   document.getElementById('elem-led-fields-' + idx).style.display = esLED ? 'block' : 'none';
   document.getElementById('elem-normal-fields-' + idx).style.display = esLED ? 'none' : 'block';
   if (esLED) cargarInventarioLEDs().then(() => poblarSelectLED(idx));
+  else if (document.getElementById('elem-ciudad-' + idx)) actualizarFotografoManual(idx); // el tipo también decide el fotógrafo (paraderos de Samborondón)
 }
 
 function setTurnoElemento(idx, turno) {
@@ -4244,7 +4237,7 @@ async function crearAsignacion() {
 
     const ciudad = el.ciudad || el.lugar || '';
     const fotografoSel = document.getElementById('contratado-fotografo-' + idx);
-    const fotografoAsignado = fotografoAutomaticoPorCiudad(ciudad, fotografoSel ? fotografoSel.value : '');
+    const fotografoAsignado = fotografoAutomaticoPorCiudad(ciudad, fotografoSel ? fotografoSel.value : '', el.tipo);
 
     const turnoGroup = document.getElementById('contratado-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
@@ -4297,7 +4290,7 @@ async function crearAsignacion() {
     const ciudadInput = document.getElementById('elem-ciudad-' + idx);
     const ciudad = ciudadInput ? ciudadInput.value.trim() : '';
     const fotografoInput = document.getElementById('elem-' + idx + '-fotografo');
-    const fotografoAsignado = fotografoAutomaticoPorCiudad(ciudad, fotografoInput ? fotografoInput.value : '');
+    const fotografoAsignado = fotografoAutomaticoPorCiudad(ciudad, fotografoInput ? fotografoInput.value : '', tipoElemento);
 
     const turnoGroup = document.getElementById('elem-turno-' + idx);
     const turno = turnoGroup ? turnoGroup.dataset.value : 'AMBAS';
