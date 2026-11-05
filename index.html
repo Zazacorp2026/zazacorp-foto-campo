@@ -2731,9 +2731,17 @@ async function showEjecutivaLista() {
   const list = document.getElementById('ejec-asig-list');
   const listDone = document.getElementById('ejec-asig-list-done');
 
+  const RF_GESTIONA_TAMBIEN = { 'SASKYA YEPEZ': ['LORENA'] };
   function pintar(todas) {
     const esJorgeAdmin = (currentUser.nombre || '').toUpperCase() === 'JORGE';
-    const mias = esJorgeAdmin ? todas : todas.filter(a => (a.creadoPor || '').toUpperCase() === currentUser.nombre.toUpperCase());
+    // 2026-11-05: algunas ejecutivas gestionan también las de otra (ver RF_GESTIONA_TAMBIEN en Code.gs)
+    const yoUp = (currentUser.nombre || '').toUpperCase();
+    const gestionaTambien = RF_GESTIONA_TAMBIEN[yoUp] || [];
+    const mias = esJorgeAdmin ? todas : todas.filter(a => {
+      const d = (a.creadoPor || '').trim().toUpperCase();
+      return d === yoUp || gestionaTambien.indexOf(d) !== -1;
+    });
+    const agrupar = esJorgeAdmin || gestionaTambien.length > 0;
     misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
 
     function pctDe(a) {
@@ -2781,7 +2789,7 @@ async function showEjecutivaLista() {
     }
 
     function renderLista(items) {
-      if (!esJorgeAdmin) return items.map(a => renderCard(a, items === completadas)).join('');
+      if (!agrupar) return items.map(a => renderCard(a, items === completadas)).join('');
       const grupos = {};
       items.forEach(a => { const k = a.creadoPor || 'Sin ejecutiva'; (grupos[k] = grupos[k] || []).push(a); });
       return Object.keys(grupos).sort().map(k => `
