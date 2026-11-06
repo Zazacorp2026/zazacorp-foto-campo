@@ -1167,10 +1167,10 @@ async function fetchConReintento(url, intentos, opts) {
 // se borró en el Sheet pero la pantalla nunca se enteró. Ahora cada
 // intento tiene un tope de 12s; si se pasa, se aborta y se reintenta
 // (o se avisa del error) en vez de quedarse esperando para siempre.
-async function postJsonConReintentoParseo_(payload) {
+async function postJsonConReintentoParseo_(payload, timeoutMs) {
   const intentar = async () => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs || 12000);
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -2847,6 +2847,7 @@ async function showEjecutivaLista() {
 
 let misAsignacionesCache = [];
 let asignacionEnEdicion = null; // null = creando nueva; objeto = editando existente
+let _editKeyAsig = null;        // (2026-11-06) clave para que un mismo guardado de edición no se aplique 2 veces
 // Se genera una sola vez por intento de "Crear asignación" y se reutiliza
 // si hay que reintentar (ver crearAsignacion()) — evita que un reintento,
 // automático o manual, cree la asignación duplicada cuando Apps Script sí
@@ -4430,22 +4431,32 @@ async function crearAsignacion() {
     if (!esEdicion && !_idemKeyNuevaAsignacion) {
       _idemKeyNuevaAsignacion = (crypto.randomUUID ? crypto.randomUUID() : 'idem-' + Date.now() + '-' + Math.random().toString(36).slice(2));
     }
+    // (2026-11-06) Clave de edición: la misma para este guardado aunque se reintente o se toque "Guardar" otra
+    // vez tras un error; el servidor no repite la edición (antes se duplicaban los elementos).
+    const firmaEdit = esEdicion ? JSON.stringify([asignacionEnEdicion.id, clienteFinal, fechaLimite, observaciones, elementos]) : '';
+    if (esEdicion && (!_editKeyAsig || _editKeyAsig.firma !== firmaEdit)) {
+      _editKeyAsig = { firma: firmaEdit, key: (crypto.randomUUID ? crypto.randomUUID() : 'edit-' + Date.now() + '-' + Math.random().toString(36).slice(2)) };
+    }
     const payload = esEdicion
-      ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente: clienteFinal, fechaLimite, observaciones, elementos }
+      ? { action: 'rfEditarAsignacion', asignacionId: asignacionEnEdicion.id, cliente: clienteFinal, fechaLimite, observaciones, elementos, editKey: _editKeyAsig.key }
       : { action: 'rfCrearAsignacion', cliente: clienteFinal, fechaLimite, creadoPor: currentUser.nombre, observaciones, elementos, idempotencyKey: _idemKeyNuevaAsignacion };
 
     // Reintento automático solo al crear (protegido por idempotencyKey,
     // no puede duplicar). Al editar se deja el fetch simple: si falla,
     // el usuario ve el error y decide si reintentar manualmente.
-    const res = esEdicion
-      ? await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) })
-      : await fetchConReintento(SCRIPT_URL, 3, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
-
-    const data = await res.json();
+    let data;
+    if (esEdicion) {
+      // Con editKey ya es seguro reintentar: si la 1ª respuesta llega rota, el reintento devuelve lo ya hecho.
+      data = await postJsonConReintentoParseo_(payload, 45000);   // editar asignaciones grandes puede tardar
+    } else {
+      const res = await fetchConReintento(SCRIPT_URL, 3, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload) });
+      data = await res.json();
+    }
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
 
     asignacionEnEdicion = null;
     _idemKeyNuevaAsignacion = null;
+    _editKeyAsig = null;
     // FIX (2026-09-24): si el mismo elemento venía repetido en la lista
     // (mismo cliente+tipo+ubicación+código+turno — por ejemplo el mismo
     // LED marcado 2 veces por error), el backend ya lo filtra solo antes
