@@ -4022,6 +4022,7 @@ function showEjecutivaForm() {
       else addElementoForm(el);
     });
     pintarResumenEdicion_();
+    cargarInventarioLEDs(); // se adelanta la carga: cuando toque "Cambiar" ya está lista
     if (!((a.elementos||[]).length)) addElementoForm();
     const hayLed = (a.elementos||[]).some(el => esTipoLED(el.tipoElemento));
     const hayFijos = (a.elementos||[]).some(el => !esTipoLED(el.tipoElemento));
@@ -4260,7 +4261,19 @@ function _panelCambioLED_(i) {
   const la = _numCoord_(o.lat || base.lat), lo = _numCoord_(o.lon || base.lon);
   const usados = _codigosEnUso_();
   const q = normalizarZR(c.busca || '');
-  let lista = inv.filter(l => !usados.has(String(l.codigo).toUpperCase()))
+  const libres = inv.filter(l => !usados.has(String(l.codigo).toUpperCase()));
+  // Botones por tipo (por defecto, el mismo tipo de la pantalla que se cambia)
+  const conteo = {};
+  libres.forEach(l => { const t = String(l.tipo || 'Otro').trim(); conteo[t] = (conteo[t] || 0) + 1; });
+  const tipos = Object.keys(conteo).sort((a, b) => conteo[b] - conteo[a]);
+  if (c.tipoFiltro === undefined) {
+    const mismo = tipos.find(t => normalizarZR(t) === normalizarZR(o.tipoElemento));
+    c.tipoFiltro = mismo || '';
+  }
+  c.tiposChips = tipos;
+  const chip = (txt, val, n) => { const act = c.tipoFiltro === val; return `<button type="button" onclick="filtroTipoCambio_(${i}, ${val === '' ? -1 : tipos.indexOf(val)})" style="border:1px solid ${act ? 'var(--blue)' : 'var(--border)'};background:${act ? 'var(--blue)' : 'transparent'};color:${act ? '#04121c' : 'var(--text)'};border-radius:20px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">${_escE(txt)} <span style="opacity:.7">${n}</span></button>`; };
+  const chipsHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${tipos.map(t => chip(t, t, conteo[t])).join('')}${chip('Todos', '', libres.length)}</div>`;
+  let lista = libres.filter(l => !c.tipoFiltro || String(l.tipo || 'Otro').trim() === c.tipoFiltro)
     .map(l => ({ l, d: _distKm_(la, lo, _numCoord_(l.lat), _numCoord_(l.lon)) }))
     .filter(x => !q || normalizarZR([x.l.codigo, x.l.direccion, x.l.ciudad, x.l.tipo].join(' ')).indexOf(q) >= 0)
     .sort((x, y) => (x.d === null ? 1e9 : x.d) - (y.d === null ? 1e9 : y.d));
@@ -4276,6 +4289,7 @@ function _panelCambioLED_(i) {
   return `<div style="margin:-4px 0 6px;border:1px solid var(--blue);border-radius:12px;padding:12px;background:rgba(56,182,255,.05)">
     <div style="font-weight:700;font-size:14px;color:#fff">¿Por cuál pantalla cambias la <span style="color:var(--orange)">${_escE(o.codigoRef)}</span>?</div>
     <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Primero las más cercanas. Se mantiene el cliente, la fecha límite y el fotógrafo según la ciudad.</div>
+    ${chipsHtml}
     <input class="form-input" id="edit-busca-${i}" placeholder="Buscar código, dirección o ciudad" value="${_escE(c.busca)}" oninput="buscarCambioLED_(${i}, this.value)" style="margin-bottom:8px"/>
     <div style="display:flex;flex-direction:column;gap:6px">${filas || '<div class="empty-sub" style="padding:8px 0">No hay pantallas con esa búsqueda.</div>'}</div>
     ${total > lista.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Mostrando ${lista.length} de ${total}. Escribe para buscar las demás.</div>` : ''}
@@ -4287,7 +4301,12 @@ function abrirCambioLED_(i) {
   _editCards[i].abierto = true; pintarTarjetaEdit_(i);
   if (!_ledsInventarioCache) cargarInventarioLEDs().then(() => pintarTarjetaEdit_(i));
 }
-function cerrarCambioLED_(i) { _editCards[i].abierto = false; _editCards[i].busca = ''; pintarTarjetaEdit_(i); }
+function filtroTipoCambio_(i, k) {
+  const c = _editCards[i];
+  c.tipoFiltro = k < 0 ? '' : (c.tiposChips || [])[k] || '';
+  pintarTarjetaEdit_(i);
+}
+function cerrarCambioLED_(i) { _editCards[i].abierto = false; _editCards[i].busca = ''; delete _editCards[i].tipoFiltro; pintarTarjetaEdit_(i); }
 function buscarCambioLED_(i, v) {
   _editCards[i].busca = v; pintarTarjetaEdit_(i);
   const inp = document.getElementById('edit-busca-' + i);
@@ -4418,15 +4437,32 @@ function esTipoLED(tipo) {
 }
 
 let _ledsInventarioCache = null;
+let _ledsInventarioPromesa = null;
+// (2026-11-10) El inventario de LEDs tarda varios segundos en llegar del servidor: se guarda una copia en el
+// equipo (7 días) para mostrarlo AL INSTANTE y se actualiza por detrás.
+async function _traerInventarioLEDsServidor_() {
+  const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetInventarioLEDs');
+  const data = await res.json();
+  const rows = (data && data.rows) || [];
+  if (rows.length) { try { localStorage.setItem('zr_inv_leds', JSON.stringify({ t: Date.now(), rows })); } catch (e) {} }
+  return rows;
+}
 async function cargarInventarioLEDs() {
   if (_ledsInventarioCache) return _ledsInventarioCache;
   try {
-    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetInventarioLEDs');
-    const data = await res.json();
-    _ledsInventarioCache = (data && data.rows) || [];
-  } catch (e) {
-    _ledsInventarioCache = [];
-  }
+    const c = JSON.parse(localStorage.getItem('zr_inv_leds') || 'null');
+    if (c && Array.isArray(c.rows) && c.rows.length && Date.now() - c.t < 7 * 864e5) {
+      _ledsInventarioCache = c.rows;
+      if (!_ledsInventarioPromesa) _ledsInventarioPromesa = _traerInventarioLEDsServidor_().then(rows => {
+        if (rows.length) { _ledsInventarioCache = rows; (typeof _editCards !== 'undefined' ? _editCards : []).forEach((ec, k) => { if (ec.abierto) pintarTarjetaEdit_(k); }); }
+      }).catch(() => {});
+      return _ledsInventarioCache;
+    }
+  } catch (e) {}
+  if (!_ledsInventarioPromesa) _ledsInventarioPromesa = _traerInventarioLEDsServidor_().catch(() => []);
+  const rows = await _ledsInventarioPromesa;
+  _ledsInventarioCache = rows;
+  if (!rows.length) _ledsInventarioPromesa = null; // si falló, que se pueda reintentar
   return _ledsInventarioCache;
 }
 
