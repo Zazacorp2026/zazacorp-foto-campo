@@ -376,6 +376,12 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    .zb-crear { display: none; }
+    body.zr-desk .zb-crear { display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; padding: 18px 24px; margin-bottom: 18px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--blue), #7cd4ff); color: #0a0a0a; font-size: 22px; font-weight: 800; letter-spacing: -.01em; box-shadow: 0 14px 34px -10px rgba(56,182,255,.6); cursor: pointer; transition: transform .1s, box-shadow .15s; text-align: left; }
+    body.zr-desk .zb-crear:hover { transform: translateY(-1px); box-shadow: 0 18px 40px -10px rgba(56,182,255,.75); }
+    .zb-crear-mas { width: 46px; height: 46px; border-radius: 50%; background: rgba(10,10,10,.14); display: flex; align-items: center; justify-content: center; font-size: 32px; line-height: 1; flex-shrink: 0; }
+    .zb-crear small { display: block; font-size: 13px; font-weight: 600; opacity: .75; margin-top: 2px; }
+    body.zr-desk #fab-new-asig { display: none !important; }
     body.zr-desk .page { max-width: 1440px; padding: 22px 28px; }
     body.zr-desk #page-ejecutiva-form, body.zr-desk #page-config { max-width: 980px; }
     body.zr-desk .fab-new { max-width: 360px; left: auto; right: 28px; }
@@ -390,15 +396,28 @@
     .zb-buscar, .zb-sel { padding: 9px 12px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 12.5px; }
     .zb-buscar { flex: 1; max-width: 360px; }
     .zb-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
-    .zb-col { background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; min-height: 160px; }
-    .zb-col-hd { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #fff; padding: 2px 4px 10px; border-bottom: 2px solid var(--border); margin-bottom: 10px; }
-    .zb-col-hd b { color: var(--muted); font-family: var(--mono); margin-left: 4px; }
-    .zb-col-pct { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 20px; background: var(--dark3); color: var(--muted); }
-    .zb-col.pend .zb-col-hd { border-color: rgba(56,182,255,.55); }
-    .zb-col.proc .zb-col-hd { border-color: rgba(255,160,87,.7); }
-    .zb-col.proc .zb-col-pct { color: var(--orange-light); }
-    .zb-col.done .zb-col-hd { border-color: rgba(52,211,153,.6); }
-    .zb-col.done .zb-col-pct { color: var(--green); }
+    .zb-col { background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: var(--radius-lg); display: flex; flex-direction: column; height: calc(100dvh - 190px); min-height: 380px; overflow: hidden; }
+    .zb-col-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; scrollbar-width: thin; }
+    .zb-col-hd { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 13px 14px; border-bottom: 3px solid var(--border); background: #15181c; }
+    .zb-col-tit { display: flex; align-items: center; gap: 9px; font-size: 17px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #fff; }
+    .zb-col-ico { font-size: 19px; }
+    .zb-col-n { font-family: var(--mono); font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: 20px; background: rgba(255,255,255,.08); color: #fff; letter-spacing: 0; }
+    .zb-col-pct { font-family: var(--mono); font-size: 15px; font-weight: 800; padding: 4px 11px; border-radius: 20px; background: var(--dark3); color: var(--muted); }
+    .zb-col.pend { border-color: rgba(56,182,255,.35); }
+    .zb-col.pend .zb-col-hd { background: linear-gradient(180deg, rgba(56,182,255,.20), rgba(56,182,255,.08)), #15181c; border-color: var(--blue); }
+    .zb-col.pend .zb-col-tit { color: var(--blue); }
+    .zb-col.pend .zb-col-n, .zb-col.pend .zb-col-pct { background: rgba(56,182,255,.18); color: var(--blue); }
+    .zb-col.proc { border-color: rgba(255,160,87,.35); }
+    .zb-col.proc .zb-col-hd { background: linear-gradient(180deg, rgba(255,140,40,.22), rgba(255,140,40,.08)), #15181c; border-color: var(--orange-light); }
+    .zb-col.proc .zb-col-tit { color: var(--orange-light); }
+    .zb-col.proc .zb-col-n, .zb-col.proc .zb-col-pct { background: rgba(255,140,40,.2); color: var(--orange-light); }
+    .zb-col.done { border-color: rgba(52,211,153,.35); }
+    .zb-col.done .zb-col-hd { background: linear-gradient(180deg, rgba(52,211,153,.20), rgba(52,211,153,.07)), #15181c; border-color: var(--green); }
+    .zb-col.done .zb-col-tit { color: var(--green); }
+    .zb-col.done .zb-col-n, .zb-col.done .zb-col-pct { background: rgba(52,211,153,.18); color: var(--green); }
+    .zb-card.pend { border-left: 3px solid var(--blue); }
+    .zb-card.proc { border-left: 3px solid var(--orange-light); }
+    .zb-card.done { border-left: 3px solid var(--green); }
     .zb-card { background: linear-gradient(160deg, var(--card-raised), var(--card)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 12px; margin-bottom: 9px; cursor: pointer; transition: border-color .15s, transform .1s; }
     .zb-card:hover { border-color: var(--border-strong); }
     .zb-card.nuevo { border-color: rgba(52,211,153,.6); }
@@ -609,6 +628,7 @@
     </div>
 
     <div id="page-ejecutiva-lista" class="page" style="padding-bottom:90px">
+      <button class="zb-crear" onclick="asignacionEnEdicion=null;_idemKeyNuevaAsignacion=null;showEjecutivaForm()"><span class="zb-crear-mas">+</span><span>Crear nueva asignación<small>Pide las fotos de un cliente nuevo</small></span></button>
       <div class="stats-row k4">
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">📌</span></div><div class="stat-num" id="stat-ejec-pend">0</div><div class="stat-label">Pendientes</div></div>
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">📸</span></div><div class="stat-num" id="stat-ejec-proc">0</div><div class="stat-label">En proceso</div></div>
@@ -1721,7 +1741,7 @@ function renderAsignacionesFotografo() {
   // 2026-11-10: en computadora, tablero de 3 columnas
   const _pg = document.getElementById('page-asignaciones'), _fb = document.getElementById('foto-board');
   if (_pg) _pg.classList.toggle('zb-on', zrEscritorio_());
-  if (_fb) _fb.innerHTML = zrEscritorio_() ? volverAdminBtn + zrTableroFotoHtml_(asignaciones) : '';
+  zrPonerTablero_(_fb, zrEscritorio_() ? volverAdminBtn + zrTableroFotoHtml_(asignaciones) : '');
 
   // Reaplicar el filtro activo tras repintar (el polling silencioso
   // repinta cada 20s; sin esto el filtro se perdía, causando parpadeo).
@@ -2959,7 +2979,7 @@ async function showEjecutivaLista() {
     _set('stat-ejec-sinleer', completadas.filter(a => a.avisoListo && !_avisosLeidosLocal.has(String(a.id))).length);
     _set('stat-ejec-completadas', completadas.length);
     const _board = document.getElementById('ejec-board');
-    if (_board) _board.innerHTML = zrEscritorio_() ? zrTableroEjecHtml_(mias, agrupar) : '';
+    zrPonerTablero_(_board, zrEscritorio_() ? zrTableroEjecHtml_(mias, agrupar) : '');
 
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
@@ -5553,6 +5573,14 @@ function zrFechaCorta_(f) {
   if (dias === -1) return 'ayer';
   return d.toLocaleDateString('es-EC', { weekday: 'short', day: '2-digit', month: 'short' });
 }
+// Pinta el tablero sin perder dónde estaba cada columna (cada una se desplaza por separado)
+function zrPonerTablero_(el, html) {
+  if (!el) return;
+  const pos = {};
+  el.querySelectorAll('.zb-col-body').forEach(b => { pos[b.dataset.k] = b.scrollTop; });
+  el.innerHTML = html;
+  el.querySelectorAll('.zb-col-body').forEach(b => { if (pos[b.dataset.k]) b.scrollTop = pos[b.dataset.k]; });
+}
 function zrRepintarTableros_() {
   try {
     const activa = (document.querySelector('.page.active') || {}).id;
@@ -5576,6 +5604,7 @@ function zrBotonesAsig_(a, compacto) {
 }
 
 // ── Tablero de la EJECUTIVA (solo computadora) ──
+const ZB_ICO = { pend: '⏳', proc: '📸', done: '✅' };
 let _zrFiltroEjecutiva = '', _zrBuscarTablero = '', _zrColMas = {};
 function zrTableroEjecHtml_(mias, agrupar) {
   const mes = (document.getElementById('mes-filtro-ejec') || {}).value || '';
@@ -5605,9 +5634,11 @@ function zrTableroEjecHtml_(mias, agrupar) {
   const columna = (k, titulo, items, pctCol) => {
     const max = _zrColMas[k] ? 9999 : 30;
     return `<div class="zb-col ${k}">
-      <div class="zb-col-hd"><span>${titulo} <b>${items.length}</b></span><span class="zb-col-pct">${pctCol}%</span></div>
+      <div class="zb-col-hd"><span class="zb-col-tit"><span class="zb-col-ico">${ZB_ICO[k]}</span>${titulo}<span class="zb-col-n">${items.length}</span></span><span class="zb-col-pct" title="Avance promedio">${pctCol}%</span></div>
+      <div class="zb-col-body" data-k="${k}">
       ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
       ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
+      </div>
     </div>`;
   };
   return `
@@ -5649,9 +5680,11 @@ function zrTableroFotoHtml_(lista) {
   const columna = (k, titulo, items, pctCol) => {
     const max = _zrColMas['f' + k] ? 9999 : 30;
     return `<div class="zb-col ${k}">
-      <div class="zb-col-hd"><span>${titulo} <b>${items.length}</b></span><span class="zb-col-pct">${pctCol}%</span></div>
+      <div class="zb-col-hd"><span class="zb-col-tit"><span class="zb-col-ico">${ZB_ICO[k]}</span>${titulo}<span class="zb-col-n">${items.length}</span></span><span class="zb-col-pct" title="Avance promedio">${pctCol}%</span></div>
+      <div class="zb-col-body" data-k="${k}">
       ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
       ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['f${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
+      </div>
     </div>`;
   };
   return `<div class="zb-board">${columna('pend', 'Pendientes', pend, 0)}${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}${columna('done', 'Completadas', done, 100)}</div>`;
