@@ -1278,7 +1278,9 @@ function renderVistaAdminFotografo() {
       (porAsig[k] = porAsig[k] || []).push(el);
     });
 
-    const filas = Object.keys(porAsig).map(k => {
+    // (2026-11-10) pendientes → en proceso → completadas (dentro de cada grupo, el orden de antes)
+    const rangoAsig_ = k => { const g = porAsig[k], d = g.filter(e => e.estado === 'COMPLETADO').length; return d === 0 ? 0 : (d < g.length ? 1 : 2); };
+    const filas = Object.keys(porAsig).map((k, i) => ({ k, i, r: rangoAsig_(k) })).sort((x, y) => x.r - y.r || x.i - y.i).map(x => x.k).map(k => {
       const grupoItems = porAsig[k];
       const asigId = grupoItems[0].asignacionId;
       return grupoItems.map((el, i) => `
@@ -2755,7 +2757,11 @@ async function showEjecutivaLista() {
       return { total, completados, pct: total ? Math.round(completados / total * 100) : 0 };
     }
 
-    const activas = mias.filter(a => pctDe(a).pct < 100);
+    // (2026-11-10) Primero PENDIENTES (0%), luego EN PROCESO; las completadas van en su propia lista al final
+    const activas = mias.filter(a => pctDe(a).pct < 100)
+      .map((a, i) => ({ a, i, p: pctDe(a).pct > 0 ? 1 : 0 }))
+      .sort((x, y) => x.p - y.p || x.i - y.i)
+      .map(x => x.a);
     const completadas = mias.filter(a => pctDe(a).pct === 100)
       .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
 
