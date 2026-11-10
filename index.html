@@ -4733,7 +4733,15 @@ async function crearAsignacion() {
       showToast('⚠️ Se omitieron ' + data.duplicadosOmitidos + ' elemento(s) repetido(s) (mismo cliente y ubicación marcados 2 veces)', 'warn');
     }
     if (esEdicion) {
-      showToast('✓ Asignación actualizada', 'ok');
+      // (2026-11-10) Si el servidor no devuelve "version", está corriendo un Code.gs viejo: se avisa claramente.
+      if (!data.version) {
+        alert('⚠️ El servidor de Report tiene una versión ANTIGUA del código.\n\nLos cambios pueden no aplicarse bien (por ejemplo, una pantalla quitada puede seguir apareciendo).\n\nAvísale a Jorge: hay que implementar el Code.gs nuevo como "Nueva versión".');
+      } else {
+        const partes = [];
+        if ((data.quitados || []).length) partes.push('quitado: ' + data.quitados.join(', '));
+        if ((data.agregados || []).length) partes.push('agregado: ' + data.agregados.join(', '));
+        showToast('✓ Asignación actualizada' + (partes.length ? ' · ' + partes.join(' · ') : ''), 'ok');
+      }
       showEjecutivaLista();
     } else {
       showAsignacionExito(clienteFinal, elementos.length - (data.duplicadosOmitidos || 0));
