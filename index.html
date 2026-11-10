@@ -105,6 +105,8 @@
     .page { display: none; padding: 18px 16px; max-width: 640px; margin: 0 auto; width: 100%; }
     .page.active { display: block; }
 
+    /* (2026-11-10) Configuración: las pestañas bajan a otra fila en vez de quedar ocultas a la derecha */
+    #cfg-tabs { flex-wrap: wrap; overflow: visible; }
     #zr-g-box { width: 100%; max-width: 340px; display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 0 0 4px; }
     #zr-g-btn { min-height: 44px; display: flex; justify-content: center; }
     #zr-g-msg { font-size: 13px; color: var(--muted); text-align: center; line-height: 1.45; min-height: 0; }
