@@ -332,6 +332,41 @@
     #zaza-anulada-ov { position: fixed; inset: 0; z-index: 950; background: rgba(0,0,0,.82); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 18px; opacity: 1; transition: opacity .3s; }
     #zaza-anulada-ov.bye { opacity: 0; }
     .zaza-anulada-card { position: relative; background: #101013; border: 1px solid rgba(255,92,92,.4); border-radius: var(--radius-lg); padding: 26px 26px 24px; max-width: 340px; width: 100%; text-align: center; box-shadow: var(--shadow-pop); margin-top: 80px; }
+    /* ⚙️ Configuración (2026-11-10) */
+    .cfg-card { background: linear-gradient(160deg, var(--card-raised), var(--card)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin-bottom: 12px; }
+    .cfg-h { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+    .cfg-sub { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+    .cfg-list { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; margin-bottom: 12px; }
+    .cfg-row { border-bottom: 1px solid var(--border); background: var(--card); }
+    .cfg-row:last-child { border-bottom: none; }
+    .cfg-row.open { background: var(--card-raised); }
+    .cfg-row-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; }
+    .cfg-pill { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 3px 8px; border-radius: 10px; white-space: nowrap; }
+    .cfg-pill.blue { color: var(--blue); background: rgba(56,182,255,.12); }
+    .cfg-pill.orange { color: var(--orange-light); background: var(--orange-dim); }
+    .cfg-pill.warn { color: var(--yellow); background: rgba(255,194,75,.12); }
+    .cfg-estado { font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .cfg-estado.on { color: var(--green); } .cfg-estado.off { color: var(--red); }
+    .cfg-editor { padding: 4px 14px 14px; }
+    .cfg-editor label, .cfg-card label { display: block; font-size: 12px; color: var(--muted); font-weight: 700; }
+    .cfg-editor .form-input, .cfg-editor .form-select, .cfg-card .form-input, .cfg-card .form-select { margin-top: 5px; color: #fff; }
+    .cfg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 10px; }
+    .cfg-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: -6px 0 12px; }
+    .cfg-check { display: inline-flex !important; align-items: center; gap: 7px; font-size: 13px !important; color: var(--text) !important; font-weight: 600 !important; cursor: pointer; }
+    .cfg-check input, .cfg-switch input { width: 17px; height: 17px; accent-color: var(--orange); flex-shrink: 0; }
+    .cfg-switch { display: flex !important; gap: 10px; align-items: flex-start; padding: 8px 0; color: var(--text) !important; font-size: 13.5px !important; font-weight: 400 !important; cursor: pointer; }
+    .cfg-switch b { font-weight: 700; }
+    .cfg-btn { padding: 9px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--dark3); color: var(--text); font-size: 12.5px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .cfg-btn.primary { background: linear-gradient(135deg, var(--orange), var(--orange-light)); color: #0a0a0a; border-color: transparent; }
+    .cfg-btn.danger { color: var(--red); border-color: rgba(255,92,92,.35); background: rgba(255,92,92,.08); }
+    .cfg-btn:disabled { opacity: .6; }
+    .cfg-mini { padding: 8px 10px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 12.5px; }
+    .cfg-regla { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+    .cfg-regla .form-select { width: auto; min-width: 130px; }
+    .cfg-x { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; padding: 4px 6px; }
+    .cfg-chip { display: inline-flex; align-items: center; gap: 2px; padding: 5px 4px 5px 12px; border-radius: 16px; background: var(--dark3); border: 1px solid var(--border-strong); font-family: var(--mono); font-size: 13px; }
+    .cfg-savebar { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin-top: 14px; border-radius: var(--radius-md); background: #1d1408; border: 1px solid var(--border-glow); box-shadow: var(--shadow-pop); z-index: 5; }
+    .cfg-savebar span { flex: 1; font-size: 13px; font-weight: 700; color: var(--orange-light); }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -411,6 +446,7 @@
       </div>
       <div class="hdr-right">
         <button class="hdr-icon-btn" id="sync-btn" onclick="sincronizarManual()" title="Sincronizar"><span id="sync-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M20 3v5h-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="hdr-icon-btn" id="cfg-btn-hdr" onclick="abrirConfig()" title="Configuración" style="display:none">⚙️</button>
         <button class="hdr-icon-btn" id="manual-btn" onclick="abrirManual()" title="Manual de uso">📖</button>
         <button class="hdr-icon-btn" id="logout-btn" onclick="doLogout()" title="Salir">⏻</button>
       </div>
@@ -481,6 +517,16 @@
 
       <div class="section-title" id="ejec-title-completadas" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
       <div id="ejec-asig-list-done"></div>
+    </div>
+
+    <div id="page-config" class="page" style="padding-bottom:40px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <button class="cfg-btn" onclick="cerrarConfig()">← Volver</button>
+        <div style="flex:1;font-weight:800;font-size:17px">⚙️ Configuración</div>
+        <span class="cfg-pill orange">🔒 Solo Jorge</span>
+      </div>
+      <div class="agenda-chips" id="cfg-tabs"></div>
+      <div id="cfg-body"></div>
     </div>
 
     <div id="page-ejecutiva-form" class="page">
@@ -770,7 +816,11 @@ function normalizarZR(v) {
 
 // (2026-10-20) REGLA ÚNICA: todo se asigna a Cristopher, EXCEPTO Quito que sigue siendo de Saskhya.
 function fotografoAutomaticoPorCiudad(ciudad, manual, tipo) {
-  return normalizarZR(ciudad).indexOf('QUITO') >= 0 ? 'Saskhya' : 'Cristopher';
+  // (2026-11-10) las reglas vienen del servidor (⚙️ Configuración → Fotógrafos)
+  const f = zrCfg().fotos || {};
+  const c = normalizarZR(ciudad);
+  const r = (f.reglas || []).find(x => x.contiene && c.indexOf(x.contiene) >= 0);
+  return r ? r.fotografo : (f.defecto || 'Cristopher');
 }
 
 function badgeFotografoZR(nombre) {
@@ -843,7 +893,8 @@ function goToPin(role) {
   if (role === 'fotografo') {
     title.textContent = 'Identificación de Fotógraf@';
     sub.textContent = 'Selecciona tu nombre e ingresa tu clave';
-    Object.entries(FOTOGRAFOS).forEach(([id, u]) => sel.add(new Option(u.nombre, id)));
+    if (_zrUsuariosLogin && _zrUsuariosLogin.fotografos.length) _zrUsuariosLogin.fotografos.forEach(u => sel.add(new Option(u.nombre, u.id)));
+    else Object.entries(FOTOGRAFOS).forEach(([id, u]) => sel.add(new Option(u.nombre, id)));
     btn.className = 'pin-btn fotografo';
     input.placeholder = '••••••••';
     input.removeAttribute('maxlength');
@@ -856,7 +907,8 @@ function goToPin(role) {
     // Terán y Verónica Triviño), y mostrar solo "VERONICA" en el
     // selector no dejaba saber cuál era cuál. Para esas dos (y solo
     // esas dos) se muestra el nombre completo.
-    EJECUTIVAS.forEach(nombre => {
+    if (_zrUsuariosLogin && _zrUsuariosLogin.ejecutivas.length) _zrUsuariosLogin.ejecutivas.forEach(u => sel.add(new Option(u.etiqueta, u.id)));
+    else EJECUTIVAS.forEach(nombre => {
       const esVeronicaAmbigua = nombre === 'VERONICA TERAN' || nombre === 'VERONICA TRIVINO' || nombre === 'SASKYA' || nombre === 'SASKYA YEPEZ'; // nombres que se repiten: se muestra completo
       sel.add(new Option(esVeronicaAmbigua ? nombre : nombre.split(' ')[0], nombre));
     });
@@ -949,6 +1001,7 @@ async function doLogin() {
     }
     currentUser = data.user;
     if (data.token) sessionStorage.setItem('zr_token', data.token);
+    if (data.cfg) sessionStorage.setItem('zr_cfg', JSON.stringify(data.cfg)); else sessionStorage.removeItem('zr_cfg');
     sessionStorage.setItem('zr_user', JSON.stringify(currentUser));
     sessionStorage.setItem('zr_role', currentRole);
     sessionStorage.setItem('zr_login_ts', String(Date.now()));
@@ -976,6 +1029,8 @@ function entrarAlApp() {
   document.getElementById('hdr-name').textContent = nombreCorto;
   document.getElementById('hdr-role-text').textContent = currentRole === 'ejecutiva' ? 'Ejecutiv@' : (currentUser.esAdmin ? 'Fotógraf@ · Admin' : 'Fotógraf@');
   actualizarEstadoConexion();
+  document.getElementById('cfg-btn-hdr').style.display = zrEsJorge_() ? '' : 'none';
+  zrRefrescarCfgPublica_();
 
   if (currentRole === 'fotografo') {
     document.getElementById('fab-new-asig').style.display = 'none';
@@ -994,15 +1049,18 @@ function entrarAlApp() {
 
 // La sesión expira sola a las 6h (igual que el token del backend y que
 // Nexus), aunque la pestaña se quede abierta o se recargue la página.
-const ZR_SESION_TTL_MS = 6 * 60 * 60 * 1000;
+// (2026-11-10) la duración se ajusta en ⚙️ Configuración → Reglas (máx. 6 h)
+function zrSesionTtlMs_() { return Math.min(6, Number(zrCfg().reglas.sesionHoras) || 6) * 60 * 60 * 1000; }
 function zrSesionExpirada() {
   const ts = Number(sessionStorage.getItem('zr_login_ts') || 0);
-  return !ts || (Date.now() - ts) > ZR_SESION_TTL_MS;
+  return !ts || (Date.now() - ts) > zrSesionTtlMs_();
 }
 function zrLimpiarSesionGuardada() {
   sessionStorage.removeItem('zr_user');
   sessionStorage.removeItem('zr_role');
   sessionStorage.removeItem('zr_token');
+  sessionStorage.removeItem('zr_cfg');
+  _cfgDatos = null; _cfgW = null; _cfgPin = '';
   _avisosVisibles = []; { const b = document.getElementById('aviso-listo-box'); if (b) b.remove(); }
   sessionStorage.removeItem('zr_login_ts');
   sessionStorage.removeItem('zr_drive_token');
@@ -2739,12 +2797,13 @@ async function showEjecutivaLista() {
   const list = document.getElementById('ejec-asig-list');
   const listDone = document.getElementById('ejec-asig-list-done');
 
-  const RF_GESTIONA_TAMBIEN = { 'SASKYA YEPEZ': ['LORENA'] };
+  const RF_GESTIONA_TAMBIEN = { 'SASKYA YEPEZ': ['LORENA'] }; // de fábrica, si el servidor aún no manda la configuración
   function pintar(todas) {
-    const esJorgeAdmin = (currentUser.nombre || '').toUpperCase() === 'JORGE';
-    // 2026-11-05: algunas ejecutivas gestionan también las de otra (ver RF_GESTIONA_TAMBIEN en Code.gs)
+    // 2026-11-10: de quién más ve/edita asignaciones viene de ⚙️ Configuración → Usuarios (['*'] = todas)
     const yoUp = (currentUser.nombre || '').toUpperCase();
-    const gestionaTambien = RF_GESTIONA_TAMBIEN[yoUp] || [];
+    const _g = Array.isArray(zrCfg().gestiona) ? zrCfg().gestiona : null;
+    const esJorgeAdmin = yoUp === 'JORGE' || !!(_g && _g.indexOf('*') >= 0);
+    const gestionaTambien = _g ? _g.filter(x => x !== '*') : (RF_GESTIONA_TAMBIEN[yoUp] || []);
     const mias = esJorgeAdmin ? todas : todas.filter(a => {
       const d = (a.creadoPor || '').trim().toUpperCase();
       return d === yoUp || gestionaTambien.indexOf(d) !== -1;
@@ -4155,9 +4214,11 @@ function setTurnoContratado(idx, turno) {
 function renderFotografoPicker(prefix, ciudadInicial, valorInicial, tipo) {
   const ciudad = ciudadInicial || '';
   const auto = fotografoAutomaticoPorCiudad(ciudad, valorInicial, tipo);
-  const mensaje = normalizarZR(ciudad).indexOf('QUITO') >= 0
-    ? 'Quito se asigna automáticamente a Saskhya.'
-    : 'Todas las demás ciudades se asignan automáticamente a Cristopher.';
+  const _fc = zrCfg().fotos || {};
+  const _regla = (_fc.reglas || []).find(x => x.contiene && normalizarZR(ciudad).indexOf(x.contiene) >= 0);
+  const mensaje = _regla
+    ? 'Las ciudades con "' + _regla.contiene + '" se asignan automáticamente a ' + _regla.fotografo + '.'
+    : 'Esta ciudad se asigna automáticamente a ' + (_fc.defecto || 'Cristopher') + '.';
 
   return `
     <label class="form-label">Fotógrafo asignado</label>
@@ -4467,7 +4528,7 @@ async function cargarInventarioLEDs() {
 }
 
 function fotografoAutomaticoLED(ciudad) {
-  return normalizarZR(ciudad).indexOf('QUITO') >= 0 ? 'Saskhya' : 'Cristopher';
+  return fotografoAutomaticoPorCiudad(ciudad, '', 'LED');
 }
 
 function poblarSelectLED(idx, codigoPrecarga) {
@@ -4520,7 +4581,9 @@ function setTurnoElemento(idx, turno) {
 // hasta máximo las 07:00am de ese mismo día; fuera de esa ventana
 // (o si eligió otro día) se reprograma al siguiente martes/jueves disponible.
 function obtenerProximaFechaTomaValida(fechaStr) {
-  const HORA_CORTE = 7; // 07:00am
+  const _rg = zrCfg().reglas || {};
+  const HORA_CORTE = Number.isFinite(_rg.horaCorte) ? _rg.horaCorte : 7; // (2026-11-10) editable en ⚙️ Configuración → Reglas
+  const DIAS_TOMA = Array.isArray(_rg.diasToma) && _rg.diasToma.length ? _rg.diasToma : [2, 4];
   const ahora = new Date();
   let base = fechaStr ? new Date(fechaStr + 'T00:00:00') : new Date(ahora);
   base.setHours(0,0,0,0);
@@ -4530,7 +4593,7 @@ function obtenerProximaFechaTomaValida(fechaStr) {
   const esHoyMismo = base.getTime() === hoy.getTime();
   for (let i = 0; i < 14; i++) {
     const dia = base.getDay(); // 2=martes, 4=jueves
-    const esDiaToma = (dia === 2 || dia === 4);
+    const esDiaToma = DIAS_TOMA.indexOf(dia) >= 0;
     const dentroDeHorario = !(esHoyMismo && i === 0 && ahora.getHours() >= HORA_CORTE);
     if (esDiaToma && dentroDeHorario) {
       return base.toISOString().split('T')[0];
@@ -4546,7 +4609,8 @@ async function crearAsignacion() {
   if (fechaLimite) {
     const fechaAjustada = obtenerProximaFechaTomaValida(fechaLimite);
     if (fechaAjustada !== fechaLimite) {
-      showToast('📅 Horario de tomas (mar/jue, corte 7am): fecha reprogramada a ' + fechaAjustada, 'warn');
+      const _r = zrCfg().reglas || {};
+      showToast('📅 Horario de tomas (' + (_r.diasToma || [2, 4]).map(d => ['dom','lun','mar','mié','jue','vie','sáb'][d]).join('/') + ', corte ' + (Number.isFinite(_r.horaCorte) ? _r.horaCorte : 7) + 'h): fecha reprogramada a ' + fechaAjustada, 'warn');
       fechaLimite = fechaAjustada;
       document.getElementById('form-fecha-limite').value = fechaLimite;
       document.getElementById('form-fecha-limite-fijos').value = fechaLimite;
@@ -4790,6 +4854,500 @@ function closeAsignacionExito() {
   document.getElementById('exito-overlay').classList.remove('open');
   showEjecutivaLista();
 }
+
+// ══════════════════════════════════════════════════════════════
+//  ⚙️ CONFIGURACIÓN DE REPORT (solo Jorge + PIN) — 2026-11-10
+//  Todo se guarda en el servidor (Propiedades del script, privadas).
+//  Aquí no vive ninguna clave: el PIN se pide al abrir y solo se
+//  guarda en memoria mientras la pantalla está abierta.
+// ══════════════════════════════════════════════════════════════
+let _cfgDatos = null, _cfgPin = '', _cfgTab = 'usuarios', _cfgW = null, _cfgAbierto = null, _cfgFiltroUsr = 'todos', _cfgSoloFallidos = false;
+const CFG_DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+function cfgEsc_(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function zrEsJorge_() {
+  const id = String((currentUser && (currentUser.id || currentUser.nombre)) || '').toUpperCase();
+  return id === 'JORGE' || id === 'JORGE-ADMIN';
+}
+async function cfgApi_(action, extra) {
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, pin: _cfgPin }, extra || {})) });
+  const data = await res.json();
+  if (!data || data.ok !== true) throw new Error((data && data.error) || 'El servidor no respondió bien');
+  return data;
+}
+function cfgFecha_(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso); if (isNaN(d)) return cfgEsc_(iso);
+  return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
+}
+function cfgHace_(iso) {
+  if (!iso) return 'Sin ingresos registrados';
+  const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  return dias <= 0 ? 'Último ingreso: hoy ' + new Date(iso).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
+       : dias === 1 ? 'Último ingreso: ayer' : 'Sin ingresar hace ' + dias + ' días';
+}
+function cfgCopia_(o) { return JSON.parse(JSON.stringify(o)); }
+function cfgSucio_(sec) {
+  if (!_cfgDatos || !_cfgW) return false;
+  const orig = sec === 'Usuarios' ? _cfgDatos.usuarios.map(cfgUsuarioLimpio_) : sec === 'Fotógrafos' ? _cfgDatos.fotos : sec === 'Correos' ? _cfgDatos.correos : _cfgDatos.reglas;
+  const w = sec === 'Usuarios' ? _cfgW.usuarios.map(cfgUsuarioLimpio_) : sec === 'Fotógrafos' ? _cfgW.fotos : sec === 'Correos' ? _cfgW.correos : _cfgW.reglas;
+  return JSON.stringify(orig) !== JSON.stringify(w);
+}
+function cfgUsuarioLimpio_(u) { return { rol: u.rol, id: u.id, nombre: u.nombre, activo: u.activo !== false, email: u.email || '', tel: u.tel || '', gestiona: u.gestiona || [], esAdmin: !!u.esAdmin, resumen: u.resumen !== false }; }
+
+function abrirConfig() {
+  if (!zrEsJorge_()) return;
+  showPage('page-config');
+  document.getElementById('fab-new-asig').style.display = 'none';
+  if (_cfgDatos && _cfgPin) { cfgPintar_(); return; }
+  document.getElementById('cfg-tabs').innerHTML = '';
+  document.getElementById('cfg-body').innerHTML = '<div class="cfg-sub" style="text-align:center;margin-top:40px">Cargando…</div>';
+  _cfgPin = '';
+  cfgApi_('rfCfgObtener').then(d => cfgPintarPin_(!!d.necesitaCrearPin))
+    .catch(e => { document.getElementById('cfg-body').innerHTML = '<div class="cfg-card" style="text-align:center;color:var(--red)">' + cfgEsc_(e.message) + '</div>'; });
+}
+function cerrarConfig() {
+  const sucio = ['Usuarios', 'Fotógrafos', 'Correos', 'Reglas'].filter(cfgSucio_);
+  if (sucio.length && !confirm('Tienes cambios sin guardar en ' + sucio.join(', ') + '. ¿Salir igual?')) return;
+  _cfgDatos = null; _cfgW = null; _cfgPin = ''; _cfgAbierto = null;
+  if (currentRole === 'fotografo') { showPage('page-asignaciones'); if (currentUser && currentUser.esAdmin) renderVistaAdminFotografo(); else renderAsignacionesFotografo(); }
+  else showEjecutivaLista();
+}
+function cfgPintarPin_(crear, msg) {
+  const box = document.getElementById('cfg-body');
+  document.getElementById('cfg-tabs').innerHTML = '';
+  box.innerHTML = `
+    <div class="cfg-card" style="max-width:360px;margin:30px auto;text-align:center">
+      <div style="font-size:30px;margin-bottom:8px">🔒</div>
+      <div style="font-weight:800;font-size:16px;margin-bottom:6px">${crear ? 'Crea tu PIN de Configuración' : 'PIN de Configuración'}</div>
+      <div class="cfg-sub" style="margin-bottom:14px">${crear ? 'Entre 6 y 10 números. Solo tú lo sabes: se guarda cifrado y se pedirá cada vez que entres aquí.' : 'Solo tú puedes entrar aquí.'}</div>
+      <input id="cfg-pin1" class="form-input" type="password" inputmode="numeric" autocomplete="off" placeholder="${crear ? 'Nuevo PIN' : 'PIN'}" style="text-align:center;letter-spacing:4px">
+      ${crear ? '<input id="cfg-pin2" class="form-input" type="password" inputmode="numeric" autocomplete="off" placeholder="Repite el PIN" style="text-align:center;letter-spacing:4px">' : ''}
+      <div id="cfg-pin-err" style="color:var(--red);font-size:12.5px;min-height:18px;margin-bottom:8px">${cfgEsc_(msg || '')}</div>
+      <button class="cfg-btn primary" style="width:100%" onclick="${crear ? 'cfgCrearPin_()' : 'cfgEntrar_()'}">${crear ? 'Crear PIN y entrar' : 'Entrar'}</button>
+    </div>`;
+  const i = document.getElementById('cfg-pin1');
+  i.focus();
+  i.onkeydown = e => { if (e.key === 'Enter') (crear ? cfgCrearPin_ : cfgEntrar_)(); };
+}
+async function cfgEntrar_() {
+  const pin = (document.getElementById('cfg-pin1').value || '').trim();
+  const err = document.getElementById('cfg-pin-err');
+  if (!pin) { err.textContent = 'Escribe tu PIN'; return; }
+  _cfgPin = pin;
+  err.style.color = 'var(--muted)'; err.textContent = 'Verificando…';
+  try {
+    const d = await cfgApi_('rfCfgObtener');
+    if (d.necesitaCrearPin || d.pidePin) { _cfgPin = ''; cfgPintarPin_(!!d.necesitaCrearPin); return; }
+    cfgCargar_(d);
+  } catch (e) { _cfgPin = ''; err.style.color = 'var(--red)'; err.textContent = e.message; }
+}
+async function cfgCrearPin_() {
+  const a = document.getElementById('cfg-pin1').value.trim(), b = document.getElementById('cfg-pin2').value.trim();
+  const err = document.getElementById('cfg-pin-err');
+  if (!/^\d{6,10}$/.test(a)) { err.textContent = 'El PIN debe tener entre 6 y 10 números'; return; }
+  if (a !== b) { err.textContent = 'Los dos PIN no coinciden'; return; }
+  try {
+    await cfgApi_('rfCfgGuardarPin', { nuevo: a });
+    _cfgPin = a;
+    cfgCargar_(await cfgApi_('rfCfgObtener'));
+    showToast('🔒 PIN creado');
+  } catch (e) { err.textContent = e.message; }
+}
+function cfgCargar_(d) {
+  _cfgDatos = d; _cfgModoUI = {};
+  _cfgW = { usuarios: cfgCopia_(d.usuarios), fotos: cfgCopia_(d.fotos), correos: cfgCopia_(d.correos), reglas: cfgCopia_(d.reglas) };
+  cfgPintar_();
+}
+async function cfgRecargar_() { cfgCargar_(await cfgApi_('rfCfgObtener')); }
+
+const CFG_TABS = [['usuarios', '👥 Usuarios y accesos'], ['fotos', '📷 Fotógrafos y ciudades'], ['correos', '✉️ Correos y avisos'],
+  ['reglas', '📅 Reglas'], ['accesos', '🛡️ Accesos recientes'], ['historial', '🕘 Historial'], ['seguridad', '🔑 Seguridad']];
+function cfgTab_(t) { _cfgTab = t; _cfgAbierto = null; cfgPintar_(); }
+function cfgPintar_() {
+  if (!_cfgDatos) return cfgPintarPin_();
+  const secPorTab = { usuarios: 'Usuarios', fotos: 'Fotógrafos', correos: 'Correos', reglas: 'Reglas' };
+  document.getElementById('cfg-tabs').innerHTML = CFG_TABS.map(([k, l]) =>
+    `<button class="agenda-chip ${_cfgTab === k ? 'active' : ''}" onclick="cfgTab_('${k}')">${l}${secPorTab[k] && cfgSucio_(secPorTab[k]) ? ' •' : ''}</button>`).join('');
+  const f = { usuarios: cfgPintarUsuarios_, fotos: cfgPintarFotos_, correos: cfgPintarCorreos_, reglas: cfgPintarReglas_,
+              accesos: cfgPintarAccesos_, historial: cfgPintarHistorial_, seguridad: cfgPintarSeguridad_ }[_cfgTab];
+  document.getElementById('cfg-body').innerHTML = f();
+}
+function cfgBarraGuardar_(sec) {
+  if (!cfgSucio_(sec)) return '';
+  return `<div class="cfg-savebar"><span>Cambios sin guardar</span>
+    <button class="cfg-btn" onclick="cfgDescartar_('${sec}')">Descartar</button>
+    <button class="cfg-btn primary" id="cfg-guardar-btn" onclick="cfgGuardar_('${sec}')">Guardar cambios</button></div>`;
+}
+function cfgDescartar_(sec) {
+  const k = { 'Usuarios': 'usuarios', 'Fotógrafos': 'fotos', 'Correos': 'correos', 'Reglas': 'reglas' }[sec];
+  _cfgW[k] = cfgCopia_(_cfgDatos[k]); _cfgAbierto = null; _cfgModoUI = {}; cfgPintar_();
+}
+async function cfgGuardar_(sec) {
+  const btn = document.getElementById('cfg-guardar-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando…'; }
+  const datos = sec === 'Usuarios' ? { lista: _cfgW.usuarios.map(cfgUsuarioLimpio_) } : sec === 'Fotógrafos' ? _cfgW.fotos : sec === 'Correos' ? _cfgW.correos : _cfgW.reglas;
+  try {
+    await cfgApi_('rfCfgGuardar', { seccion: sec, datos });
+    await cfgRecargar_();
+    showToast('✓ ' + sec + ': guardado');
+  } catch (e) {
+    showToast('⚠️ ' + e.message, 'warn');
+    if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
+  }
+}
+
+// ── 👥 Usuarios y accesos ──
+function cfgUsr_(i) { return _cfgW.usuarios[i]; }
+function cfgPintarUsuarios_() {
+  const us = _cfgW.usuarios;
+  const activos = us.filter(u => u.activo !== false).length;
+  const ejs = us.filter(u => u.rol === 'ejecutiva');
+  const filtrados = us.map((u, i) => [u, i]).filter(([u]) => _cfgFiltroUsr === 'todos' || u.rol === _cfgFiltroUsr);
+  const fila = ([u, i]) => {
+    const orig = (_cfgDatos.usuarios || []).find(o => o.rol === u.rol && o.id === u.id);
+    const nuevo = !orig;
+    const bloq = u.activo === false;
+    const sinClave = !nuevo && !orig.tieneClave;
+    let sub = u.rol === 'ejecutiva'
+      ? ((u.gestiona || []).indexOf('*') >= 0 ? 'Ve todas las asignaciones' : (u.gestiona || []).length ? 'También gestiona: ' + u.gestiona.join(', ') : cfgHace_(orig && orig.ultimoIngreso))
+      : (u.esAdmin ? 'Admin: ve todo · ' : '') + cfgHace_(orig && orig.ultimoIngreso);
+    const abierto = _cfgAbierto === i;
+    return `<div class="cfg-row ${abierto ? 'open' : ''}">
+      <div class="cfg-row-head" style="${bloq ? 'opacity:.6' : ''}" onclick="_cfgAbierto = _cfgAbierto === ${i} ? null : ${i}; cfgPintar_()">
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:800">${cfgEsc_(u.nombre)}${nuevo ? ' <span class="cfg-pill warn">Nuevo · sin guardar</span>' : ''}${sinClave ? ' <span class="cfg-pill warn">Sin clave</span>' : ''}</div>
+          <div class="cfg-sub">${cfgEsc_(sub)}</div>
+        </div>
+        <span class="cfg-pill ${u.rol === 'ejecutiva' ? 'blue' : 'orange'}">${u.rol === 'ejecutiva' ? 'Ejecutiva' : 'Fotógrafo'}</span>
+        <span class="cfg-estado ${bloq ? 'off' : 'on'}">${bloq ? '⛔ Bloqueado' : '● Activo'}</span>
+        <span class="cfg-sub" style="font-size:16px">${abierto ? '▴' : '▾'}</span>
+      </div>
+      ${abierto ? cfgEditorUsuario_(u, i, orig) : ''}
+    </div>`;
+  };
+  return `
+    <div class="cfg-sub" style="margin-bottom:12px">Aquí das o quitas acceso a Report. Bloquear no borra nada: la persona deja de poder entrar al instante y su historial queda intacto.</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <span class="cfg-sub" style="flex:1">${us.length} usuarios · ${activos} activos</span>
+      <select class="cfg-mini" onchange="_cfgFiltroUsr=this.value;cfgPintar_()">
+        <option value="todos" ${_cfgFiltroUsr === 'todos' ? 'selected' : ''}>Todos</option>
+        <option value="ejecutiva" ${_cfgFiltroUsr === 'ejecutiva' ? 'selected' : ''}>Ejecutivas (${ejs.length})</option>
+        <option value="fotografo" ${_cfgFiltroUsr === 'fotografo' ? 'selected' : ''}>Fotógrafos (${us.length - ejs.length})</option>
+      </select>
+      <button class="cfg-btn" onclick="cfgNuevoUsuario_()">＋ Nuevo usuario</button>
+    </div>
+    <div id="cfg-nuevo"></div>
+    <div class="cfg-list">${filtrados.map(fila).join('')}</div>
+    ${cfgBarraGuardar_('Usuarios')}`;
+}
+function cfgEditorUsuario_(u, i, orig) {
+  const esJ = u.rol === 'ejecutiva' && u.id === 'JORGE';
+  const g = u.gestiona || [];
+  const modo = g.indexOf('*') >= 0 ? 'todas' : (g.length || _cfgModoUI[i] === 'algunas') ? 'algunas' : 'suyas';
+  const otras = _cfgW.usuarios.filter(o => o.rol === 'ejecutiva' && o.id !== u.id);
+  let h = '<div class="cfg-editor">';
+  if (u.rol === 'ejecutiva') {
+    h += `<div class="cfg-grid">
+      <label>Correo<input class="form-input" value="${cfgEsc_(u.email)}" placeholder="nombre@zazacorp.com.ec" onchange="cfgUsr_(${i}).email=this.value.trim();cfgPintar_()"></label>
+      <label>WhatsApp<input class="form-input" value="${cfgEsc_(u.tel)}" inputmode="tel" placeholder="593991234567" onchange="cfgUsr_(${i}).tel=this.value.replace(/\\D/g,'');cfgPintar_()"></label>
+      </div>
+      <label>Puede ver y editar asignaciones de
+        <select class="form-select" ${esJ ? 'disabled' : ''} onchange="cfgModoGestiona_(${i}, this.value)">
+          <option value="suyas" ${modo === 'suyas' ? 'selected' : ''}>Solo las suyas</option>
+          <option value="algunas" ${modo === 'algunas' ? 'selected' : ''}>Las suyas y las de otras ejecutivas…</option>
+          <option value="todas" ${modo === 'todas' ? 'selected' : ''}>Todas (como administradora)</option>
+        </select></label>
+      ${modo === 'algunas' ? `<div class="cfg-checks">${otras.map(o => `<label class="cfg-check"><input type="checkbox" ${g.indexOf(o.id) >= 0 ? 'checked' : ''} onchange="cfgToggleGestiona_(${i},'${cfgEsc_(o.id)}',this.checked)"> ${cfgEsc_(o.id)}</label>`).join('')}</div>` : ''}
+      <label class="cfg-check" style="margin:6px 0 12px"><input type="checkbox" ${u.resumen !== false ? 'checked' : ''} onchange="cfgUsr_(${i}).resumen=this.checked;cfgPintar_()"> Recibe el correo resumen de sus reportes listos</label>`;
+  } else {
+    h += `<label class="cfg-check" style="margin:2px 0 12px"><input type="checkbox" ${u.esAdmin ? 'checked' : ''} onchange="cfgUsr_(${i}).esAdmin=this.checked;cfgPintar_()"> Admin: ve las asignaciones de todos los fotógrafos y puede borrar tomas</label>`;
+  }
+  if (orig) {
+    h += `<div class="cfg-sub" style="margin:4px 0 6px">Nueva ${u.rol === 'fotografo' ? 'clave / PIN' : 'contraseña'} (se guarda cifrada y cierra sus sesiones abiertas)</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px"><input id="cfg-clave-${i}" class="form-input" style="margin:0;flex:1" autocomplete="off" placeholder="Mín. 6, con letras y números">
+      <button class="cfg-btn" onclick="cfgCambiarClave_(${i})">Guardar clave</button></div>`;
+  } else {
+    h += `<div class="cfg-sub" style="margin:4px 0 12px;color:var(--yellow)">Primero guarda los cambios; después podrás ponerle su clave aquí mismo.</div>`;
+  }
+  h += `<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  if (!esJ) h += `<button class="cfg-btn ${u.activo === false ? '' : 'danger'}" onclick="cfgUsr_(${i}).activo=${u.activo === false ? 'true' : 'false'};cfgPintar_()">${u.activo === false ? '✓ Reactivar acceso' : '⛔ Bloquear acceso'}</button>`;
+  if (orig) h += `<button class="cfg-btn" onclick="cfgCerrarSesionesDe_(${i})">⏻ Cerrar sus sesiones</button>`;
+  if (!esJ && !orig) h += `<button class="cfg-btn danger" onclick="_cfgW.usuarios.splice(${i},1);_cfgAbierto=null;cfgPintar_()">Quitar</button>`;
+  h += `</div></div>`;
+  return h;
+}
+let _cfgModoUI = {};
+function cfgModoGestiona_(i, modo) {
+  const u = cfgUsr_(i);
+  _cfgModoUI[i] = modo;
+  u.gestiona = modo === 'todas' ? ['*'] : modo === 'suyas' ? [] : (u.gestiona || []).filter(x => x !== '*');
+  cfgPintar_();
+}
+function cfgToggleGestiona_(i, id, on) {
+  const u = cfgUsr_(i);
+  u.gestiona = (u.gestiona || []).filter(x => x !== '*' && x !== id);
+  if (on) u.gestiona.push(id);
+  _cfgModoUI[i] = 'algunas';
+  cfgPintar_();
+}
+function cfgNuevoUsuario_() {
+  document.getElementById('cfg-nuevo').innerHTML = `
+    <div class="cfg-card" style="margin-bottom:12px">
+      <div style="font-weight:800;margin-bottom:10px">Nuevo usuario</div>
+      <div class="cfg-grid">
+        <label>Tipo<select id="cfg-n-rol" class="form-select"><option value="ejecutiva">Ejecutiva</option><option value="fotografo">Fotógrafo</option></select></label>
+        <label>Nombre<input id="cfg-n-nombre" class="form-input" placeholder="Ej: María Pérez"></label>
+      </div>
+      <div class="cfg-sub" style="margin:-6px 0 10px">Ejecutivas: el nombre se guarda en mayúsculas y así aparece en sus asignaciones. Fotógrafos: así aparece en lo que se le asigna. Luego no se puede cambiar.</div>
+      <div id="cfg-n-err" style="color:var(--red);font-size:12.5px;min-height:16px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end"><button class="cfg-btn" onclick="document.getElementById('cfg-nuevo').innerHTML=''">Cancelar</button>
+      <button class="cfg-btn primary" onclick="cfgAgregarUsuario_()">Agregar</button></div>
+    </div>`;
+  document.getElementById('cfg-n-nombre').focus();
+}
+function cfgAgregarUsuario_() {
+  const rol = document.getElementById('cfg-n-rol').value;
+  const nombre = document.getElementById('cfg-n-nombre').value.trim().replace(/\s+/g, ' ');
+  const err = document.getElementById('cfg-n-err');
+  const sinTildes = nombre.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (!nombre || nombre.length > 40) { err.textContent = 'Escribe el nombre'; return; }
+  let id, nom;
+  if (rol === 'ejecutiva') {
+    id = sinTildes.toUpperCase();
+    if (!/^[A-Z ]+$/.test(id)) { err.textContent = 'Usa solo letras y espacios'; return; }
+    nom = id;
+  } else {
+    id = sinTildes.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    nom = nombre.charAt(0).toUpperCase() + nombre.slice(1);
+    if (_cfgW.usuarios.some(u => u.rol === 'fotografo' && normalizarZR(u.nombre) === normalizarZR(nom))) { err.textContent = 'Ya existe un fotógrafo con ese nombre'; return; }
+  }
+  if (!id) { err.textContent = 'Nombre inválido'; return; }
+  if (_cfgW.usuarios.some(u => u.rol === rol && u.id === id)) { err.textContent = 'Ya existe'; return; }
+  _cfgW.usuarios.push({ rol, id, nombre: nom, activo: true, email: '', tel: '', gestiona: [], esAdmin: false, resumen: rol === 'ejecutiva' });
+  _cfgAbierto = _cfgW.usuarios.length - 1;
+  _cfgFiltroUsr = 'todos';
+  cfgPintar_();
+}
+async function cfgCambiarClave_(i) {
+  const u = cfgUsr_(i);
+  const inp = document.getElementById('cfg-clave-' + i);
+  const nueva = (inp.value || '').trim();
+  if (nueva.length < 6 || !/[A-Za-z]/.test(nueva) || !/\d/.test(nueva)) { showToast('⚠️ La clave debe tener mínimo 6 caracteres, con letras y números', 'warn'); return; }
+  if (!confirm('¿Cambiar la clave de ' + u.nombre + '? Se cerrarán sus sesiones abiertas.')) return;
+  try {
+    await cfgApi_('rfCfgCambiarClave', { rol: u.rol, id: u.id, nueva });
+    inp.value = '';
+    const abierto = _cfgAbierto;
+    await cfgRecargar_(); _cfgAbierto = abierto; cfgPintar_();
+    showToast('🔑 Clave de ' + u.nombre + ' cambiada. Pásasela por un medio privado.');
+  } catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
+}
+async function cfgCerrarSesionesDe_(i) {
+  const u = cfgUsr_(i);
+  if (!confirm('¿Cerrar todas las sesiones abiertas de ' + u.nombre + '? Tendrá que volver a ingresar.')) return;
+  try { await cfgApi_('rfCfgCerrarSesiones', { rol: u.rol, id: u.id }); showToast('⏻ Sesiones de ' + u.nombre + ' cerradas'); }
+  catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
+}
+
+// ── 📷 Fotógrafos y ciudades ──
+function cfgFotografosActivos_() {
+  return _cfgDatos.usuarios.filter(u => u.rol === 'fotografo' && u.activo !== false && !u.esAdmin).map(u => u.nombre);
+}
+function cfgSelFoto_(valor, onchange) {
+  const fs = cfgFotografosActivos_();
+  if (valor && fs.indexOf(valor) < 0) fs.push(valor);
+  return `<select class="form-select" style="margin:0" onchange="${onchange}">${fs.map(n => `<option ${n === valor ? 'selected' : ''}>${cfgEsc_(n)}</option>`).join('')}</select>`;
+}
+function cfgPintarFotos_() {
+  const f = _cfgW.fotos;
+  return `
+    <div class="cfg-sub" style="margin-bottom:14px">Cuando una ejecutiva crea una asignación, el sistema elige al fotógrafo por la ciudad del elemento. Se revisan las reglas en orden; la primera que coincide gana.</div>
+    <div class="cfg-card">
+      <div class="cfg-h">Reglas por ciudad</div>
+      ${(f.reglas || []).map((r, k) => `
+        <div class="cfg-regla">
+          <span class="cfg-sub">Si la ciudad contiene</span>
+          <input class="form-input" style="margin:0;max-width:150px" value="${cfgEsc_(r.contiene)}" onchange="_cfgW.fotos.reglas[${k}].contiene=this.value.trim().toUpperCase();cfgPintar_()">
+          <span class="cfg-sub">→</span>
+          ${cfgSelFoto_(r.fotografo, `_cfgW.fotos.reglas[${k}].fotografo=this.value;cfgPintar_()`)}
+          <button class="cfg-x" title="Quitar regla" onclick="_cfgW.fotos.reglas.splice(${k},1);cfgPintar_()">✕</button>
+        </div>`).join('') || '<div class="cfg-sub">Sin reglas: todo va al fotógrafo de abajo.</div>'}
+      <button class="cfg-btn" style="margin-top:8px" onclick="(_cfgW.fotos.reglas=_cfgW.fotos.reglas||[]).push({contiene:'',fotografo:cfgFotografosActivos_()[0]||''});cfgPintar_()">＋ Agregar regla</button>
+      <div class="cfg-regla" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+        <span style="font-weight:700">Todas las demás ciudades →</span>
+        ${cfgSelFoto_(f.defecto, `_cfgW.fotos.defecto=this.value;cfgPintar_()`)}
+      </div>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Grupo compartido de Guayaquil</div>
+      <div class="cfg-sub" style="margin-bottom:10px">Lo que esté asignado a "GYE" lo ven todos estos fotógrafos; el primero que sube la toma se queda con ese elemento.</div>
+      <div class="cfg-checks">${cfgFotografosActivos_().map(n => `<label class="cfg-check"><input type="checkbox" ${(f.pool || []).indexOf(n) >= 0 ? 'checked' : ''} onchange="_cfgW.fotos.pool=(_cfgW.fotos.pool||[]).filter(x=>x!=='${cfgEsc_(n)}');if(this.checked)_cfgW.fotos.pool.push('${cfgEsc_(n)}');cfgPintar_()"> ${cfgEsc_(n)}</label>`).join('')}</div>
+    </div>
+    <div class="cfg-sub">Los cambios aplican a las asignaciones NUEVAS. Lo que ya está asignado no se mueve.</div>
+    ${cfgBarraGuardar_('Fotógrafos')}`;
+}
+
+// ── ✉️ Correos y avisos ──
+function cfgPintarCorreos_() {
+  const c = _cfgW.correos;
+  const sw = (campo, txt, sub) => `<label class="cfg-switch"><input type="checkbox" ${c[campo] !== false ? 'checked' : ''} onchange="_cfgW.correos.${campo}=this.checked;cfgPintar_()"><span><b>${txt}</b><br><span class="cfg-sub">${sub}</span></span></label>`;
+  return `
+    <div class="cfg-card">
+      <div class="cfg-h">Horarios del resumen de reportes completados</div>
+      <div class="cfg-sub" style="margin-bottom:10px">A cada hora se manda UN correo con lo que se completó desde el resumen anterior. Si no hay nada, no se manda nada.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        ${(c.horarios || []).map((h, k) => `<span class="cfg-chip">${cfgEsc_(h)} <button class="cfg-x" onclick="_cfgW.correos.horarios.splice(${k},1);cfgPintar_()">✕</button></span>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px"><input id="cfg-hora-nueva" type="time" class="form-input" style="margin:0;max-width:140px">
+      <button class="cfg-btn" onclick="cfgAgregarHora_()">＋ Agregar horario</button></div>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Quién recibe</div>
+      ${sw('resumenEjecutivas', 'Cada ejecutiva recibe el resumen de SUS reportes', 'Se puede apagar para alguien en particular desde Usuarios.')}
+      ${sw('resumenJorge', 'Resumen consolidado de todas para ti', cfgEsc_(_cfgDatos.jorgeEmail || ''))}
+      <label style="display:block;margin-top:10px">Con copia del consolidado a (opcional, separados por coma)
+        <input class="form-input" value="${cfgEsc_((c.copias || []).join(', '))}" placeholder="operaciones@zazacorp.com.ec" onchange="_cfgW.correos.copias=this.value.split(/[,;\\s]+/).map(x=>x.trim()).filter(Boolean);cfgPintar_()"></label>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Aviso dentro de Report</div>
+      ${sw('avisoListo', 'Mostrar el aviso verde "Tu reporte ya está listo"', 'Queda visible hasta que la ejecutiva presiona LEÍDO.')}
+    </div>
+    ${cfgBarraGuardar_('Correos')}`;
+}
+function cfgAgregarHora_() {
+  const v = document.getElementById('cfg-hora-nueva').value;
+  if (!v) { showToast('Elige una hora', 'warn'); return; }
+  const h = (_cfgW.correos.horarios || []).filter(x => x !== v); h.push(v); h.sort();
+  _cfgW.correos.horarios = h; cfgPintar_();
+}
+
+// ── 📅 Reglas ──
+function cfgPintarReglas_() {
+  const r = _cfgW.reglas;
+  const num = (campo, min, max, sufijo) => `<select class="form-select" style="margin:0;max-width:130px" onchange="_cfgW.reglas.${campo}=Number(this.value);cfgPintar_()">${Array.from({ length: max - min + 1 }, (_, k) => min + k).map(n => `<option value="${n}" ${n === r[campo] ? 'selected' : ''}>${n} ${sufijo}</option>`).join('')}</select>`;
+  return `
+    <div class="cfg-card">
+      <div class="cfg-h">Días de toma fotográfica</div>
+      <div class="cfg-sub" style="margin-bottom:10px">Si una ejecutiva elige otro día, la fecha se mueve sola al siguiente día de toma.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${CFG_DIAS.map((d, k) => `<button class="agenda-chip ${r.diasToma.indexOf(k) >= 0 ? 'active' : ''}" onclick="cfgToggleDia_(${k})">${d}</button>`).join('')}</div>
+      <div class="cfg-regla" style="margin-top:14px"><span>Para pedir toma el mismo día, hasta las</span>
+        <select class="form-select" style="margin:0;max-width:110px" onchange="_cfgW.reglas.horaCorte=Number(this.value);cfgPintar_()">${Array.from({ length: 24 }, (_, h) => `<option value="${h}" ${h === r.horaCorte ? 'selected' : ''}>${('0' + h).slice(-2)}:00</option>`).join('')}</select></div>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Seguridad del ingreso</div>
+      <div class="cfg-regla"><span style="flex:1">La sesión se cierra sola después de</span>${num('sesionHoras', 1, 6, 'h')}</div>
+      <div class="cfg-regla"><span style="flex:1">Intentos fallidos antes de bloquear</span>${num('maxIntentos', 3, 10, '')}</div>
+      <div class="cfg-regla"><span style="flex:1">Tiempo de bloqueo</span>${num('bloqueoMin', 5, 60, 'min')}</div>
+      <div class="cfg-sub" style="margin-top:8px">Las sesiones nunca duran más de 6 h (límite de Google).</div>
+    </div>
+    ${cfgBarraGuardar_('Reglas')}`;
+}
+function cfgToggleDia_(k) {
+  const d = _cfgW.reglas.diasToma.filter(x => x !== k);
+  if (d.length === _cfgW.reglas.diasToma.length) d.push(k);
+  if (!d.length) { showToast('Debe quedar al menos un día de toma', 'warn'); return; }
+  _cfgW.reglas.diasToma = d.sort(); cfgPintar_();
+}
+
+// ── 🛡️ Accesos recientes ──
+function cfgPintarAccesos_() {
+  const filas = (_cfgDatos.accesos || []).filter(a => !_cfgSoloFallidos || !a.ok);
+  const nombre = a => { const u = _cfgDatos.usuarios.find(x => x.rol === a.rol && x.id === a.usuario); return u ? u.nombre : a.usuario; };
+  return `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="stat-card"><div class="stat-num" style="color:${_cfgDatos.fallidos7d ? 'var(--red)' : 'var(--green)'}">${_cfgDatos.fallidos7d}</div><div class="stat-label">Intentos fallidos (7 días)</div></div>
+      <div class="stat-card"><div class="stat-num">${(_cfgDatos.accesos || []).length}</div><div class="stat-label">Últimos registros</div></div>
+    </div>
+    <label class="cfg-check" style="margin-bottom:10px"><input type="checkbox" ${_cfgSoloFallidos ? 'checked' : ''} onchange="_cfgSoloFallidos=this.checked;cfgPintar_()"> Ver solo intentos fallidos</label>
+    <div class="cfg-list">${filas.map(a => `
+      <div class="cfg-row"><div class="cfg-row-head" style="cursor:default">
+        <div style="min-width:0;flex:1"><div style="font-weight:700">${cfgEsc_(nombre(a))} <span class="cfg-sub">· ${a.rol === 'fotografo' ? 'Fotógrafo' : a.rol === 'ejecutiva' ? 'Ejecutiva' : cfgEsc_(a.rol)}</span></div>
+        <div class="cfg-sub">${cfgFecha_(a.fecha)} · ${cfgEsc_(a.disp || '—')}${a.ip ? ' · IP ' + cfgEsc_(a.ip) : ''}${!a.ok && a.motivo ? ' · ' + cfgEsc_(a.motivo) : ''}</div></div>
+        <span class="cfg-estado ${a.ok ? 'on' : 'off'}">${a.ok ? '✓ Entró' : '✕ Falló'}</span>
+      </div></div>`).join('') || '<div class="cfg-sub">Sin registros.</div>'}</div>`;
+}
+
+// ── 🕘 Historial ──
+function cfgPintarHistorial_() {
+  const deshacibles = ['Usuarios', 'Fotógrafos', 'Correos', 'Reglas'];
+  return `<div class="cfg-sub" style="margin-bottom:12px">Cada cambio queda registrado. "Deshacer" vuelve esa sección a como estaba ANTES de ese cambio (las claves nunca se guardan aquí).</div>
+    <div class="cfg-list">${(_cfgDatos.historial || []).map(h => `
+      <div class="cfg-row"><div class="cfg-row-head" style="cursor:default">
+        <div style="min-width:0;flex:1"><div style="font-weight:700">${cfgEsc_(h.seccion)}</div>
+        <div class="cfg-sub">${cfgEsc_(h.detalle)}</div><div class="cfg-sub" style="font-size:11px">${cfgFecha_(h.fecha)} · ${cfgEsc_(h.usuario)}</div></div>
+        ${deshacibles.indexOf(h.seccion) >= 0 ? `<button class="cfg-btn" onclick="cfgDeshacer_(${h.fila})">↶ Deshacer</button>` : ''}
+      </div></div>`).join('') || '<div class="cfg-sub">Todavía no hay cambios.</div>'}</div>`;
+}
+async function cfgDeshacer_(fila) {
+  if (!confirm('¿Deshacer este cambio? La sección vuelve a como estaba antes de él.')) return;
+  try { await cfgApi_('rfCfgDeshacer', { fila }); await cfgRecargar_(); showToast('↶ Cambio deshecho'); }
+  catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
+}
+
+// ── 🔑 Seguridad ──
+function cfgPintarSeguridad_() {
+  return `
+    <div class="cfg-card">
+      <div class="cfg-h">Cambiar el PIN de Configuración</div>
+      <div class="cfg-grid">
+        <label>PIN actual<input id="cfg-p-act" class="form-input" type="password" inputmode="numeric" autocomplete="off"></label>
+        <label>PIN nuevo (6 a 10 números)<input id="cfg-p-new" class="form-input" type="password" inputmode="numeric" autocomplete="off"></label>
+        <label>Repite el PIN nuevo<input id="cfg-p-new2" class="form-input" type="password" inputmode="numeric" autocomplete="off"></label>
+      </div>
+      <button class="cfg-btn primary" onclick="cfgCambiarPin_()">Cambiar PIN</button>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Emergencia</div>
+      <div class="cfg-sub" style="margin-bottom:10px">Si sospechas que alguien entró con una clave ajena: cierra TODAS las sesiones abiertas (la tuya también) y luego cambia las claves que hagan falta.</div>
+      <button class="cfg-btn danger" onclick="cfgCerrarTodas_()">⏻ Cerrar las sesiones de todos</button>
+    </div>
+    <div class="cfg-card">
+      <div class="cfg-h">Cómo se protegen las claves</div>
+      <div class="cfg-sub">Las claves de todos ya no están escritas en el código: solo se guarda una huella cifrada (no se puede revertir para ver la clave). Ni este módulo ni el historial muestran claves. Configuración solo abre con tu usuario y tu PIN, y 5 PIN incorrectos lo bloquean por unos minutos.</div>
+    </div>`;
+}
+async function cfgCambiarPin_() {
+  const act = document.getElementById('cfg-p-act').value.trim(), n1 = document.getElementById('cfg-p-new').value.trim(), n2 = document.getElementById('cfg-p-new2').value.trim();
+  if (!/^\d{6,10}$/.test(n1)) { showToast('⚠️ El PIN nuevo debe tener entre 6 y 10 números', 'warn'); return; }
+  if (n1 !== n2) { showToast('⚠️ Los PIN nuevos no coinciden', 'warn'); return; }
+  try { await cfgApi_('rfCfgGuardarPin', { actual: act, nuevo: n1 }); _cfgPin = n1; await cfgRecargar_(); showToast('🔒 PIN cambiado'); }
+  catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
+}
+async function cfgCerrarTodas_() {
+  if (!confirm('¿Cerrar las sesiones de TODOS los usuarios de Report, incluida la tuya?')) return;
+  try { await cfgApi_('rfCfgCerrarSesiones', { todos: true }); showToast('⏻ Sesiones cerradas. Vuelve a ingresar.'); setTimeout(doLogout, 1500); }
+  catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
+}
+
+// ══ Configuración pública (la que manda el servidor al ingresar): reglas, fotógrafos, de quién gestiona ══
+const ZR_CFG_FABRICA = { reglas: { diasToma: [2, 4], horaCorte: 7, sesionHoras: 6 }, fotos: { reglas: [{ contiene: 'QUITO', fotografo: 'Saskhya' }], defecto: 'Cristopher' }, avisoListo: true, gestiona: null };
+function zrCfg() {
+  try { const c = JSON.parse(sessionStorage.getItem('zr_cfg') || 'null'); if (c && c.reglas) return c; } catch (e) {}
+  return ZR_CFG_FABRICA;
+}
+async function zrRefrescarCfgPublica_() {
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify({ action: 'rfCfgPublica' }) });
+    const d = await res.json();
+    if (d && d.ok && d.cfg) sessionStorage.setItem('zr_cfg', JSON.stringify(d.cfg));
+  } catch (e) {}
+}
+// Lista de nombres para la pantalla de ingreso (sin claves): se trae del servidor y se recuerda en este equipo
+let _zrUsuariosLogin = null;
+try { _zrUsuariosLogin = JSON.parse(localStorage.getItem('zr_usuarios_login') || 'null'); } catch (e) {}
+async function zrTraerUsuariosLogin_() {
+  try {
+    const res = await fetch(SCRIPT_URL + '?action=rfUsuariosLogin&_t=' + Date.now(), { cache: 'no-store' });
+    const d = await res.json();
+    if (d && d.ok && Array.isArray(d.fotografos) && Array.isArray(d.ejecutivas)) {
+      _zrUsuariosLogin = d;
+      try { localStorage.setItem('zr_usuarios_login', JSON.stringify(d)); } catch (e) {}
+      const sel = document.getElementById('pin-user');
+      if (currentRole && !currentUser && sel && !sel.value && document.getElementById('pin-screen').classList.contains('active')) goToPin(currentRole);
+    }
+  } catch (e) {}
+}
+document.addEventListener('DOMContentLoaded', zrTraerUsuariosLogin_);
 
 function showToast(msg, type) {
   const t = document.getElementById('toast');
