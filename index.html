@@ -3457,7 +3457,7 @@ async function exportarReporte(asignacionId, formato, btnEl) {
   try {
     setExportProgress(5, 'Obteniendo tomas registradas...');
     // Traer las tomas reales (con URLs de Drive) para este cliente
-    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente));
+    const res = await fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&asignacionId=' + encodeURIComponent(asignacionId) + '&cliente=' + encodeURIComponent(a.cliente));
     if (!res.ok) throw new Error('No se pudieron obtener las tomas');
     const todasTomas = await res.json();
     // Filtrar solo las tomas que pertenecen a ESTA asignación
@@ -3477,6 +3477,14 @@ async function exportarReporte(asignacionId, formato, btnEl) {
       setExportProgress(pctFotos, null);
     }, 700);
     const fotosMap = await descargarFotosEnLote(todasUrls);
+    // Las que no llegaron se piden otra vez (de a pocas), antes de dejarlas como "Foto no disponible"
+    const faltan = Array.from(new Set(todasUrls.filter(u => u && !fotosMap[u])));
+    for (let k = 0; k < faltan.length; k += 4) {
+      setExportProgress(null, 'Reintentando ' + faltan.length + ' foto(s) que Google no entregó…');
+      Object.assign(fotosMap, await descargarFotosEnLote(faltan.slice(k, k + 4)));
+    }
+    const siguenFaltando = faltan.filter(u => !fotosMap[u]).length;
+    if (siguenFaltando) showToast('⚠️ ' + siguenFaltando + ' foto(s) no se pudieron bajar de Drive; salen como "no disponible"', 'warn');
     clearInterval(tickerFotos); tickerFotos = null;
     setExportProgress(60, 'Fotos descargadas. Generando diapositivas...');
 
@@ -5886,6 +5894,12 @@ function zrAbrirDetalle_(id) {
   document.body.classList.add('zr-modal-abierto');
   zrPintarDetalle_();
   const hayFotos = (a.elementos || []).some(e => e.estado === 'COMPLETADO');
+  // (2026-11-10) El servidor nuevo ya manda las fotos dentro de cada elemento → se muestran al instante
+  const comp = (a.elementos || []).filter(e => e.estado === 'COMPLETADO');
+  if (hayFotos && comp.every(e => e.toma)) {
+    const mapa = {}; (a.elementos || []).forEach(e => { if (e.toma) mapa[String(e.id)] = e.toma; });
+    _zrTomasCache[_zrDetId] = mapa; zrPintarDetalle_(); return;
+  }
   if (hayFotos && !_zrTomasCache[_zrDetId] && !_zrTomasPidiendo[_zrDetId]) {
     const aidP = String(a.id);
     _zrTomasPidiendo[aidP] = true; _zrTomasLento[aidP] = false;
