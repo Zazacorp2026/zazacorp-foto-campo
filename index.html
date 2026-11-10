@@ -367,6 +367,115 @@
     .cfg-chip { display: inline-flex; align-items: center; gap: 2px; padding: 5px 4px 5px 12px; border-radius: 16px; background: var(--dark3); border: 1px solid var(--border-strong); font-family: var(--mono); font-size: 13px; }
     .cfg-savebar { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 8px; padding: 10px 12px; margin-top: 14px; border-radius: var(--radius-md); background: #1d1408; border: 1px solid var(--border-glow); box-shadow: var(--shadow-pop); z-index: 5; }
     .cfg-savebar span { flex: 1; font-size: 13px; font-weight: 700; color: var(--orange-light); }
+
+    /* ══ 2026-11-10 VISTA TABLERO (computadora) + DETALLE CON FOTOS ══ */
+    .stats-row.k4 { grid-template-columns: 1fr 1fr; }
+    .stats-row.k4 .stat-card { padding: 11px 14px; }
+    .stats-row.k4 .stat-num { font-size: 23px; margin-top: 3px; }
+    body.zr-desk .stats-row.k4 .stat-card { padding: 14px 16px; }
+    .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
+    .asig-card.clic { cursor: pointer; }
+    .zb-wrap { display: none; }
+    body.zr-desk .page { max-width: 1440px; padding: 22px 28px; }
+    body.zr-desk #page-ejecutiva-form, body.zr-desk #page-config { max-width: 980px; }
+    body.zr-desk .fab-new { max-width: 360px; left: auto; right: 28px; }
+    body.zr-desk .stats-row.k4 { grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    body.zr-desk #page-ejecutiva-lista .zr-cel { display: none !important; }
+    body.zr-desk #page-ejecutiva-lista .zb-wrap { display: block; }
+    #page-asignaciones.zb-on .zr-cel { display: none !important; }
+    #page-asignaciones.zb-on .zb-wrap { display: block; }
+    body.zr-desk #page-asignaciones .ruta-btn.global { display: inline-flex; width: auto; margin-right: 8px; }
+    body.zr-desk select#mes-filtro-ejec, body.zr-desk select#mes-filtro-foto { max-width: 260px; }
+    .zb-filtros { display: flex; gap: 10px; margin: -4px 0 14px; flex-wrap: wrap; }
+    .zb-buscar, .zb-sel { padding: 9px 12px; background: var(--dark3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: #fff; font-size: 12.5px; }
+    .zb-buscar { flex: 1; max-width: 360px; }
+    .zb-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+    .zb-col { background: rgba(255,255,255,0.025); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 12px; min-height: 160px; }
+    .zb-col-hd { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 800; color: #fff; padding: 2px 4px 10px; border-bottom: 2px solid var(--border); margin-bottom: 10px; }
+    .zb-col-hd b { color: var(--muted); font-family: var(--mono); margin-left: 4px; }
+    .zb-col-pct { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 20px; background: var(--dark3); color: var(--muted); }
+    .zb-col.pend .zb-col-hd { border-color: rgba(56,182,255,.55); }
+    .zb-col.proc .zb-col-hd { border-color: rgba(255,160,87,.7); }
+    .zb-col.proc .zb-col-pct { color: var(--orange-light); }
+    .zb-col.done .zb-col-hd { border-color: rgba(52,211,153,.6); }
+    .zb-col.done .zb-col-pct { color: var(--green); }
+    .zb-card { background: linear-gradient(160deg, var(--card-raised), var(--card)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 12px; margin-bottom: 9px; cursor: pointer; transition: border-color .15s, transform .1s; }
+    .zb-card:hover { border-color: var(--border-strong); }
+    .zb-card.nuevo { border-color: rgba(52,211,153,.6); }
+    .zb-hd { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .zb-cli { font-weight: 800; color: #fff; font-size: 14px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .zb-pct { font-family: var(--mono); font-weight: 700; font-size: 17px; color: var(--blue); }
+    .zb-card.proc .zb-pct { color: var(--orange-light); }
+    .zb-card.done .zb-pct { color: var(--green); }
+    .zb-meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+    .zb-f.vencida { color: var(--red); } .zb-f.proxima { color: var(--yellow); }
+    .zb-obs { font-size: 11.5px; color: #fff; margin-top: 5px; background: rgba(255,107,0,.08); border-left: 2px solid var(--orange); padding: 4px 7px; border-radius: 4px; }
+    .zb-nuevo { font-size: 11px; color: var(--green); font-weight: 800; margin-top: 4px; }
+    .zb-bar { display: block; height: 4px; border-radius: 3px; background: var(--dark3); margin: 8px 0 2px; overflow: hidden; }
+    .zb-bar > span { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+    .zb-card.proc .zb-bar > span, .zd-prog.proc .zb-bar > span { background: var(--orange-light); }
+    .zb-card.done .zb-bar > span, .zd-prog.done .zb-bar > span { background: var(--green); }
+    .zb-acc { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .zb-btn { padding: 6px 10px; border-radius: 8px; font-size: 11.5px; font-weight: 700; background: var(--dark3); color: var(--muted); border: 1px solid var(--border); }
+    .zb-btn:hover { color: #fff; border-color: var(--border-strong); }
+    .zb-btn.edit { color: var(--blue); } .zb-btn.del { color: var(--red); }
+    .zb-btn.ok { color: var(--green); background: rgba(34,197,94,.1); border-color: rgba(34,197,94,.35); }
+    .zb-btn.warn { color: var(--orange-light); background: rgba(255,107,0,.08); border: 1px dashed rgba(255,160,87,.5); }
+    .zb-vacio { font-size: 12px; color: var(--muted); text-align: center; padding: 22px 0; }
+    .zb-mas { width: 100%; padding: 9px; border-radius: 8px; background: var(--dark3); color: var(--muted); font-size: 12px; font-weight: 700; border: 1px solid var(--border); }
+    /* Panel de detalle: hoja completa en el celular, panel ancho en la computadora */
+    body.zr-modal-abierto { overflow: hidden; }
+    #zr-det { display: none; position: fixed; inset: 0; z-index: 180; background: rgba(0,0,0,.6); }
+    #zr-det.open { display: flex; align-items: stretch; justify-content: center; }
+    .zd-panel { background: var(--dark2, #111316); width: 100%; height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: calc(env(safe-area-inset-top) + 14px) 14px calc(env(safe-area-inset-bottom) + 24px); }
+    body.zr-desk #zr-det.open { align-items: center; padding: 28px; }
+    body.zr-desk .zd-panel { max-width: 1280px; height: auto; max-height: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border); padding: 22px 26px 26px; }
+    .zd-hd { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .zd-cli { font-size: 19px; font-weight: 800; color: #fff; }
+    .zd-meta { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+    .zd-obs { font-size: 12px; color: #fff; margin-top: 6px; }
+    .zd-x { width: 38px; height: 38px; border-radius: 50%; background: var(--dark3); color: #fff; font-size: 16px; flex-shrink: 0; border: 1px solid var(--border); }
+    .zd-prog { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0; padding: 12px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); }
+    .zd-pct { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--blue); }
+    .zd-prog.proc .zd-pct { color: var(--orange-light); } .zd-prog.done .zd-pct { color: var(--green); }
+    .zd-cnt { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+    .zd-prog .zb-bar { min-width: 120px; }
+    .zd-aviso { font-size: 12px; color: var(--yellow); margin-bottom: 10px; }
+    .zd-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 560px) { .zd-grid { grid-template-columns: 1fr 1fr; } }
+    body.zr-desk .zd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .zd-el { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+    .zd-el.done { border-color: rgba(52,211,153,.35); }
+    .zd-fotos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: #000; }
+    .zd-fotos img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; cursor: zoom-in; background: var(--dark3); }
+    .zd-sinfoto { display: flex; align-items: center; justify-content: center; aspect-ratio: 4/3; font-size: 10.5px; color: var(--muted); text-align: center; padding: 4px; background: var(--dark3); }
+    .zd-vids { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px 0; }
+    .zd-vids a { font-size: 11.5px; font-weight: 700; color: var(--blue); text-decoration: none; padding: 4px 9px; border-radius: 20px; background: rgba(56,182,255,.1); }
+    .zd-ref { position: relative; aspect-ratio: 16/7; background: var(--dark3); display: flex; align-items: center; justify-content: center; }
+    .zd-ref img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .55; }
+    .zd-tag { position: relative; font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.6); padding: 4px 10px; border-radius: 20px; }
+    .zd-cargando { font-size: 12px; color: var(--muted); }
+    .zd-el-b { padding: 9px 11px 11px; }
+    .zd-el-t { font-weight: 800; color: #fff; font-size: 13px; } .zd-el-t span { color: var(--muted); font-weight: 600; }
+    .zd-el-u { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+    .zd-el-s { font-size: 11.5px; color: var(--muted); margin-top: 5px; font-family: var(--mono); }
+    .zd-el-s.ok { color: var(--green); }
+    .zd-pie { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 14px; }
+    #zr-lb { display: none; position: fixed; inset: 0; z-index: 260; background: rgba(0,0,0,.94); align-items: center; justify-content: center; }
+    #zr-lb.open { display: flex; }
+    #zr-lb img { max-width: 94vw; max-height: 82vh; object-fit: contain; border-radius: 6px; }
+    .zl-x { position: absolute; top: calc(env(safe-area-inset-top) + 14px); right: 14px; width: 42px; height: 42px; border-radius: 50%; background: rgba(255,255,255,.12); color: #fff; font-size: 18px; }
+    .zl-n { position: absolute; top: 50%; transform: translateY(-50%); width: 46px; height: 64px; border-radius: 10px; background: rgba(255,255,255,.1); color: #fff; font-size: 34px; }
+    .zl-p { left: 10px; } .zl-s { right: 10px; }
+    .zl-cap { position: absolute; bottom: calc(env(safe-area-inset-bottom) + 16px); left: 0; right: 0; text-align: center; font-size: 12px; color: #ddd; padding: 0 12px; }
+    .zl-cap a { color: var(--blue); }
+    /* Fotógrafo en computadora: elementos en cuadrícula y captura con fotos lado a lado */
+    body.zr-desk #elem-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 12px; align-items: start; }
+    body.zr-desk #elem-list > * { margin-bottom: 0; }
+    body.zr-desk #elem-list > :not(.elem-card) { grid-column: 1 / -1; }
+    body.zr-desk #capture-body > div:first-child { max-width: 1240px !important; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-content: start; }
+    body.zr-desk #capture-body > div:first-child > :not(.capture-slot) { grid-column: 1 / -1; }
+    body.zr-desk .capture-slot { max-width: none; margin-bottom: 0; }
   </style>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -462,12 +571,14 @@
     </div>
 
     <div id="page-asignaciones" class="page">
-      <div class="stats-row">
-        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📸</span></div><div class="stat-num" id="stat-foto-activas">0</div><div class="stat-label">Activas</div></div>
+      <div class="stats-row k4">
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📌</span></div><div class="stat-num" id="stat-foto-pend">0</div><div class="stat-label">Pendientes</div></div>
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📸</span></div><div class="stat-num" id="stat-foto-proc">0</div><div class="stat-label">En proceso</div></div>
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📍</span></div><div class="stat-num" id="stat-foto-porfoto">0</div><div class="stat-label">Elementos por fotografiar</div></div>
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">✅</span></div><div class="stat-num" id="stat-foto-completadas">0</div><div class="stat-label">Completadas</div></div>
       </div>
-      <div class="agenda-title">Agenda</div>
-      <div class="agenda-chips" id="agenda-chips-foto">
+      <div class="agenda-title zr-cel">Agenda</div>
+      <div class="agenda-chips zr-cel" id="agenda-chips-foto">
         <button class="agenda-chip active" data-filtro="todo" onclick="filtrarAgenda('page-asignaciones','todo',this)">Todo</button>
         <button class="agenda-chip" data-filtro="completadas" onclick="filtrarAgenda('page-asignaciones','completadas',this)">Completadas</button>
         <button class="agenda-chip" data-filtro="proceso" onclick="filtrarAgenda('page-asignaciones','proceso',this)">En proceso</button>
@@ -476,12 +587,13 @@
       <select id="mes-filtro-foto" onchange="aplicarFiltroMes('page-asignaciones')" style="width:100%;margin-bottom:14px;padding:9px 10px;background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:12.5px;font-family:'Space Grotesk',sans-serif">
         <option value="">📅 Todos los meses</option>
       </select>
-      <div class="section-title" id="asig-title-activas">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
+      <div class="section-title zr-cel" id="asig-title-activas">Asignaciones del día<span class="badge" id="asig-badge">0</span></div>
       <button class="ruta-btn global" onclick="verRutaDelDia()">🚗 Ruta única de todo el día (todos los clientes)</button>
       <div id="ruta-dia-resultado"></div>
       <button class="ruta-btn global" onclick="verRutaGlobal()">🧭 Agrupar puntos cercanos (todos los clientes)</button>
       <div id="ruta-global-resultado"></div>
-      <div id="asig-list"></div>
+      <div id="asig-list" class="zr-cel"></div>
+      <div id="foto-board" class="zb-wrap"></div>
     </div>
 
     <div id="page-elementos" class="page">
@@ -497,13 +609,15 @@
     </div>
 
     <div id="page-ejecutiva-lista" class="page" style="padding-bottom:90px">
-      <div class="stats-row">
-        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📌</span></div><div class="stat-num" id="stat-ejec-activas">0</div><div class="stat-label">Activas</div></div>
+      <div class="stats-row k4">
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📌</span></div><div class="stat-num" id="stat-ejec-pend">0</div><div class="stat-label">Pendientes</div></div>
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">📸</span></div><div class="stat-num" id="stat-ejec-proc">0</div><div class="stat-label">En proceso</div></div>
+        <div class="stat-card"><div class="stat-top"><span class="stat-icon">🔔</span></div><div class="stat-num" id="stat-ejec-sinleer" style="color:var(--green)">0</div><div class="stat-label">Listas sin leer</div></div>
         <div class="stat-card"><div class="stat-top"><span class="stat-icon">✅</span></div><div class="stat-num" id="stat-ejec-completadas">0</div><div class="stat-label">Completadas</div></div>
       </div>
       <button id="btnExportPendientesExcel" onclick="exportarPendientesExcel()" style="display:none;width:100%;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.35);border-radius:10px;color:#4ade80;font-size:12.5px;font-weight:700;padding:11px 12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-bottom:14px" onmouseover="this.style.background='rgba(74,222,128,.18)'" onmouseout="this.style.background='rgba(74,222,128,.08)'">⬇ Exportar pendientes (Excel)</button>
-      <div class="agenda-title">Agenda</div>
-      <div class="agenda-chips" id="agenda-chips-ejec">
+      <div class="agenda-title zr-cel">Agenda</div>
+      <div class="agenda-chips zr-cel" id="agenda-chips-ejec">
         <button class="agenda-chip active blue" data-filtro="todo" onclick="filtrarAgenda('page-ejecutiva-lista','todo',this)">Todo</button>
         <button class="agenda-chip blue" data-filtro="completadas" onclick="filtrarAgenda('page-ejecutiva-lista','completadas',this)">Completadas</button>
         <button class="agenda-chip blue" data-filtro="proceso" onclick="filtrarAgenda('page-ejecutiva-lista','proceso',this)">En proceso</button>
@@ -512,11 +626,12 @@
       <select id="mes-filtro-ejec" onchange="aplicarFiltroMes('page-ejecutiva-lista')" style="width:100%;margin-bottom:14px;padding:9px 10px;background:var(--dark3);border:1px solid var(--border);border-radius:var(--radius-sm);color:#fff;font-size:12.5px;font-family:'Space Grotesk',sans-serif">
         <option value="">📅 Todos los meses</option>
       </select>
-      <div class="section-title blue" id="ejec-title-activas">Asignaciones pendientes<span class="badge blue" id="ejec-badge">0</span></div>
-      <div id="ejec-asig-list"></div>
+      <div id="ejec-board" class="zb-wrap"></div>
+      <div class="section-title blue zr-cel" id="ejec-title-activas">Asignaciones pendientes<span class="badge blue" id="ejec-badge">0</span></div>
+      <div id="ejec-asig-list" class="zr-cel"></div>
 
-      <div class="section-title" id="ejec-title-completadas" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
-      <div id="ejec-asig-list-done"></div>
+      <div class="section-title zr-cel" id="ejec-title-completadas" style="color:var(--muted);margin-top:24px">Completadas<span class="badge" id="ejec-badge-done" style="background:rgba(34,197,94,0.12);color:var(--green)">0</span></div>
+      <div id="ejec-asig-list-done" class="zr-cel"></div>
     </div>
 
     <div id="page-config" class="page" style="padding-bottom:40px">
@@ -1292,6 +1407,7 @@ async function loadAsignacionesFotografo() {
 // Vista de Jorge (Admin): todos los elementos de todas las asignaciones,
 // agrupados por fotógrafo asignado, con el % de avance de cada uno.
 function renderVistaAdminFotografo() {
+  { const _pg = document.getElementById('page-asignaciones'); if (_pg) _pg.classList.remove('zb-on'); }
   const list = document.getElementById('asig-list');
   const badge = document.getElementById('asig-badge');
 
@@ -1502,6 +1618,7 @@ function filtrarAgenda(pageId, filtro, btnEl) {
 // Se dispara al cambiar el <select> de mes — reaplica el filtro
 // combinado usando el chip de estado que ya estaba activo (no lo toca).
 function aplicarFiltroMes(pageId) {
+  if (zrEscritorio_()) zrRepintarTableros_();
   const chipActivo = document.querySelector(
     (pageId === 'page-asignaciones' ? '#agenda-chips-foto' : '#agenda-chips-ejec') + ' .agenda-chip.active'
   );
@@ -1538,6 +1655,8 @@ function renderAsignacionesFotografo() {
   if (!asignaciones.length) {
     badge.textContent = '0';
     list.innerHTML = volverAdminBtn + `<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Todo al día</div><div class="empty-sub">No tienes asignaciones por ahora.</div></div>`;
+    zrStatsFoto_([], []);
+    { const _pg = document.getElementById('page-asignaciones'); if (_pg) _pg.classList.remove('zb-on'); }
     return;
   }
 
@@ -1556,8 +1675,7 @@ function renderAsignacionesFotografo() {
   const completadas = asignaciones.filter(a => pctDe(a).pct === 100)
     .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
   badge.textContent = activas.length;
-  const statA = document.getElementById('stat-foto-activas'); if (statA) statA.textContent = activas.length;
-  const statC = document.getElementById('stat-foto-completadas'); if (statC) statC.textContent = completadas.length;
+  zrStatsFoto_(activas, completadas);
 
   function cardHtml(a, done) {
     const { total, completados, pct } = pctDe(a);
@@ -1600,6 +1718,10 @@ function renderAsignacionesFotografo() {
 
   list.innerHTML = html;
   poblarFiltroMes_('mes-filtro-foto', asignaciones);
+  // 2026-11-10: en computadora, tablero de 3 columnas
+  const _pg = document.getElementById('page-asignaciones'), _fb = document.getElementById('foto-board');
+  if (_pg) _pg.classList.toggle('zb-on', zrEscritorio_());
+  if (_fb) _fb.innerHTML = zrEscritorio_() ? volverAdminBtn + zrTableroFotoHtml_(asignaciones) : '';
 
   // Reaplicar el filtro activo tras repintar (el polling silencioso
   // repinta cada 20s; sin esto el filtro se perdía, causando parpadeo).
@@ -2810,6 +2932,7 @@ async function showEjecutivaLista() {
     });
     const agrupar = esJorgeAdmin || gestionaTambien.length > 0;
     misAsignacionesCache = mias; // para poder editar/anular sin volver a pedir al backend
+    window._zrPintarEjec = pintar; window._zrUltimasTodas = todas;
     mostrarAvisosListos_(todas);
 
     function pctDe(a) {
@@ -2828,8 +2951,15 @@ async function showEjecutivaLista() {
 
     document.getElementById('ejec-badge').textContent = activas.length;
     document.getElementById('ejec-badge-done').textContent = completadas.length;
-    const statA = document.getElementById('stat-ejec-activas'); if (statA) statA.textContent = activas.length;
-    const statC = document.getElementById('stat-ejec-completadas'); if (statC) statC.textContent = completadas.length;
+    // 2026-11-10: 4 cuadros (Pendientes · En proceso con % promedio · Listas sin leer · Completadas)
+    const _proc = activas.filter(a => pctDe(a).pct > 0);
+    const _set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+    _set('stat-ejec-pend', activas.length - _proc.length);
+    _set('stat-ejec-proc', _proc.length + (_proc.length ? ' <small>· ' + zrPromedioPct_(_proc) + '%</small>' : ''));
+    _set('stat-ejec-sinleer', completadas.filter(a => a.avisoListo && !_avisosLeidosLocal.has(String(a.id))).length);
+    _set('stat-ejec-completadas', completadas.length);
+    const _board = document.getElementById('ejec-board');
+    if (_board) _board.innerHTML = zrEscritorio_() ? zrTableroEjecHtml_(mias, agrupar) : '';
 
     function renderCard(a, isDone) {
       const { total, completados, pct } = pctDe(a);
@@ -2841,13 +2971,13 @@ async function showEjecutivaLista() {
         <div style="display:flex;gap:8px;margin-top:10px">
           <button onclick="event.stopPropagation();editarAsignacion('${a.id}')" style="flex:1;padding:8px;background:rgba(59,130,246,0.12);color:var(--blue);border-radius:8px;font-size:12px;font-weight:700">✏️ Editar</button>
           <button onclick="event.stopPropagation();confirmarAnularAsignacion('${a.id}','${(a.cliente||'').replace(/'/g,"\\'")}')" style="flex:1;padding:8px;background:rgba(239,68,68,0.12);color:var(--red);border-radius:8px;font-size:12px;font-weight:700">🗑️ Anular</button>
-        </div>
+        </div>${completados > 0 ? `
         <div style="display:flex;gap:6px;margin-top:6px">
           <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pptx',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PPT (${completados}/${total})</button>
           <button onclick="event.stopPropagation();confirmarExportarParcial('${a.id}','pdf',this,${completados},${total})" style="flex:1;padding:7px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;font-size:11px;font-weight:700">⚠️ Descargar PDF (${completados}/${total})</button>
-        </div>`;
+        </div>` : ''}`;
       return `
-        <div class="asig-card${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" data-mes="${mesDeAsig_(a)}">
+        <div class="asig-card clic${isDone?' done':''}" data-urgencia="${urgenciaDeFecha(fechaLimiteEfectiva_(a))}" data-estado="${estadoDeAsig(pct)}" data-mes="${mesDeAsig_(a)}" onclick="zrAbrirDetalle_('${a.id}')">
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
@@ -2881,6 +3011,7 @@ async function showEjecutivaLista() {
       : `<div class="empty-sub" style="padding:14px 0">Aún no tienes asignaciones completadas.</div>`;
 
     poblarFiltroMes_('mes-filtro-ejec', mias);
+    if (_zrDetId) zrPintarDetalle_();
 
     // Reaplicar el filtro que estaba activo antes de este repintado
     // (el polling silencioso repinta cada 20s y sin esto el filtro se
@@ -5387,6 +5518,281 @@ async function zrTraerUsuariosLogin_() {
   } catch (e) {}
 }
 document.addEventListener('DOMContentLoaded', zrTraerUsuariosLogin_);
+
+
+// ══════════════════════════════════════════════════════════════
+//  VISTA TABLERO (2026-11-10) — computadora: 3 columnas por estado
+//  (Pendientes · En proceso · Completadas) con %, y panel de detalle
+//  con fotos al abrir un cajón. En el celular se mantiene la lista de
+//  siempre, con los mismos %, descarga parcial solo "en proceso" y el
+//  mismo panel de detalle (a pantalla completa).
+// ══════════════════════════════════════════════════════════════
+const ZR_MQ_ESCRITORIO = window.matchMedia('(min-width: 1024px)');
+function zrEscritorio_() { return ZR_MQ_ESCRITORIO.matches; }
+function zrAplicarModoPantalla_() { document.body.classList.toggle('zr-desk', zrEscritorio_()); }
+zrAplicarModoPantalla_();
+try { ZR_MQ_ESCRITORIO.addEventListener('change', () => { zrAplicarModoPantalla_(); zrRepintarTableros_(); }); } catch (e) {}
+
+function zrPctAsig_(a) {
+  const els = a.elementos || [];
+  const total = els.length, completados = els.filter(e => e.estado === 'COMPLETADO').length;
+  return { total, completados, pct: total ? Math.round(completados / total * 100) : 0 };
+}
+function zrPromedioPct_(lista) {
+  if (!lista.length) return 0;
+  return Math.round(lista.reduce((s, a) => s + zrPctAsig_(a).pct, 0) / lista.length);
+}
+function zrFechaCorta_(f) {
+  if (!f) return 'sin fecha';
+  const d = new Date(String(f).slice(0, 10) + 'T00:00:00');
+  if (isNaN(d)) return cfgEsc_(f);
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const dias = Math.round((d - hoy) / 86400000);
+  if (dias === 0) return 'hoy';
+  if (dias === 1) return 'mañana';
+  if (dias === -1) return 'ayer';
+  return d.toLocaleDateString('es-EC', { weekday: 'short', day: '2-digit', month: 'short' });
+}
+function zrRepintarTableros_() {
+  try {
+    const activa = (document.querySelector('.page.active') || {}).id;
+    if (activa === 'page-ejecutiva-lista' && window._zrPintarEjec && window._zrUltimasTodas) window._zrPintarEjec(window._zrUltimasTodas);
+    else if (activa === 'page-asignaciones' && currentUser && currentRole === 'fotografo') {
+      if (currentUser.esAdmin) renderVistaAdminFotografo(); else renderAsignacionesFotografo();
+    }
+  } catch (e) { console.warn('zrRepintarTableros_', e); }
+}
+
+// ── Botones de cada cajón (los mismos en celular, tablero y detalle) ──
+function zrBotonesAsig_(a, compacto) {
+  const { total, completados, pct } = zrPctAsig_(a);
+  const id = a.id, cli = String(a.cliente || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const b = (cls, onclick, txt) => `<button class="zb-btn ${cls}" onclick="event.stopPropagation();${onclick}">${txt}</button>`;
+  if (pct >= 100) return b('ok', `exportarReporte('${id}','pptx',this)`, '📊 PPT') + b('ok', `exportarReporte('${id}','pdf',this)`, '📄 PDF');
+  let h = b('edit', `editarAsignacion('${id}')`, '✏️ Editar') + b('del', `confirmarAnularAsignacion('${id}','${cli}')`, '🗑️ Anular');
+  if (pct > 0) h += b('warn', `confirmarExportarParcial('${id}','pptx',this,${completados},${total})`, '⚠️ PPT ' + completados + '/' + total)
+                 + b('warn', `confirmarExportarParcial('${id}','pdf',this,${completados},${total})`, '⚠️ PDF ' + completados + '/' + total);
+  return h;
+}
+
+// ── Tablero de la EJECUTIVA (solo computadora) ──
+let _zrFiltroEjecutiva = '', _zrBuscarTablero = '', _zrColMas = {};
+function zrTableroEjecHtml_(mias, agrupar) {
+  const mes = (document.getElementById('mes-filtro-ejec') || {}).value || '';
+  const q = normalizarZR(_zrBuscarTablero);
+  const lista = mias.filter(a => (!mes || mesDeAsig_(a) === mes)
+    && (!_zrFiltroEjecutiva || String(a.creadoPor || '').toUpperCase() === _zrFiltroEjecutiva)
+    && (!q || normalizarZR(a.cliente).indexOf(q) >= 0 || (a.elementos || []).some(e => normalizarZR(e.codigoRef).indexOf(q) >= 0)));
+  const porFecha = (x, y) => String(fechaLimiteEfectiva_(x) || '9999').localeCompare(String(fechaLimiteEfectiva_(y) || '9999'));
+  const pend = lista.filter(a => zrPctAsig_(a).pct === 0).sort(porFecha);
+  const proc = lista.filter(a => { const p = zrPctAsig_(a).pct; return p > 0 && p < 100; }).sort(porFecha);
+  const done = lista.filter(a => zrPctAsig_(a).pct >= 100)
+    .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
+  const ejecutivas = agrupar ? Array.from(new Set(mias.map(a => String(a.creadoPor || '').toUpperCase()).filter(Boolean))).sort() : [];
+  const card = a => {
+    const { total, completados, pct } = zrPctAsig_(a);
+    const urg = urgenciaDeFecha(fechaLimiteEfectiva_(a));
+    const sinLeer = pct >= 100 && a.avisoListo && !_avisosLeidosLocal.has(String(a.id));
+    const est = pct >= 100 ? 'done' : pct > 0 ? 'proc' : 'pend';
+    return `<div class="zb-card ${est}${sinLeer ? ' nuevo' : ''}" onclick="zrAbrirDetalle_('${a.id}')">
+      <div class="zb-hd"><div class="zb-cli">${cfgEsc_(a.cliente)}</div><div class="zb-pct">${pct}%</div></div>
+      <div class="zb-meta">${completados}/${total} fotos · <span class="zb-f ${pct < 100 ? urg : ''}">${pct >= 100 ? 'completada' : 'límite ' + zrFechaCorta_(fechaLimiteEfectiva_(a))}</span>${agrupar ? ' · 👤 ' + cfgEsc_(a.creadoPor || '—') : ''}</div>
+      ${sinLeer ? '<div class="zb-nuevo">● Lista · sin leer</div>' : ''}
+      <div class="zb-bar"><span style="width:${pct}%"></span></div>
+      <div class="zb-acc">${zrBotonesAsig_(a)}</div>
+    </div>`;
+  };
+  const columna = (k, titulo, items, pctCol) => {
+    const max = _zrColMas[k] ? 9999 : 30;
+    return `<div class="zb-col ${k}">
+      <div class="zb-col-hd"><span>${titulo} <b>${items.length}</b></span><span class="zb-col-pct">${pctCol}%</span></div>
+      ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
+      ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
+    </div>`;
+  };
+  return `
+    <div class="zb-filtros">
+      <input class="zb-buscar" placeholder="🔎 Buscar cliente o código" value="${cfgEsc_(_zrBuscarTablero)}" oninput="_zrBuscarTablero=this.value;clearTimeout(window._zrBT);window._zrBT=setTimeout(()=>{zrRepintarTableros_();const i=document.querySelector('.zb-buscar');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
+      ${agrupar ? `<select class="zb-sel" onchange="_zrFiltroEjecutiva=this.value;zrRepintarTableros_()"><option value="">👤 Todas las ejecutivas</option>${ejecutivas.map(e => `<option value="${cfgEsc_(e)}" ${e === _zrFiltroEjecutiva ? 'selected' : ''}>${cfgEsc_(e)}</option>`).join('')}</select>` : ''}
+    </div>
+    <div class="zb-board">
+      ${columna('pend', 'Pendientes', pend, 0)}
+      ${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}
+      ${columna('done', 'Completadas', done, 100)}
+    </div>`;
+}
+
+// ── Tablero del FOTÓGRAFO (solo computadora) ──
+function zrTableroFotoHtml_(lista) {
+  const mes = (document.getElementById('mes-filtro-foto') || {}).value || '';
+  const vis = lista.filter(a => !mes || mesDeAsig_(a) === mes);
+  const porFecha = (x, y) => String(fechaLimiteEfectiva_(x) || '9999').localeCompare(String(fechaLimiteEfectiva_(y) || '9999'));
+  const pend = vis.filter(a => zrPctAsig_(a).pct === 0).sort(porFecha);
+  const proc = vis.filter(a => { const p = zrPctAsig_(a).pct; return p > 0 && p < 100; }).sort(porFecha);
+  const done = vis.filter(a => zrPctAsig_(a).pct >= 100)
+    .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
+  const card = a => {
+    const { total, completados, pct } = zrPctAsig_(a);
+    const faltan = (a.elementos || []).filter(e => e.estado !== 'COMPLETADO');
+    const dia = faltan.filter(e => e.turno === 'DIA').length, noche = faltan.filter(e => e.turno === 'NOCHE').length;
+    const est = pct >= 100 ? 'done' : pct > 0 ? 'proc' : 'pend';
+    const urg = urgenciaDeFecha(fechaLimiteEfectiva_(a));
+    return `<div class="zb-card ${est}" onclick="openAsignacionFotografo('${a.id}')">
+      <div class="zb-hd"><div class="zb-cli">${cfgEsc_(a.cliente)}</div><div class="zb-pct">${pct}%</div></div>
+      <div class="zb-meta">${completados}/${total} · <span class="zb-f ${pct < 100 ? urg : ''}">${pct >= 100 ? 'completada' : 'límite ' + zrFechaCorta_(fechaLimiteEfectiva_(a))}</span>${a.creadoPor ? ' · 👤 ' + cfgEsc_(a.creadoPor) : ''}</div>
+      ${pct < 100 && (dia || noche) ? `<div class="zb-meta">Faltan: ${dia ? '☀️ ' + dia + ' de día' : ''}${dia && noche ? ' · ' : ''}${noche ? '🌙 ' + noche + ' de noche' : ''}</div>` : ''}
+      ${a.observaciones ? `<div class="zb-obs">💬 ${cfgEsc_(a.observaciones)}</div>` : ''}
+      <div class="zb-bar"><span style="width:${pct}%"></span></div>
+      ${pct < 100 ? `<div class="zb-acc"><button class="zb-btn warn">📷 Abrir y fotografiar</button></div>` : ''}
+    </div>`;
+  };
+  const columna = (k, titulo, items, pctCol) => {
+    const max = _zrColMas['f' + k] ? 9999 : 30;
+    return `<div class="zb-col ${k}">
+      <div class="zb-col-hd"><span>${titulo} <b>${items.length}</b></span><span class="zb-col-pct">${pctCol}%</span></div>
+      ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
+      ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['f${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
+    </div>`;
+  };
+  return `<div class="zb-board">${columna('pend', 'Pendientes', pend, 0)}${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}${columna('done', 'Completadas', done, 100)}</div>`;
+}
+
+// ══ Panel de detalle de una asignación (ejecutiva): elementos + fotos tomadas ══
+const _zrTomasCache = {};
+let _zrDetId = null, _zrFotosLB = [];
+function zrDriveId_(url) {
+  const m = String(url || '').match(/[?&]id=([\w-]{10,})/) || String(url || '').match(/\/d\/([\w-]{10,})/);
+  return m ? m[1] : '';
+}
+function zrThumb_(url, ancho) { const id = zrDriveId_(url); return id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + (ancho || 600) : url; }
+function zrDriveVer_(url) { const id = zrDriveId_(url); return id ? 'https://drive.google.com/file/d/' + id + '/view' : url; }
+function zrAbrirDetalle_(id) {
+  const a = (misAsignacionesCache || []).find(x => String(x.id) === String(id));
+  if (!a) return;
+  _zrDetId = String(id);
+  let ov = document.getElementById('zr-det');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'zr-det';
+    ov.onclick = e => { if (e.target === ov) zrCerrarDetalle_(); };
+    document.body.appendChild(ov);
+  }
+  ov.classList.add('open');
+  document.body.classList.add('zr-modal-abierto');
+  zrPintarDetalle_();
+  const hayFotos = (a.elementos || []).some(e => e.estado === 'COMPLETADO');
+  if (hayFotos && !_zrTomasCache[_zrDetId]) {
+    fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente))
+      .then(r => r.json())
+      .then(todas => {
+        const mapa = {};
+        (Array.isArray(todas) ? todas : []).filter(t => String(t.asignacionId) === String(a.id)).forEach(t => { mapa[String(t.elementoId)] = t; });
+        _zrTomasCache[String(a.id)] = mapa;
+        if (_zrDetId === String(a.id)) zrPintarDetalle_();
+      })
+      .catch(() => { _zrTomasCache[String(a.id)] = { _error: true }; if (_zrDetId === String(a.id)) zrPintarDetalle_(); });
+  }
+}
+function zrCerrarDetalle_() {
+  const ov = document.getElementById('zr-det'); if (ov) ov.classList.remove('open');
+  document.body.classList.remove('zr-modal-abierto');
+  _zrDetId = null;
+}
+function zrPintarDetalle_() {
+  const ov = document.getElementById('zr-det');
+  const a = (misAsignacionesCache || []).find(x => String(x.id) === _zrDetId);
+  if (!ov || !a) return;
+  const { total, completados, pct } = zrPctAsig_(a);
+  const tomas = _zrTomasCache[_zrDetId];
+  const fotografos = Array.from(new Set((a.elementos || []).map(e => e.fotografoAsignado).filter(Boolean)));
+  const els = (a.elementos || []).slice().sort((x, y) => (y.estado === 'COMPLETADO') - (x.estado === 'COMPLETADO'));
+  _zrFotosLB = [];
+  const elHtml = el => {
+    const done = el.estado === 'COMPLETADO', sube = el.estado === 'SUBIENDO';
+    const t = tomas && tomas[String(el.id)];
+    const nombre = cfgEsc_(el.codigoRef || el.tipoElemento || 'Elemento');
+    let media;
+    if (done && t) {
+      const fotos = [['Frontal', t.fotoFrontalUrl], ['Panorámica A', t.fotoPanoramicaUrl], ['Panorámica B', t.fotoPanoramicaBUrl]].filter(f => f[1]);
+      const vids = [t.videoUrl, t.videoUrl2, t.videoUrl3, t.videoUrl4, t.videoUrl5].filter(Boolean);
+      media = `<div class="zd-fotos" style="grid-template-columns:repeat(${Math.max(fotos.length,1)},1fr)">${fotos.map(f => {
+        const k = _zrFotosLB.push({ url: f[1], titulo: (el.codigoRef || el.tipoElemento || '') + ' · ' + f[0] }) - 1;
+        return `<img src="${zrThumb_(f[1], 500)}" alt="${f[0]}" loading="lazy" onclick="zrVerFoto_(${k})" onerror="this.outerHTML='<a class=&quot;zd-sinfoto&quot; href=&quot;${zrDriveVer_(f[1])}&quot; target=&quot;_blank&quot;>${f[0]}: abrir en Drive</a>'">`;
+      }).join('') || '<div class="zd-sinfoto">Sin fotos</div>'}</div>
+        ${vids.length ? `<div class="zd-vids">${vids.map((v, i) => `<a href="${videoViewUrl(v)}" target="_blank" onclick="event.stopPropagation()">▶ Video${vids.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</div>` : ''}`;
+    } else if (done && !tomas) {
+      media = `<div class="zd-ref"><div class="zd-cargando">Cargando fotos…</div></div>`;
+    } else {
+      media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}<span class="zd-tag">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo' : 'Pendiente'}${el.turno === 'DIA' ? ' · ☀️ Día' : el.turno === 'NOCHE' ? ' · 🌙 Noche' : ''}</span></div>`;
+    }
+    return `<div class="zd-el ${done ? 'done' : ''}">
+      ${media}
+      <div class="zd-el-b">
+        <div class="zd-el-t">${nombre}${el.codigoRef && el.tipoElemento ? ` <span>· ${cfgEsc_(el.tipoElemento)}</span>` : ''}</div>
+        <div class="zd-el-u">${cfgEsc_(el.ubicacion || '—')}${el.ciudad ? ' · ' + cfgEsc_(el.ciudad) : ''}</div>
+        ${el.cliente && el.cliente !== a.cliente ? `<div class="zd-el-u">👤 ${cfgEsc_(el.cliente)}</div>` : ''}
+        <div class="zd-el-s ${done ? 'ok' : ''}">${done ? '✓ ' + cfgEsc_((t && t.fotografo) || el.fotografoAsignado || '') + (t && t.fechaTomada ? ' · ' + cfgEsc_(t.fechaTomada) : '') : sube ? '⟳ Subiendo fotos…' : 'Sin foto todavía · ' + cfgEsc_(el.fotografoAsignado || '')}</div>
+      </div>
+    </div>`;
+  };
+  const grid = els.map(elHtml).join('');
+  ov.innerHTML = `<div class="zd-panel" role="dialog" aria-label="Detalle de la asignación">
+    <div class="zd-hd">
+      <div style="min-width:0"><div class="zd-cli">${cfgEsc_(a.cliente)}</div>
+        <div class="zd-meta">👤 ${cfgEsc_(a.creadoPor || '—')} · límite ${cfgEsc_(fechaLimiteEfectiva_(a) || 'sin fecha')}${fotografos.length ? ' · 📷 ' + fotografos.map(cfgEsc_).join(', ') : ''}</div>
+        ${a.observaciones ? `<div class="zd-obs">💬 ${cfgEsc_(a.observaciones)}</div>` : ''}</div>
+      <button class="zd-x" onclick="zrCerrarDetalle_()" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="zd-prog ${pct >= 100 ? 'done' : pct > 0 ? 'proc' : 'pend'}">
+      <span class="zd-pct">${pct}%</span><span class="zb-bar" style="flex:1;margin:0"><span style="width:${pct}%"></span></span>
+      <span class="zd-cnt">${completados} de ${total} fotografiados</span>
+      <div class="zb-acc" style="margin:0">${zrBotonesAsig_(a)}</div>
+    </div>
+    ${tomas && tomas._error ? '<div class="zd-aviso">No se pudieron cargar las fotos. Cierra y vuelve a abrir para reintentar.</div>' : ''}
+    <div class="zd-grid">${grid}</div>
+    ${_zrFotosLB.length ? '<div class="zd-pie">Toca una foto para verla grande · usa ← → para pasar</div>' : ''}
+  </div>`;
+  if (tomas && tomas._error) delete _zrTomasCache[_zrDetId];
+}
+// Visor de fotos en grande
+let _zrLBi = 0;
+function zrVerFoto_(k) {
+  _zrLBi = k;
+  let lb = document.getElementById('zr-lb');
+  if (!lb) {
+    lb = document.createElement('div'); lb.id = 'zr-lb';
+    lb.onclick = e => { if (e.target === lb) zrCerrarFoto_(); };
+    let x0 = null;
+    lb.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if (Math.abs(dx) > 50) zrPasarFoto_(dx < 0 ? 1 : -1); x0 = null; });
+    document.body.appendChild(lb);
+  }
+  const f = _zrFotosLB[k]; if (!f) return;
+  lb.innerHTML = `<button class="zl-x" onclick="zrCerrarFoto_()" aria-label="Cerrar">✕</button>
+    ${_zrFotosLB.length > 1 ? '<button class="zl-n zl-p" onclick="zrPasarFoto_(-1)" aria-label="Anterior">‹</button><button class="zl-n zl-s" onclick="zrPasarFoto_(1)" aria-label="Siguiente">›</button>' : ''}
+    <img src="${zrThumb_(f.url, 2000)}" alt="${cfgEsc_(f.titulo)}">
+    <div class="zl-cap">${cfgEsc_(f.titulo)} · ${k + 1} de ${_zrFotosLB.length} · <a href="${zrDriveVer_(f.url)}" target="_blank">Abrir en Drive</a></div>`;
+  lb.classList.add('open');
+}
+function zrPasarFoto_(d) { if (!_zrFotosLB.length) return; zrVerFoto_((_zrLBi + d + _zrFotosLB.length) % _zrFotosLB.length); }
+function zrCerrarFoto_() { const lb = document.getElementById('zr-lb'); if (lb) lb.classList.remove('open'); }
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('zr-lb');
+  if (lb && lb.classList.contains('open')) {
+    if (e.key === 'Escape') zrCerrarFoto_(); else if (e.key === 'ArrowRight') zrPasarFoto_(1); else if (e.key === 'ArrowLeft') zrPasarFoto_(-1);
+    return;
+  }
+  if (e.key === 'Escape' && _zrDetId) zrCerrarDetalle_();
+});
+
+function zrStatsFoto_(activas, completadas) {
+  const proc = activas.filter(a => (a.elementos || []).some(e => e.estado === 'COMPLETADO'));
+  const porFoto = activas.reduce((s, a) => s + (a.elementos || []).filter(e => e.estado !== 'COMPLETADO').length, 0);
+  const set = (id, h) => { const el = document.getElementById(id); if (el) el.innerHTML = h; };
+  set('stat-foto-pend', activas.length - proc.length);
+  set('stat-foto-proc', proc.length + (proc.length ? ' <small>· ' + zrPromedioPct_(proc) + '%</small>' : ''));
+  set('stat-foto-porfoto', porFoto);
+  set('stat-foto-completadas', completadas.length);
+}
 
 function showToast(msg, type) {
   const t = document.getElementById('toast');
