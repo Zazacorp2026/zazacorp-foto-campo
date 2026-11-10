@@ -4868,9 +4868,17 @@ function zrEsJorge_() {
   const id = String((currentUser && (currentUser.id || currentUser.nombre)) || '').toUpperCase();
   return id === 'JORGE' || id === 'JORGE-ADMIN';
 }
-async function cfgApi_(action, extra) {
-  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, pin: _cfgPin }, extra || {})) });
-  const data = await res.json();
+async function cfgApi_(action, extra, segundos) {
+  // (2026-11-10 b) con tiempo límite: si Google no responde, ya no se queda "Guardando…" para siempre
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), (segundos || 45) * 1000);
+  let data;
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(Object.assign({ action, pin: _cfgPin }, extra || {})), signal: ctrl.signal });
+    data = await res.json();
+  } catch (e) {
+    throw new Error(e.name === 'AbortError' ? 'El servidor tardó demasiado en responder. Revisa el Historial antes de volver a intentar (puede que sí se haya guardado).' : 'No se pudo conectar con el servidor. Revisa tu conexión.');
+  } finally { clearTimeout(timer); }
   if (!data || data.ok !== true) throw new Error((data && data.error) || 'El servidor no respondió bien');
   return data;
 }
@@ -4880,6 +4888,7 @@ function cfgFecha_(iso) {
   return d.toLocaleDateString('es-EC', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });
 }
 function cfgHace_(iso) {
+  if (!iso && _cfgDatos && !_cfgDatos.accesos) return 'Último ingreso: cargando…';
   if (!iso) return 'Sin ingresos registrados';
   const dias = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   return dias <= 0 ? 'Último ingreso: hoy ' + new Date(iso).toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })
@@ -4899,11 +4908,8 @@ function abrirConfig() {
   showPage('page-config');
   document.getElementById('fab-new-asig').style.display = 'none';
   if (_cfgDatos && _cfgPin) { cfgPintar_(); return; }
-  document.getElementById('cfg-tabs').innerHTML = '';
-  document.getElementById('cfg-body').innerHTML = '<div class="cfg-sub" style="text-align:center;margin-top:40px">Cargando…</div>';
   _cfgPin = '';
-  cfgApi_('rfCfgObtener').then(d => cfgPintarPin_(!!d.necesitaCrearPin))
-    .catch(e => { document.getElementById('cfg-body').innerHTML = '<div class="cfg-card" style="text-align:center;color:var(--red)">' + cfgEsc_(e.message) + '</div>'; });
+  cfgPintarPin_(false); // (b) sin consulta previa: el PIN aparece al instante; si aún no existe, el servidor lo dice al entrar
 }
 function cerrarConfig() {
   const sucio = ['Usuarios', 'Fotógrafos', 'Correos', 'Reglas'].filter(cfgSucio_);
@@ -4934,7 +4940,7 @@ async function cfgEntrar_() {
   const err = document.getElementById('cfg-pin-err');
   if (!pin) { err.textContent = 'Escribe tu PIN'; return; }
   _cfgPin = pin;
-  err.style.color = 'var(--muted)'; err.textContent = 'Verificando…';
+  err.style.color = 'var(--muted)'; err.textContent = 'Abriendo… (Google tarda unos segundos)';
   try {
     const d = await cfgApi_('rfCfgObtener');
     if (d.necesitaCrearPin || d.pidePin) { _cfgPin = ''; cfgPintarPin_(!!d.necesitaCrearPin); return; }
@@ -4954,11 +4960,38 @@ async function cfgCrearPin_() {
   } catch (e) { err.textContent = e.message; }
 }
 function cfgCargar_(d) {
+  if (_cfgDatos && _cfgDatos.accesos && !d.accesos) { d.accesos = _cfgDatos.accesos; d.fallidos7d = _cfgDatos.fallidos7d; d._ultimo = _cfgDatos._ultimo; }
+  if (d._ultimo) d.usuarios.forEach(u => { u.ultimoIngreso = d._ultimo[u.rol + ':' + u.id] || ''; });
   _cfgDatos = d; _cfgModoUI = {};
+  if (!d.accesos) cfgTraerAccesos_();
   _cfgW = { usuarios: cfgCopia_(d.usuarios), fotos: cfgCopia_(d.fotos), correos: cfgCopia_(d.correos), reglas: cfgCopia_(d.reglas) };
   cfgPintar_();
 }
+// (b) accesos recientes y "último ingreso" llegan después, sin hacer esperar la apertura
+let _cfgAccesosPend = false;
+function cfgTraerAccesos_() {
+  if (_cfgAccesosPend) return; _cfgAccesosPend = true;
+  cfgApi_('rfCfgAccesos', null, 60).then(a => {
+    if (!_cfgDatos) return;
+    _cfgDatos.accesos = a.accesos; _cfgDatos.fallidos7d = a.fallidos7d; _cfgDatos._ultimo = a.ultimo || {};
+    _cfgDatos.usuarios.forEach(u => { u.ultimoIngreso = _cfgDatos._ultimo[u.rol + ':' + u.id] || ''; });
+    if (document.getElementById('page-config').classList.contains('active') && (_cfgTab === 'accesos' || (_cfgTab === 'usuarios' && _cfgAbierto === null))) cfgPintar_();
+  }).catch(() => {}).finally(() => { _cfgAccesosPend = false; });
+}
 async function cfgRecargar_() { cfgCargar_(await cfgApi_('rfCfgObtener')); }
+// Refresca en segundo plano sin perder la pestaña ni lo que esté abierto (si falla, no pasa nada)
+function cfgRecargarSilencioso_() {
+  const tab = _cfgTab, abierto = _cfgAbierto;
+  cfgApi_('rfCfgObtener', null, 60).then(d => {
+    if (!d || !d.usuarios) return;
+    const pend = ['Usuarios', 'Fotógrafos', 'Correos', 'Reglas'].some(cfgSucio_);
+    if (_cfgDatos && _cfgDatos.accesos) { d.accesos = _cfgDatos.accesos; d.fallidos7d = _cfgDatos.fallidos7d; d._ultimo = _cfgDatos._ultimo || {}; }
+    if (d._ultimo) d.usuarios.forEach(u => { u.ultimoIngreso = d._ultimo[u.rol + ':' + u.id] || ''; });
+    _cfgDatos = d;
+    if (!pend) { _cfgW = { usuarios: cfgCopia_(d.usuarios), fotos: cfgCopia_(d.fotos), correos: cfgCopia_(d.correos), reglas: cfgCopia_(d.reglas) }; _cfgModoUI = {}; }
+    if (document.getElementById('page-config').classList.contains('active')) { _cfgTab = tab; _cfgAbierto = abierto; cfgPintar_(); }
+  }).catch(() => {});
+}
 
 const CFG_TABS = [['usuarios', '👥 Usuarios y accesos'], ['fotos', '📷 Fotógrafos y ciudades'], ['correos', '✉️ Correos y avisos'],
   ['reglas', '📅 Reglas'], ['accesos', '🛡️ Accesos recientes'], ['historial', '🕘 Historial'], ['seguridad', '🔑 Seguridad']];
@@ -4988,8 +5021,14 @@ async function cfgGuardar_(sec) {
   const datos = sec === 'Usuarios' ? { lista: _cfgW.usuarios.map(cfgUsuarioLimpio_) } : sec === 'Fotógrafos' ? _cfgW.fotos : sec === 'Correos' ? _cfgW.correos : _cfgW.reglas;
   try {
     await cfgApi_('rfCfgGuardar', { seccion: sec, datos });
-    await cfgRecargar_();
+    // ya quedó guardado: se marca al instante y los datos frescos (historial, etc.) llegan en segundo plano
+    const k = { 'Usuarios': 'usuarios', 'Fotógrafos': 'fotos', 'Correos': 'correos', 'Reglas': 'reglas' }[sec];
+    if (sec === 'Usuarios') {
+      _cfgDatos.usuarios = _cfgW.usuarios.map(u => Object.assign({}, (_cfgDatos.usuarios.find(o => o.rol === u.rol && o.id === u.id) || { tieneClave: false, ultimoIngreso: '' }), cfgUsuarioLimpio_(u)));
+    } else _cfgDatos[k] = cfgCopia_(_cfgW[k]);
+    cfgPintar_();
     showToast('✓ ' + sec + ': guardado');
+    cfgRecargarSilencioso_();
   } catch (e) {
     showToast('⚠️ ' + e.message, 'warn');
     if (btn) { btn.disabled = false; btn.textContent = 'Guardar cambios'; }
@@ -5137,8 +5176,7 @@ async function cfgCambiarClave_(i) {
   try {
     await cfgApi_('rfCfgCambiarClave', { rol: u.rol, id: u.id, nueva });
     inp.value = '';
-    const abierto = _cfgAbierto;
-    await cfgRecargar_(); _cfgAbierto = abierto; cfgPintar_();
+    cfgRecargarSilencioso_();
     showToast('🔑 Clave de ' + u.nombre + ' cambiada. Pásasela por un medio privado.');
   } catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
 }
@@ -5251,6 +5289,7 @@ function cfgToggleDia_(k) {
 
 // ── 🛡️ Accesos recientes ──
 function cfgPintarAccesos_() {
+  if (!_cfgDatos.accesos) { cfgTraerAccesos_(); return '<div class="cfg-sub" style="text-align:center;margin-top:30px">Cargando accesos…</div>'; }
   const filas = (_cfgDatos.accesos || []).filter(a => !_cfgSoloFallidos || !a.ok);
   const nombre = a => { const u = _cfgDatos.usuarios.find(x => x.rol === a.rol && x.id === a.usuario); return u ? u.nombre : a.usuario; };
   return `
@@ -5280,7 +5319,7 @@ function cfgPintarHistorial_() {
 }
 async function cfgDeshacer_(fila) {
   if (!confirm('¿Deshacer este cambio? La sección vuelve a como estaba antes de él.')) return;
-  try { await cfgApi_('rfCfgDeshacer', { fila }); await cfgRecargar_(); showToast('↶ Cambio deshecho'); }
+  try { await cfgApi_('rfCfgDeshacer', { fila }); showToast('↶ Cambio deshecho · actualizando…'); await cfgRecargar_(); }
   catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
 }
 
@@ -5310,7 +5349,7 @@ async function cfgCambiarPin_() {
   const act = document.getElementById('cfg-p-act').value.trim(), n1 = document.getElementById('cfg-p-new').value.trim(), n2 = document.getElementById('cfg-p-new2').value.trim();
   if (!/^\d{6,10}$/.test(n1)) { showToast('⚠️ El PIN nuevo debe tener entre 6 y 10 números', 'warn'); return; }
   if (n1 !== n2) { showToast('⚠️ Los PIN nuevos no coinciden', 'warn'); return; }
-  try { await cfgApi_('rfCfgGuardarPin', { actual: act, nuevo: n1 }); _cfgPin = n1; await cfgRecargar_(); showToast('🔒 PIN cambiado'); }
+  try { await cfgApi_('rfCfgGuardarPin', { actual: act, nuevo: n1 }); _cfgPin = n1; showToast('🔒 PIN cambiado'); cfgRecargarSilencioso_(); }
   catch (e) { showToast('⚠️ ' + e.message, 'warn'); }
 }
 async function cfgCerrarTodas_() {
