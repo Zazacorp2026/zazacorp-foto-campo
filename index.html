@@ -376,6 +376,37 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    .zb-cli-w { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1; }
+    .zb-cli-w .zb-cli { flex: 0 1 auto; }
+    .zb-ftoma { flex-shrink: 0; font-family: var(--mono); font-size: 11.5px; font-weight: 800; color: var(--green); background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.35); padding: 1px 7px; border-radius: 20px; white-space: nowrap; }
+    .zb-col-hd { flex-wrap: wrap; }
+    .zb-col-q { flex: 1 1 120px; min-width: 0; padding: 7px 10px; border-radius: 20px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.14); color: #fff; font-size: 12.5px; outline: none; }
+    .zb-col-q:focus { border-color: rgba(255,255,255,.45); background: rgba(0,0,0,.5); }
+    .zb-col-q::placeholder { color: var(--muted); }
+    /* Calendario de fecha límite */
+    .zr-cal-btn { text-align: left; cursor: pointer; display: block; width: 100%; color: #fff; }
+    .zr-cal-btn b { font-weight: 700; }
+    .zr-cal-ph { color: var(--muted); }
+    .zr-cal-mal { color: var(--yellow); font-size: 12px; }
+    #zr-cal { display: none; position: fixed; z-index: 300; width: 300px; background: #16191d; border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: 0 20px 50px rgba(0,0,0,.6); padding: 12px; }
+    #zr-cal.open { display: block; }
+    .zc-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .zc-hd b { color: #fff; font-size: 14px; text-transform: capitalize; }
+    .zc-hd button { width: 34px; height: 34px; border-radius: 50%; background: var(--dark3); color: #fff; font-size: 20px; }
+    .zc-hd button:disabled { opacity: .25; }
+    .zc-nota { font-size: 11px; color: var(--orange-light); text-align: center; margin-bottom: 8px; }
+    .zc-sem, .zc-dias { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+    .zc-sem span { font-size: 11px; color: var(--muted); font-weight: 700; padding: 3px 0; }
+    .zc-dias > * { height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 8px; font-size: 13px; }
+    .zc-dias .no { color: rgba(255,255,255,.18); text-decoration: line-through; cursor: not-allowed; }
+    .zc-dias .ok { background: rgba(56,182,255,.14); color: #fff; font-weight: 800; border: 1px solid rgba(56,182,255,.45); cursor: pointer; }
+    .zc-dias .ok:hover { background: rgba(56,182,255,.32); }
+    .zc-dias .sel { background: var(--blue); color: #0a0a0a; }
+    .zc-dias .hoy { outline: 1px dashed rgba(255,255,255,.4); }
+    .zc-prox { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .zc-prox button { flex: 1 1 auto; padding: 6px 8px; border-radius: 20px; background: var(--dark3); border: 1px solid var(--border); color: #fff; font-size: 11.5px; font-weight: 700; }
+    .zc-pie { display: flex; justify-content: space-between; margin-top: 10px; }
+    .zc-pie button { font-size: 12px; color: var(--blue); background: none; padding: 4px; }
     .zb-crear { display: none; }
     body.zr-desk .zb-crear { display: flex; align-items: center; justify-content: center; gap: 16px; width: 100%; padding: 18px 24px; margin-bottom: 18px; border-radius: var(--radius-lg); background: linear-gradient(135deg, var(--blue), #7cd4ff); color: #0a0a0a; font-size: 22px; font-weight: 800; letter-spacing: -.01em; box-shadow: 0 14px 34px -10px rgba(56,182,255,.6); cursor: pointer; transition: transform .1s, box-shadow .15s; text-align: left; }
     body.zr-desk .zb-crear:hover { transform: translateY(-1px); box-shadow: 0 18px 40px -10px rgba(56,182,255,.75); }
@@ -3001,7 +3032,7 @@ async function showEjecutivaLista() {
           <div class="asig-header">
             <div>
               <div class="asig-cliente">${a.cliente}</div>
-              <div class="asig-meta">${total} elemento${total!==1?'s':''} · Límite: ${fechaLimiteEfectiva_(a) || 'Sin fecha'}</div>
+              <div class="asig-meta">${total} elemento${total!==1?'s':''} · ${isDone && a.fechaCompletada ? '<span class="zb-ftoma">📅 tomada ' + zrFechaToma_(a.fechaCompletada) + '</span>' : 'Límite: ' + (fechaLimiteEfectiva_(a) || 'Sin fecha')}</div>
             </div>
             <div class="asig-progress"><div class="asig-pct">${pct}%</div><div class="asig-pct-label">${completados}/${total} fotografiados</div></div>
           </div>
@@ -5578,8 +5609,10 @@ function zrPonerTablero_(el, html) {
   if (!el) return;
   const pos = {};
   el.querySelectorAll('.zb-col-body').forEach(b => { pos[b.dataset.k] = b.scrollTop; });
+  const act = document.activeElement, foco = act && act.classList && act.classList.contains('zb-col-q') && el.contains(act) ? { q: act.dataset.q, i: act.selectionStart } : null;
   el.innerHTML = html;
   el.querySelectorAll('.zb-col-body').forEach(b => { if (pos[b.dataset.k]) b.scrollTop = pos[b.dataset.k]; });
+  if (foco) { const i = el.querySelector('.zb-col-q[data-q="' + foco.q + '"]'); if (i) { i.focus(); try { i.setSelectionRange(foco.i, foco.i); } catch (e) {} } }
 }
 function zrRepintarTableros_() {
   try {
@@ -5605,13 +5638,34 @@ function zrBotonesAsig_(a, compacto) {
 
 // ── Tablero de la EJECUTIVA (solo computadora) ──
 const ZB_ICO = { pend: '⏳', proc: '📸', done: '✅' };
-let _zrFiltroEjecutiva = '', _zrBuscarTablero = '', _zrColMas = {};
+let _zrFiltroEjecutiva = '', _zrColMas = {}, _zrBuscarCol = {};
+function zrBuscarCol_(clave, v) {
+  _zrBuscarCol[clave] = v;
+  clearTimeout(window._zrBT); window._zrBT = setTimeout(zrRepintarTableros_, 220);
+}
+function zrCoincide_(a, q) {
+  if (!q) return true;
+  const t = normalizarZR([a.cliente, a.creadoPor, a.observaciones].concat((a.elementos || []).map(e => (e.codigoRef || '') + ' ' + (e.ubicacion || '') + ' ' + (e.tipoElemento || ''))).join(' '));
+  return q.split(/\s+/).filter(Boolean).every(p => t.indexOf(p) >= 0);
+}
+// Fecha en que se completó (se tomó) — en verde en las completadas
+function zrFechaToma_(f) {
+  if (!f) return '';
+  const d = new Date(String(f).slice(0, 10) + 'T00:00:00');
+  if (isNaN(d)) return cfgEsc_(f);
+  const m = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()];
+  return d.getDate() + ' ' + m + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+}
+function zrCabeceraCol_(clave, k, titulo, total, visibles, pctCol) {
+  const q = _zrBuscarCol[clave] || '';
+  return `<div class="zb-col-hd"><span class="zb-col-tit"><span class="zb-col-ico">${ZB_ICO[k]}</span>${titulo}<span class="zb-col-n">${q ? visibles + ' / ' + total : total}</span></span>
+    <input class="zb-col-q" data-q="${clave}" type="search" placeholder="🔎 Buscar cliente o código" value="${cfgEsc_(q)}" oninput="zrBuscarCol_('${clave}',this.value)" onclick="event.stopPropagation()">
+    <span class="zb-col-pct" title="Avance promedio">${pctCol}%</span></div>`;
+}
 function zrTableroEjecHtml_(mias, agrupar) {
   const mes = (document.getElementById('mes-filtro-ejec') || {}).value || '';
-  const q = normalizarZR(_zrBuscarTablero);
   const lista = mias.filter(a => (!mes || mesDeAsig_(a) === mes)
-    && (!_zrFiltroEjecutiva || String(a.creadoPor || '').toUpperCase() === _zrFiltroEjecutiva)
-    && (!q || normalizarZR(a.cliente).indexOf(q) >= 0 || (a.elementos || []).some(e => normalizarZR(e.codigoRef).indexOf(q) >= 0)));
+    && (!_zrFiltroEjecutiva || String(a.creadoPor || '').toUpperCase() === _zrFiltroEjecutiva));
   const porFecha = (x, y) => String(fechaLimiteEfectiva_(x) || '9999').localeCompare(String(fechaLimiteEfectiva_(y) || '9999'));
   const pend = lista.filter(a => zrPctAsig_(a).pct === 0).sort(porFecha);
   const proc = lista.filter(a => { const p = zrPctAsig_(a).pct; return p > 0 && p < 100; }).sort(porFecha);
@@ -5624,28 +5678,28 @@ function zrTableroEjecHtml_(mias, agrupar) {
     const sinLeer = pct >= 100 && a.avisoListo && !_avisosLeidosLocal.has(String(a.id));
     const est = pct >= 100 ? 'done' : pct > 0 ? 'proc' : 'pend';
     return `<div class="zb-card ${est}${sinLeer ? ' nuevo' : ''}" onclick="zrAbrirDetalle_('${a.id}')">
-      <div class="zb-hd"><div class="zb-cli">${cfgEsc_(a.cliente)}</div><div class="zb-pct">${pct}%</div></div>
+      <div class="zb-hd"><div class="zb-cli-w"><span class="zb-cli">${cfgEsc_(a.cliente)}</span>${pct >= 100 && a.fechaCompletada ? `<span class="zb-ftoma" title="Fecha en que se completó la toma">📅 ${zrFechaToma_(a.fechaCompletada)}</span>` : ''}</div><div class="zb-pct">${pct}%</div></div>
       <div class="zb-meta">${completados}/${total} fotos · <span class="zb-f ${pct < 100 ? urg : ''}">${pct >= 100 ? 'completada' : 'límite ' + zrFechaCorta_(fechaLimiteEfectiva_(a))}</span>${agrupar ? ' · 👤 ' + cfgEsc_(a.creadoPor || '—') : ''}</div>
       ${sinLeer ? '<div class="zb-nuevo">● Lista · sin leer</div>' : ''}
       <div class="zb-bar"><span style="width:${pct}%"></span></div>
       <div class="zb-acc">${zrBotonesAsig_(a)}</div>
     </div>`;
   };
-  const columna = (k, titulo, items, pctCol) => {
-    const max = _zrColMas[k] ? 9999 : 30;
+  const columna = (k, titulo, todos, pctCol) => {
+    const q = normalizarZR(_zrBuscarCol['e' + k] || '');
+    const items = todos.filter(a => zrCoincide_(a, q));
+    const max = _zrColMas[k] || q ? 9999 : 30;
     return `<div class="zb-col ${k}">
-      <div class="zb-col-hd"><span class="zb-col-tit"><span class="zb-col-ico">${ZB_ICO[k]}</span>${titulo}<span class="zb-col-n">${items.length}</span></span><span class="zb-col-pct" title="Avance promedio">${pctCol}%</span></div>
+      ${zrCabeceraCol_('e' + k, k, titulo, todos.length, items.length, pctCol)}
       <div class="zb-col-body" data-k="${k}">
-      ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
+      ${items.slice(0, max).map(card).join('') || `<div class="zb-vacio">${q ? 'Sin resultados' : 'Nada por aquí'}</div>`}
       ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
       </div>
     </div>`;
   };
   return `
-    <div class="zb-filtros">
-      <input class="zb-buscar" placeholder="🔎 Buscar cliente o código" value="${cfgEsc_(_zrBuscarTablero)}" oninput="_zrBuscarTablero=this.value;clearTimeout(window._zrBT);window._zrBT=setTimeout(()=>{zrRepintarTableros_();const i=document.querySelector('.zb-buscar');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250)">
-      ${agrupar ? `<select class="zb-sel" onchange="_zrFiltroEjecutiva=this.value;zrRepintarTableros_()"><option value="">👤 Todas las ejecutivas</option>${ejecutivas.map(e => `<option value="${cfgEsc_(e)}" ${e === _zrFiltroEjecutiva ? 'selected' : ''}>${cfgEsc_(e)}</option>`).join('')}</select>` : ''}
-    </div>
+    ${agrupar ? `<div class="zb-filtros">` : ''}
+      ${agrupar ? `<select class="zb-sel" onchange="_zrFiltroEjecutiva=this.value;zrRepintarTableros_()"><option value="">👤 Todas las ejecutivas</option>${ejecutivas.map(e => `<option value="${cfgEsc_(e)}" ${e === _zrFiltroEjecutiva ? 'selected' : ''}>${cfgEsc_(e)}</option>`).join('')}</select></div>` : ''}
     <div class="zb-board">
       ${columna('pend', 'Pendientes', pend, 0)}
       ${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}
@@ -5669,7 +5723,7 @@ function zrTableroFotoHtml_(lista) {
     const est = pct >= 100 ? 'done' : pct > 0 ? 'proc' : 'pend';
     const urg = urgenciaDeFecha(fechaLimiteEfectiva_(a));
     return `<div class="zb-card ${est}" onclick="openAsignacionFotografo('${a.id}')">
-      <div class="zb-hd"><div class="zb-cli">${cfgEsc_(a.cliente)}</div><div class="zb-pct">${pct}%</div></div>
+      <div class="zb-hd"><div class="zb-cli-w"><span class="zb-cli">${cfgEsc_(a.cliente)}</span>${pct >= 100 && a.fechaCompletada ? `<span class="zb-ftoma" title="Fecha en que se completó la toma">📅 ${zrFechaToma_(a.fechaCompletada)}</span>` : ''}</div><div class="zb-pct">${pct}%</div></div>
       <div class="zb-meta">${completados}/${total} · <span class="zb-f ${pct < 100 ? urg : ''}">${pct >= 100 ? 'completada' : 'límite ' + zrFechaCorta_(fechaLimiteEfectiva_(a))}</span>${a.creadoPor ? ' · 👤 ' + cfgEsc_(a.creadoPor) : ''}</div>
       ${pct < 100 && (dia || noche) ? `<div class="zb-meta">Faltan: ${dia ? '☀️ ' + dia + ' de día' : ''}${dia && noche ? ' · ' : ''}${noche ? '🌙 ' + noche + ' de noche' : ''}</div>` : ''}
       ${a.observaciones ? `<div class="zb-obs">💬 ${cfgEsc_(a.observaciones)}</div>` : ''}
@@ -5677,12 +5731,14 @@ function zrTableroFotoHtml_(lista) {
       ${pct < 100 ? `<div class="zb-acc"><button class="zb-btn warn">📷 Abrir y fotografiar</button></div>` : ''}
     </div>`;
   };
-  const columna = (k, titulo, items, pctCol) => {
-    const max = _zrColMas['f' + k] ? 9999 : 30;
+  const columna = (k, titulo, todos, pctCol) => {
+    const q = normalizarZR(_zrBuscarCol['f' + k] || '');
+    const items = todos.filter(a => zrCoincide_(a, q));
+    const max = _zrColMas['f' + k] || q ? 9999 : 30;
     return `<div class="zb-col ${k}">
-      <div class="zb-col-hd"><span class="zb-col-tit"><span class="zb-col-ico">${ZB_ICO[k]}</span>${titulo}<span class="zb-col-n">${items.length}</span></span><span class="zb-col-pct" title="Avance promedio">${pctCol}%</span></div>
+      ${zrCabeceraCol_('f' + k, k, titulo, todos.length, items.length, pctCol)}
       <div class="zb-col-body" data-k="${k}">
-      ${items.slice(0, max).map(card).join('') || '<div class="zb-vacio">Nada por aquí</div>'}
+      ${items.slice(0, max).map(card).join('') || `<div class="zb-vacio">${q ? 'Sin resultados' : 'Nada por aquí'}</div>`}
       ${items.length > max ? `<button class="zb-mas" onclick="_zrColMas['f${k}']=true;zrRepintarTableros_()">Mostrar ${items.length - max} más</button>` : ''}
       </div>
     </div>`;
@@ -5816,6 +5872,105 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape' && _zrDetId) zrCerrarDetalle_();
 });
+
+// ══ CALENDARIO DE FECHA LÍMITE (2026-11-10): solo días de toma (⚙️ Reglas; hoy mar/jue), desde hoy ══
+const ZR_MESES_ = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const ZR_DIAS_ = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+function zrDiasToma_() { const r = zrCfg().reglas || {}; return Array.isArray(r.diasToma) && r.diasToma.length ? r.diasToma : [2, 4]; }
+function zrIso_(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function zrFechaPermitida_(iso) {
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); if (isNaN(d)) return false;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  if (d < hoy || zrDiasToma_().indexOf(d.getDay()) < 0) return false;
+  if (d.getTime() === hoy.getTime()) { const r = zrCfg().reglas || {}; const corte = Number.isFinite(r.horaCorte) ? r.horaCorte : 7; if (new Date().getHours() >= corte) return false; }
+  return true;
+}
+function zrProximasFechas_(n) {
+  const out = [], d = new Date(); d.setHours(0, 0, 0, 0);
+  for (let i = 0; i < 60 && out.length < n; i++) { const iso = zrIso_(d); if (zrFechaPermitida_(iso)) out.push(iso); d.setDate(d.getDate() + 1); }
+  return out;
+}
+function zrEtiquetaFecha_(iso) {
+  if (!iso) return '';
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00'); if (isNaN(d)) return iso;
+  return ZR_DIAS_[d.getDay()] + ' ' + d.getDate() + ' de ' + ZR_MESES_[d.getMonth()] + ' ' + d.getFullYear();
+}
+function zrCalPrep_(inp) {
+  if (!inp || inp.dataset.zrcal) return;
+  inp.dataset.zrcal = '1';
+  const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+  const btn = document.createElement('button');
+  btn.type = 'button'; btn.className = 'form-input zr-cal-btn';
+  if (inp.getAttribute('style')) btn.setAttribute('style', inp.getAttribute('style'));
+  const pintar = () => {
+    const v = proto.get.call(inp);
+    btn.innerHTML = v ? '📅 <b>' + cfgEsc_(zrEtiquetaFecha_(v)) + '</b>' + (zrFechaPermitida_(v) ? '' : ' <span class="zr-cal-mal">· no es día de toma</span>') : '<span class="zr-cal-ph">📅 Elegir fecha (' + zrDiasToma_().map(x => ZR_DIAS_[x]).join(' o ') + ')</span>';
+  };
+  Object.defineProperty(inp, 'value', { configurable: true, get() { return proto.get.call(this); }, set(v) { proto.set.call(this, v); pintar(); } });
+  inp.type = 'hidden';
+  inp.after(btn);
+  btn.onclick = e => { e.preventDefault(); zrCalAbrir_(inp, btn); };
+  pintar();
+}
+let _zrCal = null;
+function zrCalAbrir_(inp, btn) {
+  const v = inp.value;
+  const base = v && !isNaN(new Date(v + 'T00:00:00')) ? new Date(v + 'T00:00:00') : new Date(zrProximasFechas_(1)[0] + 'T00:00:00');
+  _zrCal = { inp, btn, y: base.getFullYear(), m: base.getMonth() };
+  let pop = document.getElementById('zr-cal');
+  if (!pop) {
+    pop = document.createElement('div'); pop.id = 'zr-cal';
+    document.body.appendChild(pop);
+    document.addEventListener('mousedown', ev => { const p = document.getElementById('zr-cal'); if (p && p.classList.contains('open') && !p.contains(ev.target) && !(_zrCal && _zrCal.btn.contains(ev.target))) zrCalCerrar_(); });
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') zrCalCerrar_(); });
+  }
+  zrCalPintar_();
+  pop.classList.add('open');
+  const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  if (window.innerWidth < 560) { pop.style.left = '50%'; pop.style.top = '50%'; pop.style.transform = 'translate(-50%,-50%)'; }
+  else {
+    pop.style.transform = '';
+    pop.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    pop.style.top = (r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  }
+}
+function zrCalCerrar_() { const p = document.getElementById('zr-cal'); if (p) p.classList.remove('open'); }
+function zrCalMes_(d) { if (!_zrCal) return; _zrCal.m += d; if (_zrCal.m < 0) { _zrCal.m = 11; _zrCal.y--; } if (_zrCal.m > 11) { _zrCal.m = 0; _zrCal.y++; } zrCalPintar_(); }
+function zrCalElegir_(iso) {
+  if (!_zrCal) return;
+  if (iso && !zrFechaPermitida_(iso)) return;
+  _zrCal.inp.value = iso;
+  _zrCal.inp.dispatchEvent(new Event('input', { bubbles: true }));
+  _zrCal.inp.dispatchEvent(new Event('change', { bubbles: true }));
+  zrCalCerrar_();
+}
+function zrCalPintar_() {
+  const pop = document.getElementById('zr-cal'); if (!pop || !_zrCal) return;
+  const { y, m } = _zrCal, sel = _zrCal.inp.value;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const primero = new Date(y, m, 1), offset = (primero.getDay() + 6) % 7, dias = new Date(y, m + 1, 0).getDate();
+  const puedeAtras = new Date(y, m, 1) > new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  let celdas = '';
+  for (let i = 0; i < offset; i++) celdas += '<span></span>';
+  for (let d = 1; d <= dias; d++) {
+    const iso = zrIso_(new Date(y, m, d)), ok = zrFechaPermitida_(iso);
+    const cls = (ok ? 'ok' : 'no') + (iso === sel ? ' sel' : '') + (iso === zrIso_(hoy) ? ' hoy' : '');
+    celdas += ok ? `<button type="button" class="${cls}" onclick="zrCalElegir_('${iso}')">${d}</button>` : `<span class="${cls}" title="Solo ${zrDiasToma_().map(x => ZR_DIAS_[x]).join(' y ')}, desde hoy">${d}</span>`;
+  }
+  const prox = zrProximasFechas_(4);
+  pop.innerHTML = `<div class="zc-hd"><button type="button" onclick="zrCalMes_(-1)" ${puedeAtras ? '' : 'disabled'} aria-label="Mes anterior">‹</button><b>${ZR_MESES_[m]} ${y}</b><button type="button" onclick="zrCalMes_(1)" aria-label="Mes siguiente">›</button></div>
+    <div class="zc-nota">Solo ${zrDiasToma_().map(x => ZR_DIAS_[x]).join(' y ')}, desde hoy en adelante</div>
+    <div class="zc-sem"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+    <div class="zc-dias">${celdas}</div>
+    <div class="zc-prox">${prox.map(iso => { const d = new Date(iso + 'T00:00:00'); return `<button type="button" onclick="zrCalElegir_('${iso}')">${ZR_DIAS_[d.getDay()].slice(0, 3)} ${d.getDate()} ${ZR_MESES_[d.getMonth()].slice(0, 3)}</button>`; }).join('')}</div>
+    <div class="zc-pie"><button type="button" onclick="zrCalElegir_('')">Quitar fecha</button><button type="button" onclick="zrCalCerrar_()">Cerrar</button></div>`;
+}
+function zrCalPrepTodos_() { document.querySelectorAll('#page-ejecutiva-form input[type="date"]').forEach(zrCalPrep_); }
+try {
+  zrCalPrepTodos_();
+  const _pgForm = document.getElementById('page-ejecutiva-form');
+  if (_pgForm) new MutationObserver(() => zrCalPrepTodos_()).observe(_pgForm, { childList: true, subtree: true });
+} catch (e) { console.warn('calendario', e); }
 
 function zrStatsFoto_(activas, completadas) {
   const proc = activas.filter(a => (a.elementos || []).some(e => e.estado === 'COMPLETADO'));
