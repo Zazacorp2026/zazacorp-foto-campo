@@ -2670,6 +2670,9 @@ function rfAvisoNoBloquear_(mostrar) {
 }
 async function submitToma(auto) {
   if (_rfSubiendo) return;
+  if (!auto && captureTarget && !esTipoLED(captureTarget.tipoElemento) && captureData.frontal && !captureData.panoramica && !captureData.panoramicaB) {
+    if (!confirm('⚠️ No tomaste la foto PANORÁMICA de este elemento.\n\nEl reporte del cliente saldrá solo con la foto vertical.\n\n¿Guardar así de todos modos?\n(Cancelar = volver y tomar la panorámica)')) return;
+  }
   if (!auto) _rfAutoReintentos = 0;
   _rfSubiendo = true; _rfOcultoSubiendo = false;
   rfWakeLockPedir_();
@@ -3489,9 +3492,9 @@ async function exportarReporte(asignacionId, formato, btnEl) {
     setExportProgress(60, 'Fotos descargadas. Generando diapositivas...');
 
     if (formato === 'pptx') {
-      await generarReportePPT(a, tomas, fotosMap);
+      await generarReportePPT(a, zrAgruparTomasReporte_(tomas), fotosMap);
     } else {
-      await generarReportePDF(a, tomas, fotosMap);
+      await generarReportePDF(a, zrAgruparTomasReporte_(tomas), fotosMap);
     }
     setExportProgress(100, '¡Listo!');
   } catch(e) {
@@ -3632,15 +3635,18 @@ async function generarReportePPT(asignacion, tomas, fotosMap) {
         { text: t.videoUrl ? '▶ Ver / descargar el video aquí' : 'N/A', options: { fontSize:11, bold:true, color: t.videoUrl ? '2563EB' : '9CA3AF', hyperlink: t.videoUrl ? { url: videoViewUrl(t.videoUrl) } : undefined } }
       ], { x: cardX + 0.3, y: vy, w: panelW - 0.6, h: 0.4, align:'center', valign:'middle', fontFace:'Arial' });
 
-    } else if (modoPano !== 'VA') {
+    } else if (modoPano !== 'VA' || t._verticales) {
     // ── Panorámica A + B (con o sin vertical): fila de tarjetas con SOLO las fotos que hay + LINK VIDEO ──
     {
       const conVert = modoPano === 'VAB';
       const paneles = [];
+      if (t._verticales) t._verticales.forEach(v => paneles.push({ label: v.label, b64: fotosMap[v.url] || null, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN }));
+      else {
       if (conVert) paneles.push({ label: 'FOTO VERTICAL', b64: frontalB64, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN, w: 2.7 });
       paneles.push({ label: 'PANORÁMICA A', b64: panoB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
       paneles.push({ label: 'PANORÁMICA B', b64: panoBB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
-      const topY = conVert ? 0.45 : 0.55, chP = conVert ? 4.0 : 3.75;
+      }
+      const topY = (conVert || t._verticales) ? 0.45 : 0.55, chP = (conVert || t._verticales) ? 4.0 : 3.75;
       const nPano = paneles.filter(pp => !pp.w).length;
       const libre = cardW - gap * (paneles.length - 1) - (conVert ? 2.7 : 0);
       paneles.forEach(pp => { if (!pp.w) pp.w = libre / nPano; });
@@ -3972,15 +3978,18 @@ async function generarReportePDF(asignacion, tomas, fotosMap) {
         doc.text('N/A', cardX + panelW/2, vy + 0.32, { align: 'center' });
       }
 
-    } else if (modoPano !== 'VA') {
+    } else if (modoPano !== 'VA' || t._verticales) {
     // ── Panorámica A + B (con o sin vertical): fila de tarjetas con SOLO las fotos que hay + LINK VIDEO ──
     {
       const conVert = modoPano === 'VAB';
       const paneles = [];
+      if (t._verticales) t._verticales.forEach(v => paneles.push({ label: v.label, b64: fotosMap[v.url] || null, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN }));
+      else {
       if (conVert) paneles.push({ label: 'FOTO VERTICAL', b64: frontalB64, fw: FOTO_VERTICAL_W_IN, fh: FOTO_VERTICAL_H_IN, w: 2.7 });
       paneles.push({ label: 'PANORÁMICA A', b64: panoB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
       paneles.push({ label: 'PANORÁMICA B', b64: panoBB64, fw: FOTO_PANO_W_IN, fh: FOTO_PANO_H_IN });
-      const topY = conVert ? 0.45 : 0.55, chP = conVert ? 4.0 : 3.75;
+      }
+      const topY = (conVert || t._verticales) ? 0.45 : 0.55, chP = (conVert || t._verticales) ? 4.0 : 3.75;
       const nPano = paneles.filter(pp => !pp.w).length;
       const libre = cardW - gap * (paneles.length - 1) - (conVert ? 2.7 : 0);
       paneles.forEach(pp => { if (!pp.w) pp.w = libre / nPano; });
@@ -6110,6 +6119,33 @@ try {
   const _pgForm = document.getElementById('page-ejecutiva-form');
   if (_pgForm) new MutationObserver(() => zrCalPrepTodos_()).observe(_pgForm, { childList: true, subtree: true });
 } catch (e) { console.warn('calendario', e); }
+
+// (2026-11-10) Reporte inteligente: una valla fija que solo tiene foto vertical (sin panorámica) no deja un
+// recuadro "Foto no disponible": sale solo con lo que hay. Y si el mismo elemento (mismo código o ubicación)
+// tiene 2 tomas solo con vertical (ej. día y noche), van las 2 juntas en una misma diapositiva.
+function zrAgruparTomasReporte_(tomas) {
+  const soloVert = t => !esTipoLED(t.tipoElemento) && t.fotoFrontalUrl && !t.fotoPanoramicaUrl && !t.fotoPanoramicaBUrl;
+  const clave = t => String(t.codigoRef || t.ubicacion || '').trim().toUpperCase();
+  const turnoTxt = x => x === 'DIA' ? 'DÍA' : x === 'NOCHE' ? 'NOCHE' : '';
+  const usadas = new Set(), out = [];
+  tomas.forEach((t, i) => {
+    if (usadas.has(i)) return;
+    if (!soloVert(t)) { out.push(t); return; }
+    const j = clave(t) ? tomas.findIndex((u, k) => k > i && !usadas.has(k) && soloVert(u) && clave(u) === clave(t)) : -1;
+    if (j < 0) { out.push(Object.assign({}, t, { _verticales: [{ url: t.fotoFrontalUrl, label: 'FOTO VERTICAL' }] })); return; }
+    usadas.add(j);
+    const u = tomas[j], distinto = t.turno !== u.turno && turnoTxt(t.turno) && turnoTxt(u.turno);
+    out.push(Object.assign({}, t, {
+      turno: t.turno === u.turno ? t.turno : 'AMBAS',
+      videoUrl: t.videoUrl || u.videoUrl,
+      _verticales: [
+        { url: t.fotoFrontalUrl, label: distinto ? 'VERTICAL · ' + turnoTxt(t.turno) : 'VERTICAL 1' },
+        { url: u.fotoFrontalUrl, label: distinto ? 'VERTICAL · ' + turnoTxt(u.turno) : 'VERTICAL 2' }
+      ]
+    }));
+  });
+  return out;
+}
 
 function zrStatsFoto_(activas, completadas) {
   const proc = activas.filter(a => (a.elementos || []).some(e => e.estado === 'COMPLETADO'));
