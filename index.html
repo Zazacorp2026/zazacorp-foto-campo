@@ -376,6 +376,15 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    .zd-el.pend { border: 2px dashed rgba(255,107,107,.65); background: repeating-linear-gradient(135deg, rgba(255,255,255,.015) 0 10px, transparent 10px 20px), var(--card); }
+    .zd-el.pend .zd-ref img { filter: grayscale(1) contrast(.9); opacity: .35; }
+    .zd-el.pend .zd-ref { background: #0d0f12; }
+    .zd-tag.pend { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 17px; font-weight: 900; letter-spacing: .12em; color: #fff; background: rgba(220,38,38,.92); border: 2px solid #ff8a8a; padding: 9px 22px; border-radius: 12px; box-shadow: 0 6px 22px rgba(220,38,38,.45); }
+    .zd-tag.pend small { font-size: 11px; font-weight: 700; letter-spacing: .02em; opacity: .9; }
+    .zd-tag.sube { background: rgba(234,179,8,.9); color: #1a1400; }
+    .zd-el.pend .zd-el-t { color: var(--muted); }
+    .zd-el.pend .zd-el-s { color: #ff8a8a; }
+    .zd-el.pend .zd-el-s b { color: #ff6b6b; }
     .zd-media { position: relative; }
     .zd-turno { position: absolute; top: 8px; left: 8px; z-index: 2; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
     .zd-turno.dia { background: #ffd34d; color: #3a2a00; }
@@ -717,6 +726,8 @@
         <textarea class="form-textarea" id="form-observaciones" placeholder="Notas para el fotógraf@ (opcional)"></textarea>
       </div>
 
+      <div class="section-title" id="edit-fijos-title" style="display:none;color:var(--orange)">Elementos de esta asignación<span class="badge" id="edit-fijos-badge">0</span></div>
+      <div id="edit-fijos-list"></div>
       <div class="section-title blue" id="contratados-title" style="display:none">Elementos contratados de este cliente<span class="badge blue" id="contratados-badge">0</span></div>
       <div id="contratados-list"></div>
       </div>
@@ -4247,6 +4258,7 @@ function showEjecutivaForm() {
   document.getElementById('elementos-form-list-led').innerHTML = '';
   document.getElementById('contratados-list').innerHTML = '';
   document.getElementById('contratados-title').style.display = 'none';
+  { const _efl = document.getElementById('edit-fijos-list'); if (_efl) _efl.innerHTML = ''; const _eft = document.getElementById('edit-fijos-title'); if (_eft) _eft.style.display = 'none'; }
   elementosFormCount = 0;
   _editCards = [];
 
@@ -4266,16 +4278,22 @@ function showEjecutivaForm() {
     // Precargar los elementos existentes: los YA FOTOGRAFIADOS quedan como tarjeta bloqueada (no se pueden
     // modificar ni quitar — el servidor también los protege); el resto como filas editables.
     // (2026-11-10) Los LED pendientes salen como tarjeta con "Cambiar" (reemplazar por otra pantalla) y "Quitar".
+    // (2026-11-10) Los FIJOS con código también: tarjeta con "Cambiar" (por otro de la bitácora del cliente) y "Quitar".
     (a.elementos || []).forEach(el => {
       if (el.estado === 'COMPLETADO' || el.tieneToma) addElementoBloqueado(el);
-      else if (esTipoLED(el.tipoElemento) && el.codigoRef) addTarjetaLedEditable(el);
+      else if (el.codigoRef) addTarjetaLedEditable(el);
       else addElementoForm(el);
     });
+    { const nFijos = (a.elementos || []).filter(el => !esTipoLED(el.tipoElemento) && el.codigoRef).length;
+      const _eft = document.getElementById('edit-fijos-title');
+      if (_eft) _eft.style.display = nFijos ? 'flex' : 'none';
+      const _efb = document.getElementById('edit-fijos-badge'); if (_efb) _efb.textContent = nFijos;
+      if (nFijos) cargarFijosCliente_(a.cliente).catch(() => {}); }
     pintarResumenEdicion_();
     cargarInventarioLEDs(); // se adelanta la carga: cuando toque "Cambiar" ya está lista
     if (!((a.elementos||[]).length)) addElementoForm();
     const hayLed = (a.elementos||[]).some(el => esTipoLED(el.tipoElemento));
-    const hayFijos = (a.elementos||[]).some(el => !esTipoLED(el.tipoElemento));
+    const hayFijos = (a.elementos||[]).some(el => !esTipoLED(el.tipoElemento) && !el.codigoRef);
     if (hayLed) abrirTipoSection('led');
     if (hayFijos || !((a.elementos||[]).length)) abrirTipoSection('fijos');
   } else {
@@ -4441,18 +4459,19 @@ function addElementoBloqueado(el) {
         <div style="font-size:12px;color:var(--muted)">${esc(el.ubicacion || '—')}${el.cliente ? ' · ' + esc(el.cliente) : ''} · ${turnoTxt}</div>
       </div>
     </div>`;
-  document.getElementById(esLED ? 'elementos-form-list-led' : 'elementos-form-list-fijos').appendChild(div);
+  document.getElementById(esLED ? 'elementos-form-list-led' : (el.codigoRef && document.getElementById('edit-fijos-list') ? 'edit-fijos-list' : 'elementos-form-list-fijos')).appendChild(div);
 }
 
 // ══ (2026-11-10) EDICIÓN VISUAL DE LEDs: cada LED pendiente es una tarjeta con ⇄ Cambiar / 🗑 Quitar / ↩ Deshacer ══
 let _editCards = [];
 const _escE = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function addTarjetaLedEditable(el) {
-  const i = _editCards.push({ orig: el, nuevo: null, quitado: false, abierto: false, busca: '' }) - 1;
+  const esLED = esTipoLED(el.tipoElemento || '');
+  const i = _editCards.push({ orig: el, esLED, nuevo: null, quitado: false, abierto: false, busca: '' }) - 1;
   const div = document.createElement('div');
   div.id = 'edit-card-' + i;
   div.style.marginBottom = '10px';
-  document.getElementById('elementos-form-list-led').appendChild(div);
+  document.getElementById(esLED ? 'elementos-form-list-led' : 'edit-fijos-list').appendChild(div);
   pintarTarjetaEdit_(i);
 }
 function _imgMini_(url, tam) {
@@ -4478,7 +4497,7 @@ function pintarTarjetaEdit_(i) {
       <div style="flex:1;min-width:180px"><div style="font-size:11px;font-weight:700;color:var(--blue)">⇄ REEMPLAZO</div>
         <div style="font-weight:700;font-size:16px"><span style="color:var(--muted);text-decoration:line-through">${_escE(o.codigoRef)}</span> → <span style="color:var(--orange)">${_escE(n.codigo)}</span></div>
         <div style="font-size:12px;color:var(--muted)">${_escE(n.direccion || '—')} · 📍 ${_escE(n.ciudad)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">Mismo cliente (${_escE(o.cliente)}) y misma fecha límite</div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Mismo cliente (${_escE(o.cliente)}), misma fecha límite${c.esLED ? '' : ' y mismo turno (' + _turnoE_(o.turno) + ')'}</div></div>
       ${btn('↩ Deshacer', `deshacerEdit_(${i})`)}`);
   } else {
     html = caja('var(--border)', 'transparent', `
@@ -4486,11 +4505,24 @@ function pintarTarjetaEdit_(i) {
       <div style="flex:1;min-width:180px">
         <div style="font-weight:700;font-size:15px;color:#fff">${_escE(o.tipoElemento)} · <span style="color:var(--orange)">${_escE(o.codigoRef)}</span></div>
         <div style="font-size:12px;color:var(--muted)">${_escE(o.ubicacion || '—')} · 📍 ${_escE(o.ciudad)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">🎬 ${_escE(o.cliente)}${o.fechaLimiteElemento ? ' · vence ' + _escE(o.fechaLimiteElemento) : ''}</div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.esLED ? '🎬 ' : _turnoE_(o.turno) + ' · '}${_escE(o.cliente)}${o.fechaLimiteElemento ? ' · vence ' + _escE(o.fechaLimiteElemento) : ''}</div></div>
       <div style="display:flex;gap:6px">${btn('⇄ Cambiar', `abrirCambioLED_(${i})`, 'var(--blue)')}${btn('🗑', `quitarEdit_(${i})`, 'var(--red)')}</div>`);
   }
   if (c.abierto && !c.quitado) html += _panelCambioLED_(i);
   div.innerHTML = html;
+}
+function _turnoE_(t) { return t === 'DIA' ? '☀️ Día' : t === 'NOCHE' ? '🌙 Noche' : '☀️🌙 Ambas'; }
+// (2026-11-10) Bitácora (elementos contratados) del cliente, para "Cambiar" un elemento fijo al editar
+const _fijosClienteCache = {};
+async function cargarFijosCliente_(cliente) {
+  const k = normalizarZR(cliente || '');
+  if (!k) return [];
+  if (_fijosClienteCache[k]) return _fijosClienteCache[k];
+  const res = await fetch(SCRIPT_URL + '?action=rfGetElementosPorCliente&cliente=' + encodeURIComponent(cliente) + '&_t=' + Date.now(), { cache: 'no-store' });
+  const arr = await res.json();
+  _fijosClienteCache[k] = (Array.isArray(arr) ? arr : []).filter(e => e && e.codigo && !esTipoLED(e.tipo || ''))
+    .map(e => ({ codigo: e.codigo, tipo: e.tipo || '', direccion: e.direccion || e.lugar || '', ciudad: e.ciudad || e.lugar || '', foto: e.foto || '', lat: e.lat || '', lon: e.lon || '', termino: e.termino || '' }));
+  return _fijosClienteCache[k];
 }
 function _numCoord_(v) { const n = parseFloat(String(v || '').replace(',', '.')); return isFinite(n) ? n : null; }
 function _distKm_(a1, o1, a2, o2) {
@@ -4507,8 +4539,8 @@ function _codigosEnUso_() {
 }
 function _panelCambioLED_(i) {
   const c = _editCards[i], o = c.orig;
-  const inv = _ledsInventarioCache;
-  if (!inv) return `<div class="empty-sub" style="padding:10px">Cargando pantallas...</div>`;
+  const inv = c.esLED ? _ledsInventarioCache : _fijosClienteCache[normalizarZR(o.cliente || (asignacionEnEdicion && asignacionEnEdicion.cliente) || '')];
+  if (!inv) return `<div class="empty-sub" style="padding:10px">${c.esLED ? 'Cargando pantallas...' : 'Cargando elementos de la bitácora del cliente...'}</div>`;
   const base = inv.find(l => String(l.codigo).toUpperCase() === String(o.codigoRef).toUpperCase()) || {};
   const la = _numCoord_(o.lat || base.lat), lo = _numCoord_(o.lon || base.lon);
   const usados = _codigosEnUso_();
@@ -4539,11 +4571,11 @@ function _panelCambioLED_(i) {
       ${x.d !== null ? `<div style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">a ${x.d < 10 ? x.d.toFixed(1).replace('.', ',') : Math.round(x.d)} km</div>` : ''}
     </div>`).join('');
   return `<div style="margin:-4px 0 6px;border:1px solid var(--blue);border-radius:12px;padding:12px;background:rgba(56,182,255,.05)">
-    <div style="font-weight:700;font-size:14px;color:#fff">¿Por cuál pantalla cambias la <span style="color:var(--orange)">${_escE(o.codigoRef)}</span>?</div>
-    <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Primero las más cercanas. Se mantiene el cliente, la fecha límite y el fotógrafo según la ciudad.</div>
+    <div style="font-weight:700;font-size:14px;color:#fff">¿Por cuál ${c.esLED ? 'pantalla' : 'elemento'} cambias ${c.esLED ? 'la' : 'el'} <span style="color:var(--orange)">${_escE(o.codigoRef)}</span>?</div>
+    <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">${c.esLED ? 'Primero las más cercanas. Se mantiene el cliente, la fecha límite y el fotógrafo según la ciudad.' : 'Elementos contratados de ' + _escE(o.cliente || '') + ' (bitácora), primero los más cercanos. Se mantiene la fecha límite y el turno (' + _turnoE_(o.turno) + '); el fotógrafo va según la ciudad.'}</div>
     ${chipsHtml}
     <input class="form-input" id="edit-busca-${i}" placeholder="Buscar código, dirección o ciudad" value="${_escE(c.busca)}" oninput="buscarCambioLED_(${i}, this.value)" style="margin-bottom:8px"/>
-    <div style="display:flex;flex-direction:column;gap:6px">${filas || '<div class="empty-sub" style="padding:8px 0">No hay pantallas con esa búsqueda.</div>'}</div>
+    <div style="display:flex;flex-direction:column;gap:6px">${filas || `<div class="empty-sub" style="padding:8px 0">${c.esLED ? 'No hay pantallas con esa búsqueda.' : (inv.length ? 'No hay elementos con esa búsqueda.' : 'Este cliente no tiene otros elementos en la bitácora. Puedes quitar este y agregar uno en "Asignaciones fuera de bitácora".')}</div>`}</div>
     ${total > lista.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Mostrando ${lista.length} de ${total}. Escribe para buscar las demás.</div>` : ''}
     <button type="button" onclick="cerrarCambioLED_(${i})" style="margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer">Cancelar</button>
   </div>`;
@@ -4551,7 +4583,8 @@ function _panelCambioLED_(i) {
 function abrirCambioLED_(i) {
   _editCards.forEach((c, k) => { if (k !== i && c.abierto) { c.abierto = false; pintarTarjetaEdit_(k); } });
   _editCards[i].abierto = true; pintarTarjetaEdit_(i);
-  if (!_ledsInventarioCache) cargarInventarioLEDs().then(() => pintarTarjetaEdit_(i));
+  if (_editCards[i].esLED) { if (!_ledsInventarioCache) cargarInventarioLEDs().then(() => pintarTarjetaEdit_(i)); }
+  else cargarFijosCliente_(_editCards[i].orig.cliente || (asignacionEnEdicion && asignacionEnEdicion.cliente) || '').then(() => pintarTarjetaEdit_(i)).catch(() => { showToast('No se pudo cargar la bitácora del cliente', 'err'); });
 }
 function filtroTipoCambio_(i, k) {
   const c = _editCards[i];
@@ -4580,7 +4613,7 @@ function pintarResumenEdicion_() {
   if (!asignacionEnEdicion || !btn) { if (res) res.remove(); return; }
   if (!res) { res = document.createElement('div'); res.id = 'edit-resumen'; res.style.cssText = 'text-align:center;font-size:13px;font-weight:700;margin:0 0 8px'; btn.parentNode.insertBefore(res, btn); }
   const r = _editCards.filter(c => c.nuevo && !c.quitado).length, q = _editCards.filter(c => c.quitado).length;
-  const partes = []; if (r) partes.push(`⇄ ${r} pantalla${r>1?'s':''} reemplazada${r>1?'s':''}`); if (q) partes.push(`🗑 ${q} quitada${q>1?'s':''}`);
+  const partes = []; if (r) partes.push(`⇄ ${r} elemento${r>1?'s':''} reemplazado${r>1?'s':''}`); if (q) partes.push(`🗑 ${q} quitado${q>1?'s':''}`);
   res.style.color = partes.length ? 'var(--blue)' : 'var(--muted)';
   res.textContent = partes.length ? 'Cambios por guardar: ' + partes.join(' · ') : '';
 }
@@ -4858,10 +4891,14 @@ async function crearAsignacion() {
     const o = c.orig, n = c.nuevo;
     if (!n) elementos.push({ tipoElemento: o.tipoElemento, cliente: o.cliente, ubicacion: o.ubicacion, codigoRef: o.codigoRef,
       observaciones: o.observaciones || '', ciudad: o.ciudad, lat: o.lat, lon: o.lon, foto: o.fotoReferencia || '',
-      turno: o.turno || 'AMBAS', requiereVideo: true, fechaLimiteElemento: o.fechaLimiteElemento || '', fotografoAsignado: o.fotografoAsignado || '', idExistente: o.id });
-    else elementos.push({ tipoElemento: n.tipo || o.tipoElemento, cliente: o.cliente, ubicacion: n.direccion, codigoRef: n.codigo,
+      turno: o.turno || 'AMBAS', requiereVideo: c.esLED !== false ? true : !!o.requiereVideo, fechaLimiteElemento: o.fechaLimiteElemento || '', fotografoAsignado: o.fotografoAsignado || '', idExistente: o.id });
+    else if (c.esLED !== false) elementos.push({ tipoElemento: n.tipo || o.tipoElemento, cliente: o.cliente, ubicacion: n.direccion, codigoRef: n.codigo,
       observaciones: '', ciudad: n.ciudad, lat: n.lat, lon: n.lon, foto: n.foto || '',
       turno: 'AMBAS', requiereVideo: true, fechaLimiteElemento: o.fechaLimiteElemento || '' });
+    else elementos.push({ tipoElemento: n.tipo || o.tipoElemento, cliente: o.cliente, ubicacion: n.direccion, codigoRef: n.codigo,
+      observaciones: '', ciudad: n.ciudad, lat: n.lat, lon: n.lon, foto: n.foto || '',
+      turno: o.turno || 'AMBAS', fechaLimiteElemento: o.fechaLimiteElemento || '',
+      fotografoAsignado: fotografoAutomaticoPorCiudad(n.ciudad, '', n.tipo || o.tipoElemento) });
   });
 
   // Elementos manuales
@@ -5836,15 +5873,15 @@ function zrPintarDetalle_() {
     } else if (done && !tomas) {
       media = `<div class="zd-ref"><div class="zd-cargando">Cargando fotos…</div></div>`;
     } else {
-      media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}${zrTurnoTag_(el, t)}<span class="zd-tag">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo' : 'Pendiente'}</span></div>`;
+      media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}${zrTurnoTag_(el, t)}<span class="zd-tag ${done ? 'ok' : sube ? 'sube' : 'pend'}">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo fotos' : '⏳ PENDIENTE'}${!done && !sube ? '<small>Falta tomar la foto</small>' : ''}</span></div>`;
     }
-    return `<div class="zd-el ${done ? 'done' : ''}">
+    return `<div class="zd-el ${done ? 'done' : sube ? 'sube' : 'pend'}">
       ${media}
       <div class="zd-el-b">
         <div class="zd-el-t">${nombre}${el.codigoRef && el.tipoElemento ? ` <span>· ${cfgEsc_(el.tipoElemento)}</span>` : ''}${zrTurnoTxt_(el, t) ? ` <em class="zd-turno-t ${zrTurnoTxt_(el, t).k}">${zrTurnoTxt_(el, t).txt}</em>` : ''}</div>
         <div class="zd-el-u">${cfgEsc_(el.ubicacion || '—')}${el.ciudad ? ' · ' + cfgEsc_(el.ciudad) : ''}</div>
         ${el.cliente && el.cliente !== a.cliente ? `<div class="zd-el-u">👤 ${cfgEsc_(el.cliente)}</div>` : ''}
-        <div class="zd-el-s ${done ? 'ok' : ''}">${done ? '✓ ' + cfgEsc_((t && t.fotografo) || el.fotografoAsignado || '') + (t && t.fechaTomada ? ' · ' + zrFechaHora_(t.fechaTomada) : '') : sube ? '⟳ Subiendo fotos…' : 'Sin foto todavía · ' + cfgEsc_(el.fotografoAsignado || '')}</div>
+        <div class="zd-el-s ${done ? 'ok' : ''}">${done ? '✓ ' + cfgEsc_((t && t.fotografo) || el.fotografoAsignado || '') + (t && t.fechaTomada ? ' · ' + zrFechaHora_(t.fechaTomada) : '') : sube ? '⟳ Subiendo fotos…' : '<b>⏳ Pendiente</b> · asignado a ' + cfgEsc_(el.fotografoAsignado || '—')}</div>
       </div>
     </div>`;
   };
