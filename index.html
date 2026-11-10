@@ -376,6 +376,8 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    #zr-lb iframe { width: min(94vw, 1100px); aspect-ratio: 16/9; max-height: 80vh; border: 0; border-radius: 8px; background: #000; }
+    .zd-cargando { text-align: center; line-height: 1.5; }
     .zd-vmini { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 16/9; max-height: 220px; width: 100%; background: linear-gradient(135deg, #1b2330, #0d1117); overflow: hidden; text-decoration: none; }
     .zd-fotos .zd-vmini img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; cursor: pointer; }
     .zd-play { position: relative; z-index: 1; width: 52px; height: 52px; border-radius: 50%; background: rgba(0,0,0,.6); border: 2px solid #fff; color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
@@ -5808,7 +5810,7 @@ function zrTableroFotoHtml_(lista) {
 }
 
 // ══ Panel de detalle de una asignación (ejecutiva): elementos + fotos tomadas ══
-const _zrTomasCache = {};
+const _zrTomasCache = {}, _zrTomasPidiendo = {}, _zrTomasLento = {};
 let _zrDetId = null, _zrFotosLB = [];
 function zrDriveId_(url) {
   const m = String(url || '').match(/[?&]id=([\w-]{10,})/) || String(url || '').match(/\/d\/([\w-]{10,})/);
@@ -5826,9 +5828,14 @@ function zrTurnoTxt_(el, t) {
 function zrVideosMini_(t, el) {
   const v = [[t.videoUrl, t.videoPreviewUrl], [t.videoUrl2, t.videoPreviewUrl2], [t.videoUrl3, t.videoPreviewUrl3], [t.videoUrl4, t.videoPreviewUrl4], [t.videoUrl5, t.videoPreviewUrl5]].filter(x => x[0]).slice(0, 3);
   if (!v.length) return '<div class="zd-sinfoto">Sin fotos ni video</div>';
-  return v.map((x, i) => `<a class="zd-vmini" href="${videoViewUrl(x[0])}" target="_blank" onclick="event.stopPropagation()" title="Ver video">
+  return v.map((x, i) => `<a class="zd-vmini" href="${videoViewUrl(x[0])}" onclick="event.preventDefault();event.stopPropagation();zrVerFoto_(${zrLBVideo_(x[0], el, t, v.length > 1 ? i + 1 : 0)})" title="Ver video">
       <img src="${zrThumb_(x[1] || x[0], 500)}" alt="Video" loading="lazy" onerror="this.remove()">
       <span class="zd-play">▶</span><span class="zd-vlbl">🎬 Video${v.length > 1 ? ' ' + (i + 1) : ''}</span></a>`).join('');
+}
+// Agrega un video al visor (se reproduce ahí mismo con el reproductor de Drive; carga SOLO al abrirlo)
+function zrLBVideo_(url, el, t, n) {
+  const tur = zrTurnoTxt_(el, t);
+  return _zrFotosLB.push({ url, video: true, titulo: (el.codigoRef || el.tipoElemento || '') + ' · Video' + (n ? ' ' + n : '') + (tur ? ' · ' + tur.txt : '') }) - 1;
 }
 function zrTurnoTag_(el, t) { const x = zrTurnoTxt_(el, t); return x ? `<span class="zd-turno ${x.k}">${x.txt}</span>` : ''; }
 function zrFechaHora_(f) {
@@ -5854,8 +5861,14 @@ function zrAbrirDetalle_(id) {
   document.body.classList.add('zr-modal-abierto');
   zrPintarDetalle_();
   const hayFotos = (a.elementos || []).some(e => e.estado === 'COMPLETADO');
-  if (hayFotos && !_zrTomasCache[_zrDetId]) {
-    fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&cliente=' + encodeURIComponent(a.cliente))
+  if (hayFotos && !_zrTomasCache[_zrDetId] && !_zrTomasPidiendo[_zrDetId]) {
+    const aidP = String(a.id);
+    _zrTomasPidiendo[aidP] = true; _zrTomasLento[aidP] = false;
+    const tLento = setTimeout(() => { _zrTomasLento[aidP] = true; if (_zrDetId === aidP && !_zrTomasCache[aidP]) zrPintarDetalle_(); }, 8000);
+    // 2026-11-10: asignacionId = el servidor nuevo lee solo las fotos de esta asignación (mucho más rápido);
+    // un servidor anterior lo ignora y filtra por cliente, igual que antes.
+    fetchConReintento(SCRIPT_URL + '?action=rfGetTomas&asignacionId=' + encodeURIComponent(a.id) + '&cliente=' + encodeURIComponent(a.cliente))
+      .finally(() => { clearTimeout(tLento); delete _zrTomasPidiendo[aidP]; })
       .then(r => r.json())
       .then(todas => {
         const mapa = {};
@@ -5893,9 +5906,9 @@ function zrPintarDetalle_() {
         const k = _zrFotosLB.push({ url: f[1], titulo: (el.codigoRef || el.tipoElemento || '') + ' · ' + f[0] + (zrTurnoTxt_(el, t) ? ' · ' + zrTurnoTxt_(el, t).txt : '') }) - 1;
         return `<img src="${zrThumb_(f[1], 500)}" alt="${f[0]}" loading="lazy" onclick="zrVerFoto_(${k})" onerror="this.outerHTML='<a class=&quot;zd-sinfoto&quot; href=&quot;${zrDriveVer_(f[1])}&quot; target=&quot;_blank&quot;>${f[0]}: abrir en Drive</a>'">`;
       }).join('') || zrVideosMini_(t, el)}</div></div>
-        ${vids.length ? `<div class="zd-vids">${vids.map((v, i) => `<a href="${videoViewUrl(v)}" target="_blank" onclick="event.stopPropagation()">▶ Video${vids.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</div>` : ''}`;
+        ${vids.length ? `<div class="zd-vids">${vids.map((v, i) => `<a href="${videoViewUrl(v)}" onclick="event.preventDefault();event.stopPropagation();zrVerFoto_(${zrLBVideo_(v, el, t, vids.length > 1 ? i + 1 : 0)})">▶ Video${vids.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</div>` : ''}`;
     } else if (done && !tomas) {
-      media = `<div class="zd-ref"><div class="zd-cargando">Cargando fotos…</div></div>`;
+      media = `<div class="zd-ref"><div class="zd-cargando">${_zrTomasLento[_zrDetId] ? '⏳ Google está tardando en responder…<br>sigue intentando solo' : 'Cargando fotos…'}</div></div>`;
     } else {
       media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}${zrTurnoTag_(el, t)}<span class="zd-tag ${done ? 'ok' : sube ? 'sube' : 'pend'}">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo fotos' : '⏳ PENDIENTE'}${!done && !sube ? '<small>Falta tomar la foto</small>' : ''}</span></div>`;
     }
@@ -5922,7 +5935,7 @@ function zrPintarDetalle_() {
       <span class="zd-cnt">${completados} de ${total} fotografiados</span>
       <div class="zb-acc" style="margin:0">${zrBotonesAsig_(a)}</div>
     </div>
-    ${tomas && tomas._error ? '<div class="zd-aviso">No se pudieron cargar las fotos. Cierra y vuelve a abrir para reintentar.</div>' : ''}
+    ${tomas && tomas._error ? `<div class="zd-aviso">No se pudieron cargar las fotos (Google no respondió). <button class="zb-btn" onclick="zrAbrirDetalle_('${a.id}')">↻ Reintentar</button></div>` : ''}
     <div class="zd-grid">${grid}</div>
     ${_zrFotosLB.length ? '<div class="zd-pie">Toca una foto para verla grande · usa ← → para pasar</div>' : ''}
   </div>`;
@@ -5944,12 +5957,12 @@ function zrVerFoto_(k) {
   const f = _zrFotosLB[k]; if (!f) return;
   lb.innerHTML = `<button class="zl-x" onclick="zrCerrarFoto_()" aria-label="Cerrar">✕</button>
     ${_zrFotosLB.length > 1 ? '<button class="zl-n zl-p" onclick="zrPasarFoto_(-1)" aria-label="Anterior">‹</button><button class="zl-n zl-s" onclick="zrPasarFoto_(1)" aria-label="Siguiente">›</button>' : ''}
-    <img src="${zrThumb_(f.url, 2000)}" alt="${cfgEsc_(f.titulo)}">
-    <div class="zl-cap">${cfgEsc_(f.titulo)} · ${k + 1} de ${_zrFotosLB.length} · <a href="${zrDriveVer_(f.url)}" target="_blank">Abrir en Drive</a></div>`;
+    ${f.video ? `<iframe src="https://drive.google.com/file/d/${zrDriveId_(f.url)}/preview" allow="autoplay; fullscreen" allowfullscreen></iframe>` : `<img src="${zrThumb_(f.url, 2000)}" alt="${cfgEsc_(f.titulo)}">`}
+    <div class="zl-cap">${cfgEsc_(f.titulo)} · ${k + 1} de ${_zrFotosLB.length} · <a href="${f.video ? videoViewUrl(f.url) : zrDriveVer_(f.url)}" target="_blank">Abrir en Drive</a></div>`;
   lb.classList.add('open');
 }
 function zrPasarFoto_(d) { if (!_zrFotosLB.length) return; zrVerFoto_((_zrLBi + d + _zrFotosLB.length) % _zrFotosLB.length); }
-function zrCerrarFoto_() { const lb = document.getElementById('zr-lb'); if (lb) lb.classList.remove('open'); }
+function zrCerrarFoto_() { const lb = document.getElementById('zr-lb'); if (lb) { lb.classList.remove('open'); lb.innerHTML = ''; } } // vaciar = el video deja de sonar
 document.addEventListener('keydown', e => {
   const lb = document.getElementById('zr-lb');
   if (lb && lb.classList.contains('open')) {
