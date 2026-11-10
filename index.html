@@ -376,6 +376,14 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    .zd-media { position: relative; }
+    .zd-turno { position: absolute; top: 8px; left: 8px; z-index: 2; font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.5); pointer-events: none; }
+    .zd-turno.dia { background: #ffd34d; color: #3a2a00; }
+    .zd-turno.noche { background: #2b2f6b; color: #dfe3ff; border: 1px solid #6c74e0; }
+    .zd-ref .zd-turno { position: absolute; }
+    .zd-turno-t { font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 20px; margin-left: 4px; }
+    .zd-turno-t.dia { background: rgba(255,211,77,.16); color: #ffd34d; }
+    .zd-turno-t.noche { background: rgba(108,116,224,.22); color: #b9bfff; }
     .zb-cli-w { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1; }
     .zb-cli-w .zb-cli { flex: 0 1 auto; }
     .zb-ftoma { flex-shrink: 0; font-family: var(--mono); font-size: 11.5px; font-weight: 800; color: var(--green); background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.35); padding: 1px 7px; border-radius: 20px; white-space: nowrap; }
@@ -1323,6 +1331,7 @@ async function exportarPendientesExcel() {
 }
 
 function showPage(id) {
+  try { if (_zrDetId) zrCerrarDetalle_(); } catch (e) {} // 2026-11-10: el detalle con fotos nunca queda encima de otra pantalla
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   // El polling automático de nuevas asignaciones solo corre mientras
@@ -5630,7 +5639,7 @@ function zrBotonesAsig_(a, compacto) {
   const id = a.id, cli = String(a.cliente || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const b = (cls, onclick, txt) => `<button class="zb-btn ${cls}" onclick="event.stopPropagation();${onclick}">${txt}</button>`;
   if (pct >= 100) return b('ok', `exportarReporte('${id}','pptx',this)`, '📊 PPT') + b('ok', `exportarReporte('${id}','pdf',this)`, '📄 PDF');
-  let h = b('edit', `editarAsignacion('${id}')`, '✏️ Editar') + b('del', `confirmarAnularAsignacion('${id}','${cli}')`, '🗑️ Anular');
+  let h = b('edit', `zrCerrarDetalle_();editarAsignacion('${id}')`, '✏️ Editar') + b('del', `zrCerrarDetalle_();confirmarAnularAsignacion('${id}','${cli}')`, '🗑️ Anular');
   if (pct > 0) h += b('warn', `confirmarExportarParcial('${id}','pptx',this,${completados},${total})`, '⚠️ PPT ' + completados + '/' + total)
                  + b('warn', `confirmarExportarParcial('${id}','pdf',this,${completados},${total})`, '⚠️ PDF ' + completados + '/' + total);
   return h;
@@ -5755,6 +5764,22 @@ function zrDriveId_(url) {
 }
 function zrThumb_(url, ancho) { const id = zrDriveId_(url); return id ? 'https://drive.google.com/thumbnail?id=' + id + '&sz=w' + (ancho || 600) : url; }
 function zrDriveVer_(url) { const id = zrDriveId_(url); return id ? 'https://drive.google.com/file/d/' + id + '/view' : url; }
+function zrTurnoTxt_(el, t) {
+  const v = String((el && el.turno) || (t && t.turno) || '').toUpperCase();
+  if (v === 'DIA' || v === 'DÍA') return { k: 'dia', txt: '☀️ Día' };
+  if (v === 'NOCHE') return { k: 'noche', txt: '🌙 Noche' };
+  return null;
+}
+function zrTurnoTag_(el, t) { const x = zrTurnoTxt_(el, t); return x ? `<span class="zd-turno ${x.k}">${x.txt}</span>` : ''; }
+function zrFechaHora_(f) {
+  const s = String(f || ''); if (!s) return '';
+  const d = new Date(s.length <= 10 ? s + 'T00:00:00' : s);
+  if (isNaN(d)) return cfgEsc_(s);
+  const m = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][d.getMonth()];
+  let out = d.getDate() + ' ' + m + (d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '');
+  if (s.length > 10) out += ' · ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  return out;
+}
 function zrAbrirDetalle_(id) {
   const a = (misAsignacionesCache || []).find(x => String(x.id) === String(id));
   if (!a) return;
@@ -5803,23 +5828,23 @@ function zrPintarDetalle_() {
     if (done && t) {
       const fotos = [['Frontal', t.fotoFrontalUrl], ['Panorámica A', t.fotoPanoramicaUrl], ['Panorámica B', t.fotoPanoramicaBUrl]].filter(f => f[1]);
       const vids = [t.videoUrl, t.videoUrl2, t.videoUrl3, t.videoUrl4, t.videoUrl5].filter(Boolean);
-      media = `<div class="zd-fotos" style="grid-template-columns:repeat(${Math.max(fotos.length,1)},1fr)">${fotos.map(f => {
-        const k = _zrFotosLB.push({ url: f[1], titulo: (el.codigoRef || el.tipoElemento || '') + ' · ' + f[0] }) - 1;
+      media = `<div class="zd-media">${zrTurnoTag_(el, t)}<div class="zd-fotos" style="grid-template-columns:repeat(${Math.max(fotos.length,1)},1fr)">${fotos.map(f => {
+        const k = _zrFotosLB.push({ url: f[1], titulo: (el.codigoRef || el.tipoElemento || '') + ' · ' + f[0] + (zrTurnoTxt_(el, t) ? ' · ' + zrTurnoTxt_(el, t).txt : '') }) - 1;
         return `<img src="${zrThumb_(f[1], 500)}" alt="${f[0]}" loading="lazy" onclick="zrVerFoto_(${k})" onerror="this.outerHTML='<a class=&quot;zd-sinfoto&quot; href=&quot;${zrDriveVer_(f[1])}&quot; target=&quot;_blank&quot;>${f[0]}: abrir en Drive</a>'">`;
-      }).join('') || '<div class="zd-sinfoto">Sin fotos</div>'}</div>
+      }).join('') || '<div class="zd-sinfoto">Sin fotos</div>'}</div></div>
         ${vids.length ? `<div class="zd-vids">${vids.map((v, i) => `<a href="${videoViewUrl(v)}" target="_blank" onclick="event.stopPropagation()">▶ Video${vids.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</div>` : ''}`;
     } else if (done && !tomas) {
       media = `<div class="zd-ref"><div class="zd-cargando">Cargando fotos…</div></div>`;
     } else {
-      media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}<span class="zd-tag">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo' : 'Pendiente'}${el.turno === 'DIA' ? ' · ☀️ Día' : el.turno === 'NOCHE' ? ' · 🌙 Noche' : ''}</span></div>`;
+      media = `<div class="zd-ref">${el.fotoReferencia ? `<img src="${cfgEsc_(el.fotoReferencia)}" loading="lazy" alt="Referencia">` : ''}${zrTurnoTag_(el, t)}<span class="zd-tag">${done ? '✓ Fotografiado' : sube ? '⟳ Subiendo' : 'Pendiente'}</span></div>`;
     }
     return `<div class="zd-el ${done ? 'done' : ''}">
       ${media}
       <div class="zd-el-b">
-        <div class="zd-el-t">${nombre}${el.codigoRef && el.tipoElemento ? ` <span>· ${cfgEsc_(el.tipoElemento)}</span>` : ''}</div>
+        <div class="zd-el-t">${nombre}${el.codigoRef && el.tipoElemento ? ` <span>· ${cfgEsc_(el.tipoElemento)}</span>` : ''}${zrTurnoTxt_(el, t) ? ` <em class="zd-turno-t ${zrTurnoTxt_(el, t).k}">${zrTurnoTxt_(el, t).txt}</em>` : ''}</div>
         <div class="zd-el-u">${cfgEsc_(el.ubicacion || '—')}${el.ciudad ? ' · ' + cfgEsc_(el.ciudad) : ''}</div>
         ${el.cliente && el.cliente !== a.cliente ? `<div class="zd-el-u">👤 ${cfgEsc_(el.cliente)}</div>` : ''}
-        <div class="zd-el-s ${done ? 'ok' : ''}">${done ? '✓ ' + cfgEsc_((t && t.fotografo) || el.fotografoAsignado || '') + (t && t.fechaTomada ? ' · ' + cfgEsc_(t.fechaTomada) : '') : sube ? '⟳ Subiendo fotos…' : 'Sin foto todavía · ' + cfgEsc_(el.fotografoAsignado || '')}</div>
+        <div class="zd-el-s ${done ? 'ok' : ''}">${done ? '✓ ' + cfgEsc_((t && t.fotografo) || el.fotografoAsignado || '') + (t && t.fechaTomada ? ' · ' + zrFechaHora_(t.fechaTomada) : '') : sube ? '⟳ Subiendo fotos…' : 'Sin foto todavía · ' + cfgEsc_(el.fotografoAsignado || '')}</div>
       </div>
     </div>`;
   };
