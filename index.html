@@ -3949,6 +3949,7 @@ function showEjecutivaForm() {
   document.getElementById('contratados-list').innerHTML = '';
   document.getElementById('contratados-title').style.display = 'none';
   elementosFormCount = 0;
+  _editCards = [];
 
   const formTitle = document.getElementById('form-titulo-zr');
   const btn = document.getElementById('btn-crear-asignacion');
@@ -3963,8 +3964,15 @@ function showEjecutivaForm() {
     document.getElementById('form-fecha-limite-fijos').value = a.fechaLimite || '';
     document.getElementById('form-observaciones').value = a.observaciones || '';
     abrirTipoSection('cliente');
-    // Precargar los elementos existentes como filas manuales editables
-    (a.elementos || []).forEach(el => addElementoForm(el));
+    // Precargar los elementos existentes: los YA FOTOGRAFIADOS quedan como tarjeta bloqueada (no se pueden
+    // modificar ni quitar — el servidor también los protege); el resto como filas editables.
+    // (2026-11-10) Los LED pendientes salen como tarjeta con "Cambiar" (reemplazar por otra pantalla) y "Quitar".
+    (a.elementos || []).forEach(el => {
+      if (el.estado === 'COMPLETADO' || el.tieneToma) addElementoBloqueado(el);
+      else if (esTipoLED(el.tipoElemento) && el.codigoRef) addTarjetaLedEditable(el);
+      else addElementoForm(el);
+    });
+    pintarResumenEdicion_();
     if (!((a.elementos||[]).length)) addElementoForm();
     const hayLed = (a.elementos||[]).some(el => esTipoLED(el.tipoElemento));
     const hayFijos = (a.elementos||[]).some(el => !esTipoLED(el.tipoElemento));
@@ -3988,6 +3996,7 @@ function showEjecutivaForm() {
     // nombre del cliente" sin ningún campo visible para arreglarlo.
     abrirTipoSection('cliente');
   }
+  if (!asignacionEnEdicion) pintarResumenEdicion_();
   loadClientesAutocomplete();
 }
 
@@ -4114,6 +4123,148 @@ function actualizarFotografoManual(idx) {
   cont.innerHTML = renderFotografoPicker('elem-' + idx, ciudadInput.value, '', tipoSel ? tipoSel.value : '');
 }
 
+function addElementoBloqueado(el) {
+  const esLED = esTipoLED(el.tipoElemento || '');
+  const div = document.createElement('div');
+  div.className = 'elem-row elem-bloqueado';
+  div.style.cssText = 'opacity:.85;border-color:rgba(34,197,94,.35)';
+  const turnoTxt = esLED ? '🎬 Video' : (el.turno === 'DIA' ? '☀️ Día' : el.turno === 'NOCHE' ? '🌙 Noche' : '☀️🌙 Ambas');
+  const esc = v => String(v || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  div.innerHTML = `
+    <div style="display:flex;gap:12px;align-items:center">
+      ${(el.fotoReferencia || el.foto) ? `<img src="${esc(el.fotoReferencia || el.foto)}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>` : `<div style="width:64px;height:64px;border-radius:10px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px">📷</div>`}
+      <div style="min-width:0">
+        <div style="font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px;display:inline-block">🔒 ${el.estado === 'COMPLETADO' ? 'Ya fotografiado' : 'Ya tiene fotos subidas'} · no se puede modificar</div>
+        <div style="font-weight:700;color:#fff;font-size:14px;margin-top:4px">${esc(el.tipoElemento)}${el.codigoRef ? ` · <span style="color:var(--orange)">${esc(el.codigoRef)}</span>` : ''}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(el.ubicacion || '—')}${el.cliente ? ' · ' + esc(el.cliente) : ''} · ${turnoTxt}</div>
+      </div>
+    </div>`;
+  document.getElementById(esLED ? 'elementos-form-list-led' : 'elementos-form-list-fijos').appendChild(div);
+}
+
+// ══ (2026-11-10) EDICIÓN VISUAL DE LEDs: cada LED pendiente es una tarjeta con ⇄ Cambiar / 🗑 Quitar / ↩ Deshacer ══
+let _editCards = [];
+const _escE = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function addTarjetaLedEditable(el) {
+  const i = _editCards.push({ orig: el, nuevo: null, quitado: false, abierto: false, busca: '' }) - 1;
+  const div = document.createElement('div');
+  div.id = 'edit-card-' + i;
+  div.style.marginBottom = '10px';
+  document.getElementById('elementos-form-list-led').appendChild(div);
+  pintarTarjetaEdit_(i);
+}
+function _imgMini_(url, tam) {
+  return url ? `<img src="${_escE(url)}" style="width:${tam}px;height:${tam}px;border-radius:10px;object-fit:cover;flex-shrink:0;background:var(--dark3)"/>`
+             : `<div style="width:${tam}px;height:${tam}px;border-radius:10px;background:var(--dark3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--muted)">📷</div>`;
+}
+function pintarTarjetaEdit_(i) {
+  const c = _editCards[i], o = c.orig, div = document.getElementById('edit-card-' + i);
+  if (!div) return;
+  const btn = (txt, fn, color) => `<button type="button" onclick="${fn}" style="background:transparent;border:1px solid ${color||'var(--border)'};color:${color||'var(--text)'};border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap">${txt}</button>`;
+  const caja = (borde, fondo, inner) => `<div class="elem-row" style="border:2px solid ${borde};background:${fondo};display:flex;gap:12px;align-items:center;flex-wrap:wrap">${inner}</div>`;
+  let html;
+  if (c.quitado) {
+    html = caja('rgba(255,92,92,.45)', 'rgba(255,92,92,.06)', `
+      ${_imgMini_(o.fotoReferencia, 56)}
+      <div style="flex:1;min-width:160px"><div style="font-size:11px;font-weight:700;color:var(--red)">🗑 SE QUITARÁ AL GUARDAR</div>
+        <div style="font-weight:700;font-size:15px;color:var(--muted);text-decoration:line-through">${_escE(o.tipoElemento)} · ${_escE(o.codigoRef)}</div></div>
+      ${btn('↩ Deshacer', `deshacerEdit_(${i})`)}`);
+  } else if (c.nuevo) {
+    const n = c.nuevo;
+    html = caja('var(--blue)', 'rgba(56,182,255,.07)', `
+      ${_imgMini_(n.foto, 64)}
+      <div style="flex:1;min-width:180px"><div style="font-size:11px;font-weight:700;color:var(--blue)">⇄ REEMPLAZO</div>
+        <div style="font-weight:700;font-size:16px"><span style="color:var(--muted);text-decoration:line-through">${_escE(o.codigoRef)}</span> → <span style="color:var(--orange)">${_escE(n.codigo)}</span></div>
+        <div style="font-size:12px;color:var(--muted)">${_escE(n.direccion || '—')} · 📍 ${_escE(n.ciudad)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">Mismo cliente (${_escE(o.cliente)}) y misma fecha límite</div></div>
+      ${btn('↩ Deshacer', `deshacerEdit_(${i})`)}`);
+  } else {
+    html = caja('var(--border)', 'transparent', `
+      ${_imgMini_(o.fotoReferencia, 64)}
+      <div style="flex:1;min-width:180px">
+        <div style="font-weight:700;font-size:15px;color:#fff">${_escE(o.tipoElemento)} · <span style="color:var(--orange)">${_escE(o.codigoRef)}</span></div>
+        <div style="font-size:12px;color:var(--muted)">${_escE(o.ubicacion || '—')} · 📍 ${_escE(o.ciudad)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">🎬 ${_escE(o.cliente)}${o.fechaLimiteElemento ? ' · vence ' + _escE(o.fechaLimiteElemento) : ''}</div></div>
+      <div style="display:flex;gap:6px">${btn('⇄ Cambiar', `abrirCambioLED_(${i})`, 'var(--blue)')}${btn('🗑', `quitarEdit_(${i})`, 'var(--red)')}</div>`);
+  }
+  if (c.abierto && !c.quitado) html += _panelCambioLED_(i);
+  div.innerHTML = html;
+}
+function _numCoord_(v) { const n = parseFloat(String(v || '').replace(',', '.')); return isFinite(n) ? n : null; }
+function _distKm_(a1, o1, a2, o2) {
+  if ([a1, o1, a2, o2].some(x => x === null)) return null;
+  const R = 6371, r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
+  const h = Math.sin(dA/2) ** 2 + Math.cos(a1*r) * Math.cos(a2*r) * Math.sin(dO/2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+function _codigosEnUso_() {
+  const usados = new Set();
+  _editCards.forEach(c => { if (!c.quitado) usados.add(String((c.nuevo ? c.nuevo.codigo : c.orig.codigoRef) || '').toUpperCase()); });
+  ((asignacionEnEdicion && asignacionEnEdicion.elementos) || []).forEach(e => { if (e.estado === 'COMPLETADO' || e.tieneToma) usados.add(String(e.codigoRef || '').toUpperCase()); });
+  return usados;
+}
+function _panelCambioLED_(i) {
+  const c = _editCards[i], o = c.orig;
+  const inv = _ledsInventarioCache;
+  if (!inv) return `<div class="empty-sub" style="padding:10px">Cargando pantallas...</div>`;
+  const base = inv.find(l => String(l.codigo).toUpperCase() === String(o.codigoRef).toUpperCase()) || {};
+  const la = _numCoord_(o.lat || base.lat), lo = _numCoord_(o.lon || base.lon);
+  const usados = _codigosEnUso_();
+  const q = normalizarZR(c.busca || '');
+  let lista = inv.filter(l => !usados.has(String(l.codigo).toUpperCase()))
+    .map(l => ({ l, d: _distKm_(la, lo, _numCoord_(l.lat), _numCoord_(l.lon)) }))
+    .filter(x => !q || normalizarZR([x.l.codigo, x.l.direccion, x.l.ciudad, x.l.tipo].join(' ')).indexOf(q) >= 0)
+    .sort((x, y) => (x.d === null ? 1e9 : x.d) - (y.d === null ? 1e9 : y.d));
+  const total = lista.length; lista = lista.slice(0, q ? 30 : 8);
+  c.opciones = lista.map(x => x.l);
+  const filas = lista.map((x, k) => `
+    <div onclick="elegirCambioLED_(${i}, ${k})" style="display:flex;gap:10px;align-items:center;padding:8px;border:1px solid var(--border);border-radius:10px;cursor:pointer;background:var(--dark2)" onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--border)'">
+      ${_imgMini_(x.l.foto, 52)}
+      <div style="flex:1;min-width:0"><div style="font-weight:700;color:#fff;font-size:14px">${_escE(x.l.codigo)} <span style="font-weight:400;color:var(--muted);font-size:12px">· ${_escE(x.l.tipo)}</span></div>
+        <div style="font-size:12px;color:var(--muted)">${_escE(x.l.direccion || '—')} · 📍 ${_escE(x.l.ciudad)}</div></div>
+      ${x.d !== null ? `<div style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">a ${x.d < 10 ? x.d.toFixed(1).replace('.', ',') : Math.round(x.d)} km</div>` : ''}
+    </div>`).join('');
+  return `<div style="margin:-4px 0 6px;border:1px solid var(--blue);border-radius:12px;padding:12px;background:rgba(56,182,255,.05)">
+    <div style="font-weight:700;font-size:14px;color:#fff">¿Por cuál pantalla cambias la <span style="color:var(--orange)">${_escE(o.codigoRef)}</span>?</div>
+    <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Primero las más cercanas. Se mantiene el cliente, la fecha límite y el fotógrafo según la ciudad.</div>
+    <input class="form-input" id="edit-busca-${i}" placeholder="Buscar código, dirección o ciudad" value="${_escE(c.busca)}" oninput="buscarCambioLED_(${i}, this.value)" style="margin-bottom:8px"/>
+    <div style="display:flex;flex-direction:column;gap:6px">${filas || '<div class="empty-sub" style="padding:8px 0">No hay pantallas con esa búsqueda.</div>'}</div>
+    ${total > lista.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Mostrando ${lista.length} de ${total}. Escribe para buscar las demás.</div>` : ''}
+    <button type="button" onclick="cerrarCambioLED_(${i})" style="margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:8px 14px;cursor:pointer">Cancelar</button>
+  </div>`;
+}
+function abrirCambioLED_(i) {
+  _editCards.forEach((c, k) => { if (k !== i && c.abierto) { c.abierto = false; pintarTarjetaEdit_(k); } });
+  _editCards[i].abierto = true; pintarTarjetaEdit_(i);
+  if (!_ledsInventarioCache) cargarInventarioLEDs().then(() => pintarTarjetaEdit_(i));
+}
+function cerrarCambioLED_(i) { _editCards[i].abierto = false; _editCards[i].busca = ''; pintarTarjetaEdit_(i); }
+function buscarCambioLED_(i, v) {
+  _editCards[i].busca = v; pintarTarjetaEdit_(i);
+  const inp = document.getElementById('edit-busca-' + i);
+  if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); }
+}
+function elegirCambioLED_(i, k) {
+  const c = _editCards[i];
+  const l = (c.opciones || [])[k];
+  if (!l) return;
+  c.nuevo = l; c.abierto = false; c.busca = '';
+  pintarTarjetaEdit_(i); pintarResumenEdicion_();
+  showToast(`${c.orig.codigoRef} → ${l.codigo}. Toca "Guardar cambios" para confirmar`, 'ok');
+}
+function quitarEdit_(i) { const c = _editCards[i]; c.quitado = true; c.abierto = false; pintarTarjetaEdit_(i); pintarResumenEdicion_(); }
+function deshacerEdit_(i) { const c = _editCards[i]; c.quitado = false; c.nuevo = null; pintarTarjetaEdit_(i); pintarResumenEdicion_(); }
+function pintarResumenEdicion_() {
+  const btn = document.getElementById('btn-crear-asignacion');
+  let res = document.getElementById('edit-resumen');
+  if (!asignacionEnEdicion || !btn) { if (res) res.remove(); return; }
+  if (!res) { res = document.createElement('div'); res.id = 'edit-resumen'; res.style.cssText = 'text-align:center;font-size:13px;font-weight:700;margin:0 0 8px'; btn.parentNode.insertBefore(res, btn); }
+  const r = _editCards.filter(c => c.nuevo && !c.quitado).length, q = _editCards.filter(c => c.quitado).length;
+  const partes = []; if (r) partes.push(`⇄ ${r} pantalla${r>1?'s':''} reemplazada${r>1?'s':''}`); if (q) partes.push(`🗑 ${q} quitada${q>1?'s':''}`);
+  res.style.color = partes.length ? 'var(--blue)' : 'var(--muted)';
+  res.textContent = partes.length ? 'Cambios por guardar: ' + partes.join(' · ') : '';
+}
+
 function addElementoForm(precarga, modoLed) {
   precarga = precarga || {};
   const idx = elementosFormCount++;
@@ -4128,6 +4279,7 @@ function addElementoForm(precarga, modoLed) {
   const div = document.createElement('div');
   div.className = 'elem-row';
   div.id = 'elem-row-' + idx;
+  if (precarga.id) { div.dataset.idExistente = precarga.id; div.dataset.codigoExistente = precarga.codigoRef || ''; div.dataset.turnoExistente = precarga.turno || 'AMBAS'; }
   const tagEstado = precarga.estado === 'COMPLETADO' ? `<span style="position:absolute;top:8px;left:12px;font-size:10px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);padding:2px 8px;border-radius:10px">✓ Ya fotografiado</span>` : '';
   div.innerHTML = `
     ${tagEstado}
@@ -4360,6 +4512,18 @@ async function crearAsignacion() {
 
   if (errorAsignacion) { showToast(errorAsignacion, 'warn'); return; }
 
+  // (2026-11-10) Tarjetas de LED en edición: se mantienen (mismo id), se reemplazan (pantalla nueva) o se quitan
+  if (asignacionEnEdicion) _editCards.forEach(c => {
+    if (c.quitado) return;
+    const o = c.orig, n = c.nuevo;
+    if (!n) elementos.push({ tipoElemento: o.tipoElemento, cliente: o.cliente, ubicacion: o.ubicacion, codigoRef: o.codigoRef,
+      observaciones: o.observaciones || '', ciudad: o.ciudad, lat: o.lat, lon: o.lon, foto: o.fotoReferencia || '',
+      turno: o.turno || 'AMBAS', requiereVideo: true, fechaLimiteElemento: o.fechaLimiteElemento || '', fotografoAsignado: o.fotografoAsignado || '', idExistente: o.id });
+    else elementos.push({ tipoElemento: n.tipo || o.tipoElemento, cliente: o.cliente, ubicacion: n.direccion, codigoRef: n.codigo,
+      observaciones: '', ciudad: n.ciudad, lat: n.lat, lon: n.lon, foto: n.foto || '',
+      turno: 'AMBAS', requiereVideo: true, fechaLimiteElemento: o.fechaLimiteElemento || '' });
+  });
+
   // Elementos manuales
   const rows = document.querySelectorAll('.elem-row[id^="elem-row-"]');
   rows.forEach(row => {
@@ -4374,6 +4538,8 @@ async function crearAsignacion() {
       const checks = document.querySelectorAll('.led-check-' + idx + ':checked');
       const clienteLED = (document.getElementById('elem-cliente-' + idx)?.value || '').trim();
       const fechaLimiteLED = (document.getElementById('elem-fecha-' + idx)?.value || '').trim();
+      // (2026-11-10) Al EDITAR, un bloque que ya existía y quedó sin LEDs marcados = ese LED se quitó (antes daba error)
+      if (!checks.length && row.dataset.idExistente) return;
       if (!checks.length) { errorAsignacion = 'Selecciona al menos 1 LED del inventario para el elemento ' + (Number(idx)+1); return; }
       if (!clienteLED) { errorAsignacion = 'Indica el cliente del LED para el elemento ' + (Number(idx)+1); return; }
       checks.forEach(chk => {
@@ -4382,7 +4548,8 @@ async function crearAsignacion() {
         elementos.push({
           tipoElemento: led.tipo || tipoElemento, cliente: clienteLED, ubicacion: led.direccion, codigoRef: led.codigo,
           observaciones: '', ciudad: led.ciudad, lat: led.lat, lon: led.lon, foto: led.foto,
-          turno: 'AMBAS', requiereVideo: true, fechaLimiteElemento: fechaLimiteLED
+          turno: 'AMBAS', requiereVideo: true, fechaLimiteElemento: fechaLimiteLED,
+          idExistente: (row.dataset.idExistente && row.dataset.codigoExistente === led.codigo) ? row.dataset.idExistente : ''
         });
       });
       return;
@@ -4400,12 +4567,14 @@ async function crearAsignacion() {
 
     if (tipoElemento || ubicacion) {
       const base = { tipoElemento, ubicacion, codigoRef, observaciones: '', ciudad, fotografoAsignado };
-      elementos.push(...expandirPorTurno(base, turno));
+      elementos.push(...expandirPorTurno(base, turno).map(e => Object.assign(e, {
+        idExistente: (row.dataset.idExistente && row.dataset.turnoExistente === e.turno) ? row.dataset.idExistente : '' })));
     }
   });
 
   if (errorAsignacion) { showToast(errorAsignacion, 'warn'); return; }
-  if (!elementos.length) { showToast('Selecciona o agrega al menos un elemento', 'warn'); return; }
+  const nBloqueadosForm = document.querySelectorAll('.elem-bloqueado').length;
+  if (!elementos.length && !nBloqueadosForm) { showToast('Selecciona o agrega al menos un elemento', 'warn'); return; }
 
   // Si no se llenó el cliente principal (por ejemplo, una asignación solo
   // de LEDs donde cada uno trae su propio cliente/anunciante), se deriva
@@ -4415,6 +4584,7 @@ async function crearAsignacion() {
     const clientesLED = [...new Set(elementos.filter(e => e.cliente).map(e => e.cliente))];
     clienteFinal = clientesLED.length === 1 ? clientesLED[0] : clientesLED.length > 1 ? 'Varios clientes (LED)' : '';
   }
+  if (!clienteFinal && asignacionEnEdicion) clienteFinal = asignacionEnEdicion.cliente || '';
   if (!clienteFinal) { showToast('Ingresa el nombre del cliente (o el cliente de al menos un elemento LED)', 'warn'); return; }
 
   // Ninguna asignación se guarda sin al menos una fecha límite en algún
@@ -4423,7 +4593,7 @@ async function crearAsignacion() {
   // crear asignaciones sin fecha en ningún campo (el backend valida lo
   // mismo, esto solo evita el viaje al servidor si ya se sabe que va a
   // fallar).
-  const tieneAlgunaFecha = !!fechaLimite || elementos.some(e => e.fechaLimiteElemento);
+  const tieneAlgunaFecha = !!fechaLimite || elementos.some(e => e.fechaLimiteElemento) || nBloqueadosForm > 0;
   if (!tieneAlgunaFecha) {
     showToast('Ingresa una fecha límite (la general, o la de al menos un elemento) antes de guardar', 'warn');
     return;
