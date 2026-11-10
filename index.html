@@ -1486,7 +1486,12 @@ function renderAsignacionesFotografo() {
     return { total, completados, pct: total ? Math.round(completados / total * 100) : 0 };
   }
 
-  const activas = asignaciones.filter(a => pctDe(a).pct < 100);
+  // (2026-11-10) Orden para el fotógrafo: primero PENDIENTES (0%), luego EN PROCESO, y al final las completadas.
+  // Dentro de cada grupo se respeta el orden de siempre (el sort es estable).
+  const activas = asignaciones.filter(a => pctDe(a).pct < 100)
+    .map((a, i) => ({ a, i, p: pctDe(a).pct > 0 ? 1 : 0 }))
+    .sort((x, y) => x.p - y.p || x.i - y.i)
+    .map(x => x.a);
   const completadas = asignaciones.filter(a => pctDe(a).pct === 100)
     .sort((a, b) => new Date(b.fechaCompletada || fechaLimiteEfectiva_(b) || 0) - new Date(a.fechaCompletada || fechaLimiteEfectiva_(a) || 0));
   badge.textContent = activas.length;
