@@ -376,6 +376,12 @@
     .stat-num small { font-size: 14px; color: var(--orange-light); font-weight: 700; }
     .asig-card.clic { cursor: pointer; }
     .zb-wrap { display: none; }
+    .zd-vmini { position: relative; display: flex; align-items: center; justify-content: center; aspect-ratio: 16/9; max-height: 220px; width: 100%; background: linear-gradient(135deg, #1b2330, #0d1117); overflow: hidden; text-decoration: none; }
+    .zd-fotos .zd-vmini img { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; cursor: pointer; }
+    .zd-play { position: relative; z-index: 1; width: 52px; height: 52px; border-radius: 50%; background: rgba(0,0,0,.6); border: 2px solid #fff; color: #fff; font-size: 20px; display: flex; align-items: center; justify-content: center; padding-left: 4px; }
+    .zd-vmini:hover .zd-play { background: var(--blue); color: #04121c; }
+    .zd-vlbl { position: absolute; z-index: 1; bottom: 6px; right: 8px; font-size: 11px; font-weight: 800; color: #fff; background: rgba(0,0,0,.6); padding: 2px 8px; border-radius: 10px; }
+    .zd-sinfoto { aspect-ratio: auto; min-height: 70px; }
     .zd-el.pend { border: 2px dashed rgba(255,107,107,.65); background: repeating-linear-gradient(135deg, rgba(255,255,255,.015) 0 10px, transparent 10px 20px), var(--card); }
     .zd-el.pend .zd-ref img { filter: grayscale(1) contrast(.9); opacity: .35; }
     .zd-el.pend .zd-ref { background: #0d0f12; }
@@ -1379,7 +1385,9 @@ async function fetchConReintento(url, intentos, opts) {
   let ultimoError;
   for (let i = 0; i < intentos; i++) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    // 2026-11-10: tiempo creciente (15 s, 25 s, 40 s): corta rápido si Google dejó la petición colgada,
+    // pero da tiempo a respuestas grandes (ej. clientes con muchas tomas).
+    const timeoutId = setTimeout(() => controller.abort(), [15000, 25000, 40000][Math.min(i, 2)]);
     try {
       const res = await fetch(url, Object.assign({ cache: 'no-store', signal: controller.signal }, opts));
       clearTimeout(timeoutId);
@@ -3359,19 +3367,26 @@ async function descargarFotosEnLote(urls) {
   if (!urlsUnicas.length) return {};
   let ultimoError;
   for (let intento = 0; intento < 3; intento++) {
+    // 2026-11-10: antes esperaba SIN límite: si Google dejaba la petición colgada, el PPT se quedaba
+    // en "Descargando fotos de Drive…" para siempre. Ahora corta y reintenta (es solo lectura).
+    const ctrl = new AbortController();
+    const espera = Math.min(240000, (15000 + urlsUnicas.length * 3000) * (intento + 1));
+    const timer = setTimeout(() => ctrl.abort(), espera);
     try {
       const res = await fetch(SCRIPT_URL, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'rfDescargarArchivosDrive', urls: urlsUnicas })
+        body: JSON.stringify({ action: 'rfDescargarArchivosDrive', urls: urlsUnicas }), signal: ctrl.signal
       });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
+      clearTimeout(timer);
       const mapa = {};
       urlsUnicas.forEach((url, i) => { mapa[url] = (data.dataUrls && data.dataUrls[i]) || null; });
       return mapa;
     } catch(e) {
+      clearTimeout(timer);
       ultimoError = e;
-      if (intento < 2) await new Promise(r => setTimeout(r, 600 * (intento + 1)));
+      if (intento < 2) { try { setExportProgress(null, 'Google tardó en responder, reintentando…'); } catch (_) {} await new Promise(r => setTimeout(r, 600 * (intento + 1))); }
     }
   }
   console.error('No se pudieron descargar las fotos tras 3 intentos:', ultimoError);
@@ -5807,6 +5822,14 @@ function zrTurnoTxt_(el, t) {
   if (v === 'NOCHE') return { k: 'noche', txt: '🌙 Noche' };
   return null;
 }
+// LED: el fotógrafo sube solo VIDEO. Se muestra su miniatura (vista previa o la de Drive) con ▶; clic = abrir el video.
+function zrVideosMini_(t, el) {
+  const v = [[t.videoUrl, t.videoPreviewUrl], [t.videoUrl2, t.videoPreviewUrl2], [t.videoUrl3, t.videoPreviewUrl3], [t.videoUrl4, t.videoPreviewUrl4], [t.videoUrl5, t.videoPreviewUrl5]].filter(x => x[0]).slice(0, 3);
+  if (!v.length) return '<div class="zd-sinfoto">Sin fotos ni video</div>';
+  return v.map((x, i) => `<a class="zd-vmini" href="${videoViewUrl(x[0])}" target="_blank" onclick="event.stopPropagation()" title="Ver video">
+      <img src="${zrThumb_(x[1] || x[0], 500)}" alt="Video" loading="lazy" onerror="this.remove()">
+      <span class="zd-play">▶</span><span class="zd-vlbl">🎬 Video${v.length > 1 ? ' ' + (i + 1) : ''}</span></a>`).join('');
+}
 function zrTurnoTag_(el, t) { const x = zrTurnoTxt_(el, t); return x ? `<span class="zd-turno ${x.k}">${x.txt}</span>` : ''; }
 function zrFechaHora_(f) {
   const s = String(f || ''); if (!s) return '';
@@ -5865,10 +5888,11 @@ function zrPintarDetalle_() {
     if (done && t) {
       const fotos = [['Frontal', t.fotoFrontalUrl], ['Panorámica A', t.fotoPanoramicaUrl], ['Panorámica B', t.fotoPanoramicaBUrl]].filter(f => f[1]);
       const vids = [t.videoUrl, t.videoUrl2, t.videoUrl3, t.videoUrl4, t.videoUrl5].filter(Boolean);
-      media = `<div class="zd-media">${zrTurnoTag_(el, t)}<div class="zd-fotos" style="grid-template-columns:repeat(${Math.max(fotos.length,1)},1fr)">${fotos.map(f => {
+      const nVid = fotos.length ? 0 : Math.min(3, Math.max(1, vids.length));
+      media = `<div class="zd-media">${zrTurnoTag_(el, t)}<div class="zd-fotos" style="grid-template-columns:repeat(${fotos.length || nVid},1fr)">${fotos.map(f => {
         const k = _zrFotosLB.push({ url: f[1], titulo: (el.codigoRef || el.tipoElemento || '') + ' · ' + f[0] + (zrTurnoTxt_(el, t) ? ' · ' + zrTurnoTxt_(el, t).txt : '') }) - 1;
         return `<img src="${zrThumb_(f[1], 500)}" alt="${f[0]}" loading="lazy" onclick="zrVerFoto_(${k})" onerror="this.outerHTML='<a class=&quot;zd-sinfoto&quot; href=&quot;${zrDriveVer_(f[1])}&quot; target=&quot;_blank&quot;>${f[0]}: abrir en Drive</a>'">`;
-      }).join('') || '<div class="zd-sinfoto">Sin fotos</div>'}</div></div>
+      }).join('') || zrVideosMini_(t, el)}</div></div>
         ${vids.length ? `<div class="zd-vids">${vids.map((v, i) => `<a href="${videoViewUrl(v)}" target="_blank" onclick="event.stopPropagation()">▶ Video${vids.length > 1 ? ' ' + (i + 1) : ''}</a>`).join('')}</div>` : ''}`;
     } else if (done && !tomas) {
       media = `<div class="zd-ref"><div class="zd-cargando">Cargando fotos…</div></div>`;
