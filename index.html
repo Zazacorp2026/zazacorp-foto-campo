@@ -2082,6 +2082,10 @@ async function sincronizarManual() {
   const icon = document.getElementById('sync-icon');
   if (btn) btn.disabled = true;
   if (btn) btn.classList.add('syncing');
+  // (2026-11-12) Sincronizar SIEMPRE lee directo del servidor (no de la copia de
+  // Firebase, que podía estar atrasada) y le pide reparar esa copia.
+  _zrFbManual = true;
+  _zrFbSucio = Date.now();
   try {
     if (document.getElementById('page-ejecutiva-lista').classList.contains('active')) {
       await showEjecutivaLista();
@@ -2096,6 +2100,7 @@ async function sincronizarManual() {
   } catch (e) {
     showToast('Error al sincronizar', 'error');
   } finally {
+    _zrFbManual = false;
     if (btn) btn.disabled = false;
     if (btn) btn.classList.remove('syncing');
     if (icon) icon.style.animation = '';
@@ -6191,6 +6196,7 @@ let _zrFb = null;        // { modo:'google'|'pin', idToken, refreshToken, exp, e
 let _zrFbStore = null;   // copia en vivo de /report/todas o /report/foto/<fotógrafo>
 let _zrFbSucio = 0;      // hubo un guardado propio que Firebase todavía no refleja
 let _zrFbRefrescando = null;
+let _zrFbManual = false;  // "Sincronizar" en curso: leer del servidor, no de Firebase
 
 function zrFbClave_(s) { return String(s == null ? '' : s).replace(/[.#$\[\]\/]/g, '_') || '_'; }
 function zrFbClaveCorreo_(e) { return String(e || '').trim().toLowerCase().split('.').join(','); }
@@ -6323,6 +6329,7 @@ function zrFbAvisarCambio_() {
 // Devuelve la lista desde Firebase, o null para ir a Apps Script como siempre
 async function zrFbLista_(accion, url) {
   const st = _zrFbStore;
+  if (_zrFbManual) return null;
   if (!st || st.cancelado || st.cerrado) return null;
   if (_zrFbSucio && Date.now() - _zrFbSucio < 4 * 60 * 1000) return null; // recién guardado: lo fresco viene del servidor
   if (accion === 'rfGetTodasAsignaciones' && st.ruta !== 'report/todas') return null;
@@ -6350,6 +6357,7 @@ async function zrFbLista_(accion, url) {
           let lista = null;
           try { lista = await zrFbLista_(m[1], url); } catch (e) { lista = null; }
           if (lista) return new Response(JSON.stringify(lista), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          if (_zrFbManual) url += '&fbsync=1';
         }
       } else {
         let esEscritura = false;
