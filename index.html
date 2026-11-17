@@ -5766,7 +5766,7 @@ function zrBotonesAsig_(a, compacto, sinExportar) {
 
 // ── Tablero de la EJECUTIVA (solo computadora) ──
 const ZB_ICO = { pend: '⏳', proc: '📸', done: '✅' };
-let _zrFiltroEjecutiva = '', _zrColMas = {}, _zrBuscarCol = {};
+let _zrFiltroEjecutiva = '', _zrFiltroEjecFoto = '', _zrColMas = {}, _zrBuscarCol = {};
 function zrBuscarCol_(clave, v) {
   _zrBuscarCol[clave] = v;
   clearTimeout(window._zrBT); window._zrBT = setTimeout(zrRepintarTableros_, 220);
@@ -5838,7 +5838,11 @@ function zrTableroEjecHtml_(mias, agrupar) {
 // ── Tablero del FOTÓGRAFO (solo computadora) ──
 function zrTableroFotoHtml_(lista) {
   const mes = (document.getElementById('mes-filtro-foto') || {}).value || '';
-  const vis = lista.filter(a => !mes || mesDeAsig_(a) === mes);
+  // (2026-11-17) filtro por ejecutiva, igual que en el tablero de la ejecutiva
+  const ejecutivas = Array.from(new Set(lista.map(a => String(a.creadoPor || '').toUpperCase()).filter(Boolean))).sort();
+  if (_zrFiltroEjecFoto && ejecutivas.indexOf(_zrFiltroEjecFoto) < 0) _zrFiltroEjecFoto = '';
+  const vis = lista.filter(a => (!mes || mesDeAsig_(a) === mes)
+    && (!_zrFiltroEjecFoto || String(a.creadoPor || '').toUpperCase() === _zrFiltroEjecFoto));
   const porFecha = (x, y) => String(fechaLimiteEfectiva_(x) || '9999').localeCompare(String(fechaLimiteEfectiva_(y) || '9999'));
   const pend = vis.filter(a => zrPctAsig_(a).pct === 0).sort(porFecha);
   const proc = vis.filter(a => { const p = zrPctAsig_(a).pct; return p > 0 && p < 100; }).sort(porFecha);
@@ -5871,7 +5875,8 @@ function zrTableroFotoHtml_(lista) {
       </div>
     </div>`;
   };
-  return `<div class="zb-board">${columna('pend', 'Pendientes', pend, 0)}${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}${columna('done', 'Completadas', done, 100)}</div>`;
+  const filtroEj = ejecutivas.length ? `<div class="zb-filtros"><select class="zb-sel" onchange="_zrFiltroEjecFoto=this.value;zrRepintarTableros_()"><option value="">👤 Todas las ejecutivas</option>${ejecutivas.map(e => `<option value="${cfgEsc_(e)}" ${e === _zrFiltroEjecFoto ? 'selected' : ''}>${cfgEsc_(e)}</option>`).join('')}</select></div>` : '';
+  return `${filtroEj}<div class="zb-board">${columna('pend', 'Pendientes', pend, 0)}${columna('proc', 'En proceso', proc, zrPromedioPct_(proc))}${columna('done', 'Completadas', done, 100)}</div>`;
 }
 
 // ══ Panel de detalle de una asignación (ejecutiva): elementos + fotos tomadas ══
