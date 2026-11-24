@@ -1349,12 +1349,12 @@ async function exportarPendientesExcel() {
     const pendientes = json.pendientes || [];
     if (!pendientes.length) { showToast('No hay elementos pendientes', 'info'); return; }
 
-    const headers = ['Cliente','Tipo de Elemento','Ubicación','Código Ref','Estado','Tipo de Foto','Ciudad','Fotógrafo Asignado','Fecha Límite Elemento'];
+    const headers = ['Código Ref','Tipo de Elemento','Ubicación','Cliente','Estado','Tipo de Foto','Ciudad','Fotógrafo Asignado','Fecha Límite Elemento'];
     const wsData  = [headers];
 
     pendientes.forEach(p => {
       wsData.push([
-        p.cliente, p.tipoElemento, p.ubicacion, p.codigoRef, p.estado,
+        p.codigoRef, p.tipoElemento, p.ubicacion, p.cliente, p.estado,
         RF_TURNO_LABEL[p.turno] || p.turno, p.ciudad, p.fotografoAsignado || 'Sin asignar', p.fechaLimite
       ]);
     });
@@ -1362,7 +1362,7 @@ async function exportarPendientesExcel() {
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [
-      {wch:20},{wch:20},{wch:40},{wch:14},{wch:12},
+      {wch:14},{wch:20},{wch:40},{wch:20},{wch:12},
       {wch:14},{wch:16},{wch:20},{wch:16}
     ];
     ws['!freeze'] = { xSplit: 0, ySplit: 1 };
