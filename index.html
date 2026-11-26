@@ -77,6 +77,19 @@
     .hdr-icon-btn:active { border-color: var(--border-strong); color: var(--text); }
     .hdr-icon-btn.syncing { color: var(--blue); border-color: rgba(56,182,255,.55); box-shadow: 0 0 14px rgba(56,182,255,.3); }
     .hdr-icon-btn.syncing svg { animation: spin .7s linear infinite; }
+    /* (2026-11-26) Botón Sincronizar igual que Nexus: naranja sólido con texto */
+    .hdr-sync-btn { height: 34px; border-radius: 8px; background: #f59e0b; color: #111; font-size: 12px; font-weight: 800; letter-spacing: .3px; padding: 0 12px; display: flex; align-items: center; gap: 5px; white-space: nowrap; transition: background .15s; }
+    .hdr-sync-btn:hover, .hdr-sync-btn:active { background: #fbbf24; }
+    .hdr-sync-btn:disabled { opacity: .7; }
+    .hdr-sync-btn .hs-ico { font-size: 15px; line-height: 1; }
+    @media (max-width: 359px) { .hdr-sync-btn { padding: 0 10px; } .hdr-sync-btn .hs-txt { display: none; } }
+    @keyframes zrSyncGira { to { transform: rotate(360deg); } }
+    #zrSyncOverlay { position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; transition: opacity .25s; padding: 16px; }
+    #zrSyncOverlay .zrs-box { background: var(--dark2, #16181d); border: 1.5px solid #f59e0b; border-radius: 14px; padding: 24px 30px; text-align: center; min-width: 240px; max-width: 100%; }
+    #zrSyncOverlay .zrs-ico { font-size: 34px; line-height: 1; display: inline-block; }
+    #zrSyncOverlay .zrs-gira { animation: zrSyncGira 1s linear infinite; }
+    #zrSyncOverlay .zrs-tit { font-weight: 800; font-size: 15px; margin-top: 12px; letter-spacing: .4px; }
+    #zrSyncOverlay .zrs-sub { color: var(--muted, #9ca3af); font-size: 12px; margin-top: 6px; }
 
     .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
     .stat-card { background: linear-gradient(160deg, var(--card-raised), var(--card)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; box-shadow: var(--shadow-card); }
@@ -98,8 +111,8 @@
     #user-pill { display: flex; align-items: center; gap: 6px; background: var(--dark3); border: 1px solid var(--border); border-radius: 20px; padding: 5px 6px 5px 13px; font-size: 11.5px; font-weight: 700; color: var(--orange-light); font-family: var(--mono); }
     #logout-btn { background: none; color: var(--muted); font-size: 10.5px; font-weight: 700; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border); transition: border-color .15s, color .15s; font-family: var(--mono); letter-spacing: .3px; }
     #logout-btn:active { border-color: var(--border-strong); color: var(--text); }
-    #manual-btn, #sync-btn { background: none; color: var(--muted); font-size: 10.5px; font-weight: 700; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border); display: flex; align-items: center; gap: 4px; transition: border-color .15s, color .15s; font-family: var(--mono); letter-spacing: .3px; }
-    #manual-btn:active, #sync-btn:active { border-color: var(--border-strong); color: var(--text); }
+    #manual-btn { background: none; color: var(--muted); font-size: 10.5px; font-weight: 700; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--border); display: flex; align-items: center; gap: 4px; transition: border-color .15s, color .15s; font-family: var(--mono); letter-spacing: .3px; }
+    #manual-btn:active { border-color: var(--border-strong); color: var(--text); }
 
     #main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .page { display: none; padding: 18px 16px; max-width: 640px; margin: 0 auto; width: 100%; }
@@ -327,7 +340,7 @@
 
     #sync-icon { display: inline-flex; align-items: center; transition: transform .4s cubic-bezier(.34,1.56,.64,1); }
     #sync-btn:active #sync-icon { transform: rotate(180deg); }
-    #sync-btn.syncing { color: var(--blue); border-color: rgba(56,182,255,.55); box-shadow: 0 0 14px rgba(56,182,255,.3); }
+    #sync-btn.syncing #sync-icon { animation: spin .7s linear infinite; }
     #sync-btn.syncing #sync-icon { animation: spin .7s linear infinite; }
     /* ===== ZazaBoy: animaciones de éxito / anulación ===== */
     .zaza-hero { position: relative; width: 160px; height: 175px; margin: -92px auto 4px; pointer-events: none; }
@@ -659,7 +672,7 @@
         </div>
       </div>
       <div class="hdr-right">
-        <button class="hdr-icon-btn" id="sync-btn" onclick="sincronizarManual()" title="Sincronizar"><span id="sync-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M20 3v5h-5" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>
+        <button class="hdr-sync-btn" id="sync-btn" onclick="sincronizarManual()" title="Sincronizar con el servidor"><span class="hs-ico" id="sync-icon">↻</span><span class="hs-txt">SINCRONIZAR</span></button>
         <button class="hdr-icon-btn" id="cfg-btn-hdr" onclick="abrirConfig()" title="Configuración" style="display:none">⚙️</button>
         <button class="hdr-icon-btn" id="manual-btn" onclick="abrirManual()" title="Manual de uso">📖</button>
         <button class="hdr-icon-btn" id="logout-btn" onclick="doLogout()" title="Salir">⏻</button>
@@ -2077,6 +2090,22 @@ function cerrarManual() {
   document.getElementById('manual-modal').classList.remove('open');
 }
 
+// (2026-11-26) Pop up centrado de sincronización, igual que Nexus.
+let _zrSyncTimer = null;
+function zrSyncPopup_(estado) {
+  let ov = document.getElementById('zrSyncOverlay');
+  if (!ov) { ov = document.createElement('div'); ov.id = 'zrSyncOverlay'; document.body.appendChild(ov); }
+  clearTimeout(_zrSyncTimer);
+  if (estado === 'cerrar') { ov.remove(); return; }
+  const ok = estado === 'ok', col = ok ? '#10b981' : '#f59e0b';
+  ov.style.opacity = '1';
+  ov.innerHTML = '<div class="zrs-box" style="border-color:' + col + '">' +
+    '<div class="zrs-ico' + (ok ? '' : ' zrs-gira') + '" style="color:' + col + '">' + (ok ? '✓' : '↻') + '</div>' +
+    '<div class="zrs-tit" style="color:' + col + '">' + (ok ? 'SINCRONIZACIÓN COMPLETA' : 'SINCRONIZANDO CON EL SERVIDOR…') + '</div>' +
+    '<div class="zrs-sub">' + (ok ? 'Datos actualizados' : 'Un momento, por favor') + '</div></div>';
+  if (ok) _zrSyncTimer = setTimeout(() => { ov.style.opacity = '0'; _zrSyncTimer = setTimeout(() => ov.remove(), 250); }, 1500);
+}
+
 async function sincronizarManual() {
   const btn = document.getElementById('sync-btn');
   const icon = document.getElementById('sync-icon');
@@ -2086,6 +2115,7 @@ async function sincronizarManual() {
   // Firebase, que podía estar atrasada) y le pide reparar esa copia.
   _zrFbManual = true;
   _zrFbSucio = Date.now();
+  zrSyncPopup_('cargando');
   try {
     if (document.getElementById('page-ejecutiva-lista').classList.contains('active')) {
       await showEjecutivaLista();
@@ -2096,9 +2126,10 @@ async function sincronizarManual() {
         else renderAsignacionesFotografo();
       }
     }
-    showToast('🔄 Sincronizado', 'ok');
+    zrSyncPopup_('ok');
   } catch (e) {
-    showToast('Error al sincronizar', 'error');
+    zrSyncPopup_('cerrar');
+    showToast('❌ No se pudo sincronizar' + (e && e.message ? ': ' + e.message : ''), 'error');
   } finally {
     _zrFbManual = false;
     if (btn) btn.disabled = false;
